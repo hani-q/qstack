@@ -1,7 +1,7 @@
 # Plan template v1 — "cyanotype & redline"
 
-The house style for HTML plan documents in this repo. Every plan under `plans/`
-uses it. See `plans/CLAUDE.md` for the rule; this file is the component
+The house style for HTML plan documents in this repo. Every plan under
+`qstack/compound_engineering/plans/` uses it. This file is the component
 reference.
 
 ## The idea
@@ -36,14 +36,27 @@ emailed as a file.
 ## Starting a plan
 
 ```bash
-mkdir -p plans/<slug>
-cp plans/template/v1/plan-template.html plans/<slug>/<slug>-plan.html
+mkdir -p qstack/compound_engineering/plans/<slug>
+cp qstack/compound_engineering/plans/.template/v1/plan-template.html \
+  qstack/compound_engineering/plans/<slug>/plan.html
 ```
 
-The asset paths in the stencil are already correct for that destination.
+The template source lives at
+`qstack/compound_engineering/plans/.template/v1/`; copy its stencil to the
+feature directory shown above. The asset paths are already correct for that
+destination, and the server can reach everything inside one directory tree.
 Plan-specific CSS — a prototype, a diagram, anything one document needs — goes
-in `plans/<slug>/<name>.css`, loaded after `plan.css`. It never goes into the
-template.
+in `qstack/compound_engineering/plans/<slug>/<name>.css`, loaded after
+`plan.css`. It never goes into the template.
+
+Serve every plan in the repository with:
+
+```bash
+./qstack/scripts/serve.sh
+```
+
+Then open `http://127.0.0.1:8000/plans/<slug>/plan.html`. Pass a port as the
+first argument when 8000 is unavailable.
 
 ## The authoring contract
 

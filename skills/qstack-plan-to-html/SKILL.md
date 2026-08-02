@@ -60,37 +60,53 @@ sentence they have to read twice.
 ## Inputs
 
 - **A markdown plan.** If the user names a file, use it. Otherwise look for the
-  most recent plan-mode output, `plans/**/*.md`, or
-  `compound-engineering/plans/*/plan.md`, and confirm before converting.
-- **Destination.** Default `plans/<slug>/<slug>-plan.html`. If the repo uses
-  `compound-engineering/plans/<slug>/`, write `plan.html` there instead.
+  most recent plan-mode output or a markdown plan already present in the repo,
+  and confirm before converting.
+- **Destination.** Always write
+  `qstack/compound_engineering/plans/<slug>/plan.html`. Do not copy the markdown
+  source into that folder: the rendered plan is its canonical plan document.
 
 ## Setup — copy the template, don't reference this skill
 
-The template lives at `template/v1/` **next to this SKILL.md**. Resolve it
-relative to wherever you just read this file from — never a hardcoded path, since
-this skill installs into any of ~70 agent directories and may be a symlink.
+The template lives at `template/v1/` **next to this SKILL.md**, and the serving
+script lives at `template/serve.sh`. Resolve both relative to wherever you just
+read this file from — never a hardcoded path, since this skill installs into any
+of ~70 agent directories and may be a symlink.
 
-**Copy it into the target repo**, so the plan survives without the skill installed:
+**Copy them into the target repo's `qstack/` directory**, so the plan survives
+without the skill installed:
 
 ```bash
 # Resolve the skill's own directory, following a symlink if there is one.
 SKILL_DIR=$(dirname "$(readlink -f <path-of-this-SKILL.md>)")
+REPO_ROOT=$(git rev-parse --show-toplevel)
 
-mkdir -p <plans-root>/template
-cp -R "$SKILL_DIR/template/v1" <plans-root>/template/v1
-mkdir -p <plans-root>/<slug>
-cp <plans-root>/template/v1/plan-template.html <plans-root>/<slug>/<slug>-plan.html
+mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/<slug>"
+mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/.template"
+mkdir -p "$REPO_ROOT/qstack/scripts"
+if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1" ]; then
+  cp -R "$SKILL_DIR/template/v1" \
+    "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1"
+fi
+if [ ! -e "$REPO_ROOT/qstack/scripts/serve.sh" ]; then
+  cp "$SKILL_DIR/template/serve.sh" "$REPO_ROOT/qstack/scripts/serve.sh"
+fi
+chmod +x "$REPO_ROOT/qstack/scripts/serve.sh"
+cp "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1/plan-template.html" \
+  "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html"
 ```
 
 macOS `readlink` has no `-f` before coreutils 12 — if it fails, fall back to
 `cd "$(dirname <path>)" && pwd -P`.
 
-If `<plans-root>/template/v1` already exists, **do not overwrite it** — the repo
-may have a newer revision. Diff and report instead.
+If `qstack/compound_engineering/plans/.template/v1` or
+`qstack/scripts/serve.sh` already exists, **do not overwrite it** — the repo may
+have a newer revision. Diff and report instead.
 
-The stencil's asset paths (`../template/v1/plan.css`) are already correct for a
-document one level down. If you nest deeper, fix the paths.
+The stencil's asset paths (`../.template/v1/plan.css`) are correct for
+`qstack/compound_engineering/plans/<slug>/plan.html`. The template is inside the
+served tree, so no symlink or custom HTTP routing is needed. Do not put plan
+documents at another depth.
 
 Read `template/v1/README.md` before writing — it is the component reference and
 its house rules are binding.
@@ -226,8 +242,10 @@ is decoration, and decoration in a controlled document is a liability.
 Rules:
 
 - **Vanilla JS, no dependencies, no build step, no network.** Inline in a
-  `<script>` at the end of the body, or in `<plans-root>/<slug>/<slug>.js`.
-- **Plan-specific CSS goes in `<plans-root>/<slug>/<slug>.css`**, loaded after
+  `<script>` at the end of the body, or in
+  `qstack/compound_engineering/plans/<slug>/<slug>.js`.
+- **Plan-specific CSS goes in
+  `qstack/compound_engineering/plans/<slug>/<slug>.css`**, loaded after
   `plan.css`. Never edit `plan.css` — it is shared by every plan in the repo.
 - **Degrade honestly.** Render a static worked example in the HTML; let JS
   enhance it. A reader with JS disabled, or printing, still sees the example.
@@ -282,9 +300,17 @@ Rules:
 
 ## Verify before reporting
 
+Serve the complete `qstack/compound_engineering` tree with one command:
+
 ```bash
-open <plans-root>/<slug>/<slug>-plan.html    # or report the path
+./qstack/scripts/serve.sh          # defaults to http://127.0.0.1:8000
+./qstack/scripts/serve.sh 4173     # optional custom port
 ```
+
+Then open
+`http://127.0.0.1:<port>/plans/<slug>/plan.html`. The script uses
+`python3 -m http.server`; Bash itself has no HTTP server. The user can invoke
+`/qstack-serve-plans [port]` instead of running the script directly.
 
 Check, and say which you checked:
 
@@ -324,10 +350,10 @@ underneath, clearly marked as your own suggestion, for the user to take or leave
 
 ## Report
 
-Lead with the conversion: the path, the sheet count, which sheets are HLD vs LLD,
-what diagrams were drawn, whether a playground was built (and if not, why not),
-which concepts got ELI10 asides, and anything from the markdown you could not
-verify. Say the plan has been converted.
+Lead with the conversion: the path, local URL, serving command, sheet count,
+which sheets are HLD vs LLD, what diagrams were drawn, whether a playground was
+built (and if not, why not), which concepts got ELI10 asides, and anything from
+the markdown you could not verify. Say the plan has been converted.
 
 Then, under a clear break — *"For your consideration"* — give the one addition
 from the accretion pass. Keep the two apart: the user asked for a conversion and
