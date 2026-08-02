@@ -1,9 +1,9 @@
 ---
 name: qstack-plan-close
 description: >
-  Close out an executed plan in compound-engineering/plans/<feature>/ by writing
-  or updating outcome.md and promoting durable lessons into CLAUDE.md. Diffs the
-  plan against implementation-notes.md and the actual shipped code plus git
+  Close out an executed plan in its QStack or legacy compound-engineering plan
+  directory by writing or updating outcome.md and promoting durable lessons into CLAUDE.md. Diffs the
+  plan against execution.md (or legacy implementation-notes.md) and the actual shipped code plus git
   history, extracts what diverged and what surprised us, then proposes the
   minimal set of CLAUDE.md edits that pass the admission test.
   Use when asked to "close out the plan", "write the outcome", "the plan shipped",
@@ -26,19 +26,21 @@ the always-loaded rules.
 ## The convention
 
 ```
-compound-engineering/plans/<feature-slug>/
-├── plan.md | plan.html        # BEFORE  — what we predicted. Frozen once work starts.
-├── implementation-notes.md    # DURING  — what actually happened. Written live.
+qstack/compound_engineering/plans/<feature-slug>/
+├── plan.html                  # BEFORE  — what we predicted. Frozen once work starts.
+├── execution.md               # DURING  — decisions, deviations, validation, and reviews.
 └── outcome.md                 # AFTER   — this skill writes it.
 ```
 
-If the repo has `compound-engineering/README.md`, read it first — it may extend
-or override what follows. If the repo has no `compound-engineering/` folder,
-offer to create one with this layout before proceeding.
+If the repo has `qstack/compound_engineering/README.md`, read it first — it may
+extend or override what follows. Also support the legacy
+`compound-engineering/plans/<feature-slug>/` layout and its README. Prefer the
+QStack layout when both contain the requested feature. If neither plan root
+exists, offer to create the QStack layout before proceeding.
 
 ## Hard rules
 
-- **Never edit `plan.md` / `plan.html`.** The plan is frozen once work starts;
+- **Never edit `plan.html` or legacy `plan.md`.** The plan is frozen once work starts;
   divergence is recorded in `outcome.md`, not by rewriting history.
 - **Never commit.** Write files and stop. The user commits.
 - **Never claim a promotion that did not happen.** Verify with `grep` that the
@@ -51,7 +53,8 @@ offer to create one with this layout before proceeding.
 ### 1. Identify the plan folder
 
 ```bash
-ls compound-engineering/plans/
+ls qstack/compound_engineering/plans/
+ls compound-engineering/plans/  # legacy, when present
 ```
 
 If the user named a feature, use it. If not, infer from the current branch and
@@ -63,7 +66,7 @@ Do not rely on the plan's claims. Gather what actually happened:
 
 ```bash
 git log --oneline --format='%h %ad %s' --date=short -20 -- <paths the plan touched>
-git log --all --oneline --diff-filter=A -- 'compound-engineering/plans/<feature>/*'
+git log --all --oneline --diff-filter=A -- '<resolved-plan-folder>/*'
 ```
 
 Then verify the shipped surface exists — `ls` the scripts, `grep` for the key
@@ -76,8 +79,11 @@ in the outcome when it happened.
 
 ### 3. Extract the delta
 
-Read `plan.md` (especially any "Locked decisions" / "Open questions" sections)
-and `implementation-notes.md` side by side against the tree. Produce:
+Read `plan.html` in either plan-root layout, falling back to legacy `plan.md`,
+especially any "Locked decisions" and "Open questions" sections. Read every execution record that exists beside it:
+prefer `execution.md`, but also read `implementation-notes.md` because it may
+contain earlier history. State legacy sources in the outcome. Compare all of
+them against the tree. Produce:
 
 - **Where it diverged** — decisions the implementation reversed or refined, and
   why. Include names that changed (a plan calling a file `CONTRACT.json` when the
@@ -88,8 +94,9 @@ and `implementation-notes.md` side by side against the tree. Produce:
 - **Contradictions** — where the plan and `CLAUDE.md` now disagree. Flag as
   unverified rather than guessing which is right.
 
-If `implementation-notes.md` is missing or thin, say so plainly in `outcome.md`
-rather than inventing detail. Note that the notes were not kept.
+If both execution-record files are missing, or the available records are thin,
+say so plainly in `outcome.md` rather than inventing detail. Note that the
+execution record was not kept.
 
 ### 4. Write `outcome.md`
 
@@ -123,7 +130,7 @@ column. Open gaps are legitimate output; leave them visible.
 
 ### 6. Update the index
 
-Add or update the row in `compound-engineering/README.md` → "Current plans".
+Add or update the row in the resolved plan root's README → "Current plans".
 
 ### 7. Report
 

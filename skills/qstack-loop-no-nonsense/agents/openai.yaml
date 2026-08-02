@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Loop: No-Nonsense"
+  short_description: "Execute a plan exactly, with independent review"
+  default_prompt: "Use $qstack-loop-no-nonsense to execute the current plan exactly and independently review the result."
+policy:
+  allow_implicit_invocation: false

@@ -10,11 +10,15 @@ clobber my own work.
 | Skill | Purpose |
 | --- | --- |
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
+| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
+| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
+| [`qstack-serve-plans`](skills/qstack-serve-plans/) | Serve a repository's QStack plan collection on a local HTTP address. |
+| [`qstack-unyap`](skills/qstack-unyap/) | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
 
-Together they bracket a piece of work: `plan-to-html` at the start, when the
-design needs to be read and approved; `plan-close` at the end, when what was
-learned needs to outlive the session.
+The plan lifecycle starts with `plan-to-html`, runs through either execution
+loop, and ends with `plan-close`, when what was learned needs to outlive the
+session.
 
 ## Install
 
@@ -23,7 +27,8 @@ git clone https://github.com/hani-q/qstack.git ~/work/code/qstack
 cd ~/work/code/qstack && ./install
 ```
 
-Then restart your agent. That is the whole setup.
+The installer also maintains a small `## qstack` routing section in the user-wide
+Claude Code and Codex instruction files. Restart your agent after installation.
 
 Or, once this repo is public, via the [skills.sh](https://skills.sh) CLI, which
 knows ~70 agents:
@@ -35,11 +40,11 @@ npx skills add hani-q/qstack
 `./install` links every skill into each harness it finds on the machine, and
 skips the ones that are not there:
 
-| Harness | Skill directory |
-| --- | --- |
-| Claude Code | `~/.claude/skills/` |
-| Codex | `~/.codex/skills/` |
-| generic `agents` (Cline, Warp, Zed, …) | `~/.agents/skills/` |
+| Harness | Skill directory | User-wide instructions |
+| --- | --- | --- |
+| Claude Code | `~/.claude/skills/` | `~/.claude/CLAUDE.md` |
+| Codex | `~/.codex/skills/` | `~/.codex/AGENTS.md` |
+| generic `agents` (Cline, Warp, Zed, …) | `~/.agents/skills/` | — |
 
 Those paths match the ones the skills.sh CLI uses, so the two installers agree
 and neither surprises the other.
@@ -49,10 +54,15 @@ and neither surprises the other.
 | *(none)* | Symlink each skill in. `git pull` then updates every harness at once. |
 | `--copy` | Copy instead, for a harness that will not follow a link, or a machine where this checkout is temporary. Needs a re-run after every pull. |
 | `--dry-run` | Print what would happen, change nothing. |
-| `--uninstall` | Remove what the installer added. |
+| `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
 
 It is safe to re-run, and it never deletes an entry it did not create — a
 `qstack-<name>` directory that qstack did not install is reported and left alone.
+Symlink installs carry a hidden marker recording the exact target QStack linked,
+so uninstall can still identify them if that checkout later moves or disappears
+without trusting a user-replaced link.
+The instruction sections use HTML comment markers; re-running replaces only the
+marked block and preserves every other line in the file.
 
 ## Layout
 
@@ -64,6 +74,10 @@ qstack/                              ← this repo, anywhere on disk
 ├── install
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack-plan-close/SKILL.md
+    ├── qstack-loop-no-nonsense/SKILL.md
+    ├── qstack-loop-trequartista/SKILL.md
+    ├── qstack-serve-plans/SKILL.md
+    ├── qstack-unyap/SKILL.md
     └── qstack-plan-to-html/
         ├── SKILL.md
         └── template/v1/             ← "cyanotype & redline" plan template
@@ -118,12 +132,29 @@ hyphens.
 
 ## Conventions these skills assume
 
-**Compound engineering.** Substantial work leaves three artifacts in
-`compound-engineering/plans/<feature>/`: `plan.md` (before, frozen once work
-starts), `implementation-notes.md` (during, written live), `outcome.md` (after,
-written by `/qstack-plan-close`).
+**Compound engineering.** The renderer creates
+`qstack/compound_engineering/plans/<feature>/plan.html`, frozen once work
+starts. An execution loop maintains `execution.md` during the work, and
+`/qstack-plan-close` adds `outcome.md` afterward.
 
 The point is the promotion step. `CLAUDE.md` holds only rules an agent would
 **break something** without; everything else stays in the plan folder, loaded on
 demand. Without that split, either the always-on context bloats until the real
 invariants drown, or the hard-won detail evaporates when the session ends.
+
+### Generated project layout
+
+The plan renderer creates this shared structure inside each target repository:
+
+```text
+qstack/compound_engineering/plans/
+├── .template/v1/
+└── <feature>/plan.html
+```
+
+The renderer also installs `qstack/scripts/serve.sh`. During execution and
+close-out, `execution.md` and `outcome.md` join `plan.html` in the feature
+folder.
+
+Run `./qstack/scripts/serve.sh` or `/qstack-serve-plans` to serve
+`qstack/compound_engineering/` at `http://127.0.0.1:8000`.

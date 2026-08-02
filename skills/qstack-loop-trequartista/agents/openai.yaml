@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Loop: Trequartista"
+  short_description: "Execute a plan creatively and record deviations"
+  default_prompt: "Use $qstack-loop-trequartista to execute the current plan, record adaptations, and independently review the result."
+policy:
+  allow_implicit_invocation: false

@@ -16,15 +16,36 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_DIR="$REPO/skills"
+QSTACK_INSTALL_HOME="${QSTACK_INSTALL_HOME:-$HOME}"
 
 # Harness skill directories. A harness is installed to only if its parent
 # directory already exists — we never create a config dir for a tool that is
 # not on this machine.
 HARNESSES=(
-  "$HOME/.claude:$HOME/.claude/skills:Claude Code"
-  "$HOME/.codex:$HOME/.codex/skills:Codex"
-  "$HOME/.agents:$HOME/.agents/skills:agents (generic)"
+  "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/skills:Claude Code"
+  "$QSTACK_INSTALL_HOME/.codex:$QSTACK_INSTALL_HOME/.codex/skills:Codex"
+  "$QSTACK_INSTALL_HOME/.agents:$QSTACK_INSTALL_HOME/.agents/skills:agents (generic)"
 )
+
+# User-wide instruction files for harnesses that support them. qstack owns only
+# the marked block inside each file; all surrounding content is preserved.
+INSTRUCTION_FILES=(
+  "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/CLAUDE.md:Claude Code"
+  "$QSTACK_INSTALL_HOME/.codex:$QSTACK_INSTALL_HOME/.codex/AGENTS.md:Codex"
+)
+INSTRUCTIONS_START='<!-- qstack:instructions:start -->'
+INSTRUCTIONS_END='<!-- qstack:instructions:end -->'
+INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
+
+## qstack
+
+- Use `/qstack-plan-to-html` to turn completed plans into reviewable HTML.
+- Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and require independent review.
+- Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and independent review.
+- Use `/qstack-plan-close` after planned work ships.
+- Use `/qstack-serve-plans [port]` to serve the current repository plan collection locally.
+- Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
+<!-- qstack:instructions:end -->'
 
 MODE=link
 DRY=0
@@ -59,6 +80,178 @@ fi
 
 run() { [ "$DRY" -eq 1 ] && { echo "      would: $*"; return 0; }; "$@"; }
 
+is_qstack_owned_skill_link() {
+  local target="$1" skill="$2" marker link_dest recorded resolved current repo_root remote
+  [ -L "$target" ] || return 1
+  marker="$(dirname "$target")/.qstack-installed-$skill"
+  link_dest=$(readlink "$target" 2>/dev/null || true)
+  if [ -f "$marker" ]; then
+    recorded=$(sed -n '1p' "$marker")
+    [ -n "$recorded" ] && [ "$link_dest" = "$recorded" ] && return 0
+    return 1
+  fi
+  case "$link_dest" in
+    /*) resolved="$link_dest" ;;
+    *)  resolved="$(dirname "$target")/$link_dest" ;;
+  esac
+
+  # The active checkout is unambiguously ours.
+  if [ -d "$resolved" ]; then
+    resolved=$(cd "$resolved" && pwd -P)
+    current=$(cd "$SKILLS_DIR/$skill" 2>/dev/null && pwd -P || true)
+    [ -n "$current" ] && [ "$resolved" = "$current" ] && return 0
+  else
+    return 1
+  fi
+
+  # Accept an older checkout only when both its repository identity and exact
+  # skills/<name> location prove it is hani-q/qstack.
+  repo_root=$(git -C "$resolved" rev-parse --show-toplevel 2>/dev/null || true)
+  [ -n "$repo_root" ] && [ "$resolved" = "$repo_root/skills/$skill" ] || return 1
+  remote=$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)
+  case "$remote" in
+    git@github.com:hani-q/qstack.git|ssh://git@github.com/hani-q/qstack.git|https://github.com/hani-q/qstack|https://github.com/hani-q/qstack.git)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+write_link_marker() {
+  local marker="$1" link_dest="$2"
+  if [ "$DRY" -eq 1 ]; then
+    echo "      would: record qstack ownership in $marker"
+  else
+    printf '%s\n' "$link_dest" > "$marker"
+  fi
+}
+
+validate_managed_block() {
+  local file="$1" starts ends structure
+  [ -f "$file" ] || return 0
+  starts=$(grep -Fxc "$INSTRUCTIONS_START" "$file" || true)
+  ends=$(grep -Fxc "$INSTRUCTIONS_END" "$file" || true)
+  if [ "$starts" -ne "$ends" ] || [ "$starts" -gt 1 ]; then
+    echo "qstack: malformed managed instruction block in $file; leaving it unchanged" >&2
+    return 1
+  fi
+  if [ "$starts" -eq 1 ]; then
+    structure=$(awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" '
+      $0 == start && state == 0 { state = 1; next }
+      $0 == end && state == 1 { state = 2; next }
+      END { print state + 0 }
+    ' "$file")
+    if [ "$structure" -ne 2 ]; then
+      echo "qstack: malformed managed instruction block in $file; leaving it unchanged" >&2
+      return 1
+    fi
+  fi
+  return 0
+}
+
+write_without_managed_block() {
+  local source="$1" destination="$2"
+  awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" '
+    $0 == start { managed = 1; next }
+    $0 == end { managed = 0; next }
+    !managed { print }
+  ' "$source" > "$destination"
+}
+
+write_with_managed_block() {
+  local source="$1" destination="$2" block_file
+  block_file=$(mktemp "${destination}.block.XXXXXX")
+  printf '%s\n' "$INSTRUCTIONS_BLOCK" > "$block_file"
+  if ! awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" -v block_file="$block_file" '
+    $0 == start {
+      while ((getline line < block_file) > 0) print line
+      close(block_file)
+      managed = 1
+      next
+    }
+    $0 == end { managed = 0; next }
+    !managed { print }
+  ' "$source" > "$destination"; then
+    rm -f "$block_file"
+    return 1
+  fi
+  rm -f "$block_file"
+}
+
+# Update the file a symlink points to instead of replacing the symlink itself.
+# This preserves dotfile-manager layouts such as ~/.claude/CLAUDE.md -> repo/file.
+resolve_instruction_storage_path() {
+  local current="$1" link hops=0
+  while [ -L "$current" ]; do
+    hops=$((hops + 1))
+    if [ "$hops" -gt 40 ]; then
+      echo "qstack: too many symlinks while resolving $1" >&2
+      return 1
+    fi
+    link=$(readlink "$current")
+    case "$link" in
+      /*) current="$link" ;;
+      *)  current="$(dirname "$current")/$link" ;;
+    esac
+  done
+  printf '%s\n' "$current"
+}
+
+update_instruction_file() {
+  local file="$1" label="$2" storage temp mode
+  storage=$(resolve_instruction_storage_path "$file") || return 1
+  validate_managed_block "$storage" || return 1
+
+  if [ "$DRY" -eq 1 ]; then
+    if [ -f "$storage" ]; then
+      echo "      would: update qstack instructions in $file"
+    else
+      echo "      would: create $file with qstack instructions"
+    fi
+    return 0
+  fi
+
+  temp=$(mktemp "${storage}.qstack.XXXXXX")
+  if [ -f "$storage" ]; then
+    mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
+    if grep -Fqx "$INSTRUCTIONS_START" "$storage"; then
+      write_with_managed_block "$storage" "$temp"
+    else
+      cp "$storage" "$temp"
+      if [ -s "$temp" ] && [ "$(tail -c 1 "$temp" | wc -l | tr -d ' ')" -eq 0 ]; then
+        printf '\n' >> "$temp"
+      fi
+      printf '%s\n' "$INSTRUCTIONS_BLOCK" >> "$temp"
+    fi
+  else
+    mode=644
+    printf '%s\n' "$INSTRUCTIONS_BLOCK" > "$temp"
+  fi
+  chmod "$mode" "$temp"
+  mv "$temp" "$storage"
+  echo "      updated qstack instructions ($label)"
+}
+
+remove_instruction_file_block() {
+  local file="$1" label="$2" storage temp mode
+  storage=$(resolve_instruction_storage_path "$file") || return 1
+  [ -f "$storage" ] || return 0
+  validate_managed_block "$storage" || return 1
+  grep -Fqx "$INSTRUCTIONS_START" "$storage" || return 0
+
+  if [ "$DRY" -eq 1 ]; then
+    echo "      would: remove qstack instructions from $file"
+    return 0
+  fi
+
+  temp=$(mktemp "${storage}.qstack.XXXXXX")
+  write_without_managed_block "$storage" "$temp"
+  mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
+  chmod "$mode" "$temp"
+  mv "$temp" "$storage"
+  echo "      removed qstack instructions ($label)"
+}
+
 echo "qstack  $REPO"
 echo "skills  ${skills[*]}"
 [ "$DRY" -eq 1 ] && echo "        (dry run — nothing will change)"
@@ -79,11 +272,17 @@ for entry in "${HARNESSES[@]}"; do
 
   for skill in "${skills[@]}"; do
     target="$dest/$skill"
+    link_marker="$dest/.qstack-installed-$skill"
 
     # Only ever remove our own entries, and only when they are a link we made
     # or a copy we made. A real directory that is not ours is left alone.
     if [ -L "$target" ]; then
-      run rm -f "$target"
+      if is_qstack_owned_skill_link "$target" "$skill"; then
+        run rm -f "$target"
+      else
+        echo "      skip $skill — symlink was not installed by qstack"
+        continue
+      fi
     elif [ -e "$target" ]; then
       if [ -f "$target/.qstack-installed" ]; then
         run rm -rf "$target"
@@ -94,18 +293,39 @@ for entry in "${HARNESSES[@]}"; do
     fi
 
     case "$MODE" in
-      uninstall) echo "      removed $skill" ;;
+      uninstall)
+        run rm -f "$link_marker"
+        echo "      removed $skill"
+        ;;
       link)
         run ln -s "$SKILLS_DIR/$skill" "$target"
+        write_link_marker "$link_marker" "$SKILLS_DIR/$skill"
         echo "      linked  $skill"
         ;;
       copy)
+        run rm -f "$link_marker"
         run cp -R "$SKILLS_DIR/$skill" "$target"
         run touch "$target/.qstack-installed"
         echo "      copied  $skill"
         ;;
     esac
   done
+done
+
+echo
+echo "instructions"
+for entry in "${INSTRUCTION_FILES[@]}"; do
+  IFS=: read -r home file label <<<"$entry"
+  if [ ! -d "$home" ]; then
+    printf '  —  %-18s not installed, skipping\n' "$label"
+    continue
+  fi
+
+  printf '  ✓  %-18s %s\n' "$label" "$file"
+  case "$MODE" in
+    uninstall) remove_instruction_file_block "$file" "$label" ;;
+    *)         update_instruction_file "$file" "$label" ;;
+  esac
 done
 
 echo

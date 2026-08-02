@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Serve Plans"
+  short_description: "Serve project plans on a local web address"
+  default_prompt: "Use $qstack-serve-plans to serve this repository’s HTML plans locally."
+policy:
+  allow_implicit_invocation: false
