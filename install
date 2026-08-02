@@ -9,6 +9,9 @@
 #   ./install --uninstall  remove what this script installed
 #   ./install --dry-run    print what would happen, change nothing
 #
+# Link installs must run from the primary Git worktree. Global links into a
+# linked worktree would break as soon as that temporary worktree is removed.
+#
 # Linking is the default on purpose: the repo stays the single source of truth,
 # so `git pull` updates every harness at once with nothing to re-run.
 
@@ -59,6 +62,41 @@ for arg in "$@"; do
     *)           echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
   esac
 done
+
+require_durable_link_source() {
+  local git_dir common_dir primary_worktree
+  [ "$MODE" = link ] || return 0
+
+  # Outside a Git checkout there is no worktree distinction to enforce (for
+  # example, a source archive extracted into a permanent directory).
+  git_dir=$(git -C "$REPO" rev-parse --absolute-git-dir 2>/dev/null) || return 0
+  common_dir=$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null) || return 0
+  case "$common_dir" in
+    /*) ;;
+    *) common_dir="$REPO/$common_dir" ;;
+  esac
+  common_dir=$(cd "$common_dir" 2>/dev/null && pwd -P) || return 0
+
+  # In the primary worktree, its Git directory is the shared common directory.
+  # Linked worktrees instead have .git/worktrees/<name> as their Git directory.
+  [ "$git_dir" != "$common_dir" ] || return 0
+
+  primary_worktree=$(cd "$common_dir/.." 2>/dev/null && pwd -P || true)
+  echo "qstack: refusing to create global skill links from a linked Git worktree:" >&2
+  echo "  $REPO" >&2
+  echo >&2
+  echo "Those links would break when the worktree is removed." >&2
+  if [ -n "$primary_worktree" ] && git -C "$primary_worktree" rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo "Run the installer from the primary worktree instead:" >&2
+    printf '  cd %q && ./install\n' "$primary_worktree" >&2
+  else
+    echo "Run the installer from a permanent primary checkout instead." >&2
+  fi
+  echo "Use ./install --copy only when copied, non-updating skills are intentional." >&2
+  exit 1
+}
+
+require_durable_link_source
 
 # Every directory under skills/ holding a SKILL.md is a skill. This is the
 # layout skills.sh discovers (skills/<name>/SKILL.md), so the same tree works

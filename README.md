@@ -56,6 +56,12 @@ and neither surprises the other.
 | `--dry-run` | Print what would happen, change nothing. |
 | `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
 
+Because the default install creates user-global symlinks, it must be run from
+the repository's primary Git worktree. The installer refuses to link from a
+linked worktree (including a disposable Conductor workspace) and prints the
+primary worktree path to use instead. `--copy` remains available from linked
+worktrees because its installed files do not depend on that worktree surviving.
+
 It is safe to re-run, and it never deletes an entry it did not create — a
 `qstack-<name>` directory that qstack did not install is reported and left alone.
 Symlink installs carry a hidden marker recording the exact target QStack linked,
