@@ -146,6 +146,7 @@ validate_managed_block() {
       return 1
     fi
   fi
+  return 0
 }
 
 write_without_managed_block() {
