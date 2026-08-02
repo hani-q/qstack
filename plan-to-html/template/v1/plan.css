@@ -1,0 +1,1181 @@
+/* ============================================================================
+   Plan document system — v1  ·  "cyanotype & redline"
+   ----------------------------------------------------------------------------
+   A plan is a controlled document, not a landing page. It opens with a title
+   block, not a hero. Every clause is numbered so it can be cited. Every section
+   carries a status stamp so a reader knows what is settled and what is not.
+
+   The print is blue and white — a cyanotype. The only warm colour on the page
+   is the redline: the reviewer's pencil. It marks position, attention, and
+   anything that blocks a ship. Spend it nowhere else.
+
+   Structure:
+     1  Fonts
+     2  Tokens
+     3  Base
+     4  Document bar
+     5  Title block
+     6  Spine (section index + reading position)
+     7  Sheets, clauses, stamps
+     8  Blocks: plate, note, ledger, seq, rail, matrix, phases, refs, tabset
+     9  Colophon
+    10  Responsive
+    11  Print
+   ========================================================================= */
+
+/* -- 1 · Fonts ----------------------------------------------------------- */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-var.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("fonts/sourceserif4-var.woff2") format("woff2-variations");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("fonts/sourceserif4-italic-var.woff2") format("woff2-variations");
+  font-weight: 400 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/plexmono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/plexmono-500.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
+/* -- 2 · Tokens ---------------------------------------------------------- */
+
+:root {
+  color-scheme: dark;
+
+  /* the print */
+  --ground: #0b1a2a;
+  --ground-deep: #071220;
+  --ground-raise: #102640;
+  --ground-sink: #08182a;
+
+  /* line work */
+  --ink: #e9eff5;
+  --ink-soft: #b6c8d8;
+  --ink-mute: #7e97ac;
+  --ink-faint: #6b8296;
+  --rule: #1e3450;
+  --rule-soft: #142a42;
+
+  /* the reviewer's pencil */
+  --redline: #f2603f;
+  --redline-deep: #c9482b;
+  --redline-wash: rgba(242, 96, 63, 0.13);
+
+  /* status signals */
+  --sig-locked: #63c9b4;
+  --sig-open: #e9b13f;
+  --sig-deferred: #9ea3d6;
+  --sig-gate: #f2603f;
+  --sig-ref: #7e97ac;
+
+  --serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --gothic: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --page: min(1320px, 100vw - 48px);
+  --measure: 72ch;
+  --spine-w: 216px;
+  --bar-h: 54px;
+
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+}
+
+/* Two modes: "print" is the cyanotype above and needs no overrides — it is the
+   base :root. "vellum" is the same document on pale mineral paper. */
+:root[data-theme="vellum"] {
+  color-scheme: light;
+
+  --ground: #e8ecef;
+  --ground-deep: #dae1e7;
+  --ground-raise: #f6f8fa;
+  --ground-sink: #dfe5ea;
+
+  --ink: #0b1a2a;
+  --ink-soft: #294156;
+  --ink-mute: #5a7387;
+  --ink-faint: #5d7385;
+  --rule: #c2ced8;
+  --rule-soft: #d6dee5;
+
+  --redline: #c0341a;
+  --redline-deep: #99280f;
+  --redline-wash: rgba(192, 52, 26, 0.09);
+
+  --sig-locked: #157567;
+  --sig-open: #8f6410;
+  --sig-deferred: #4f549b;
+  --sig-gate: #c0341a;
+  --sig-ref: #5a7387;
+
+  --shadow: 0 16px 38px rgba(11, 26, 42, 0.13);
+}
+
+/* -- 3 · Base ------------------------------------------------------------ */
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--bar-h) + 26px);
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16.5px;
+  font-weight: 400;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, p, ul, ol, figure, table { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--redline);
+  padding-bottom: 1px;
+  transition: color .14s ease, background-color .14s ease;
+}
+a:hover { color: var(--redline); }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+:focus-visible {
+  outline: 2px solid var(--redline);
+  outline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  inset-inline-start: -9999px;
+  top: 0;
+  z-index: 99;
+  padding: 10px 16px;
+  background: var(--redline);
+  color: #fff;
+  border: 0;
+}
+.skip:focus { inset-inline-start: 0; }
+
+/* Shared micro-typography ------------------------------------------------ */
+
+.label {
+  font-family: var(--gothic);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* a label standing alone above a block, rather than inline in a header */
+.label.lead { display: block; padding-bottom: 12px; }
+
+.mono { font-family: var(--mono); font-size: .82em; }
+
+.num {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- 4 · Document bar ---------------------------------------------------- */
+
+.doc-bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--ground-deep), transparent 8%);
+  border-bottom: 1px solid var(--rule);
+  backdrop-filter: blur(14px);
+}
+
+.doc-bar-inner {
+  width: var(--page);
+  min-height: var(--bar-h);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.doc-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.doc-id b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.doc-id-sep {
+  color: var(--ink-faint);
+}
+
+.doc-bar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+.doc-bar-nav a {
+  border: 0;
+  padding: 6px 9px;
+  font-family: var(--gothic);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.doc-bar-nav a:hover { color: var(--ink); background: var(--rule-soft); }
+
+.doc-tool {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  font-size: 12px;
+  transition: color .14s ease, border-color .14s ease;
+}
+.doc-tool:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+/* a word beats a glyph here — the printer symbol has patchy font coverage */
+.doc-tool.wide {
+  width: auto;
+  padding: 0 11px;
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+
+/* -- 5 · Title block ----------------------------------------------------- */
+
+/* The head reads across: the title on the left, the abstract set beside it and
+   aligned to its last line, then the field grid ruled under both. */
+.title-block {
+  width: var(--page);
+  margin: 0 auto;
+  padding: 58px 0 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+  gap: 0 60px;
+  align-items: end;
+}
+
+.title-block-kicker {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 14px;
+}
+
+.title-block h1 {
+  grid-column: 1;
+  font-family: var(--gothic);
+  font-size: clamp(34px, 4.6vw, 62px);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -.028em;
+  max-width: 15ch;
+}
+
+.title-block-abstract {
+  grid-column: 2;
+  max-width: 46ch;
+  padding-bottom: 7px;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* the field grid — a drawing sheet's title block */
+.fields {
+  grid-column: 1 / -1;
+  margin-top: 40px;
+  border: 1px solid var(--rule);
+  border-inline-end: 0;
+  border-bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.field {
+  padding: 13px 16px 14px;
+  border-inline-end: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.field dt {
+  font-family: var(--gothic);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.field dd {
+  margin: 5px 0 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+.field dd.free {
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+/* -- 6 · Spine ----------------------------------------------------------- */
+
+.doc-body {
+  width: var(--page);
+  margin: 0 auto;
+  padding: 54px 0 0;
+  display: grid;
+  grid-template-columns: var(--spine-w) minmax(0, 1fr);
+  gap: 46px;
+  align-items: start;
+}
+
+.spine {
+  position: sticky;
+  top: calc(var(--bar-h) + 26px);
+  padding-bottom: 40px;
+}
+
+.spine-title {
+  padding-bottom: 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.spine-link {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px 3px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+  padding: 7px 0;
+  border: 0;
+  color: var(--ink-mute);
+}
+
+.spine-link .num { padding-top: 1px; }
+
+.spine-tick {
+  background: color-mix(in srgb, var(--sig, var(--ink-faint)), transparent 55%);
+}
+
+.spine-link span:last-child {
+  font-family: var(--gothic);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -.005em;
+  align-self: center;
+}
+
+.spine-link:hover { color: var(--ink); }
+.spine-link:hover .spine-tick { background: var(--sig, var(--ink-faint)); }
+
+.spine-link[aria-current="true"] { color: var(--ink); }
+.spine-link[aria-current="true"] .spine-tick { background: var(--sig, var(--ink-faint)); }
+.spine-link[aria-current="true"] .num { color: var(--redline); }
+.spine-link[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -12px;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background: var(--redline);
+}
+
+.spine-legend {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  gap: 7px;
+}
+
+.spine-legend div {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--ink-faint);
+}
+
+.spine-legend i { height: 11px; background: var(--sig); }
+
+/* -- 7 · Sheets, clauses, stamps ----------------------------------------- */
+
+.sheet {
+  padding-bottom: 74px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.sheet:last-of-type { border-bottom: 0; }
+
+.sheet-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  padding-bottom: 22px;
+}
+
+.sheet-head h2 {
+  margin-top: 8px;
+  font-family: var(--gothic);
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.022em;
+  max-width: 22ch;
+}
+
+.sheet-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.sheet-mark .num {
+  font-size: 13px;
+  color: var(--redline);
+}
+
+.sheet-lede {
+  max-width: var(--measure);
+  padding-bottom: 30px;
+  color: var(--ink-soft);
+  font-size: 17.5px;
+  line-height: 1.56;
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  /* never let a grid parent stretch a stamp — it is a mark, not a bar */
+  justify-self: start;
+  align-self: start;
+  gap: 7px;
+  padding: 5px 10px 4px;
+  border: 1px solid currentColor;
+  color: var(--sig, var(--ink-mute));
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.stamp::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+}
+
+/* status carrier — set on any element to colour stamps, ticks, rules */
+[data-status="locked"] { --sig: var(--sig-locked); }
+[data-status="open"] { --sig: var(--sig-open); }
+[data-status="deferred"] { --sig: var(--sig-deferred); }
+[data-status="gate"] { --sig: var(--sig-gate); }
+[data-status="ref"] { --sig: var(--sig-ref); }
+
+/* the one orchestrated moment: stamps ink in when the sheet is first read */
+.sheet-head .stamp {
+  opacity: 0;
+  transform: scale(1.08) rotate(-1.4deg);
+}
+.sheet.inked .sheet-head .stamp {
+  animation: stamp-in .34s cubic-bezier(.2, .9, .3, 1) forwards;
+}
+@keyframes stamp-in {
+  from { opacity: 0; transform: scale(1.08) rotate(-1.4deg); }
+  70%  { opacity: 1; transform: scale(.985) rotate(-1.4deg); }
+  to   { opacity: 1; transform: scale(1) rotate(-1.4deg); }
+}
+
+/* Clauses — numbered, citable, addressable ------------------------------- */
+
+.clauses {
+  border-top: 1px solid var(--rule);
+  max-width: var(--measure);
+}
+.clauses.wide { max-width: none; }
+
+.clause {
+  position: relative;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 20px;
+  padding: 18px 0 19px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.clause-ref {
+  border: 0;
+  padding-top: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  align-self: start;
+}
+.clause-ref:hover { color: var(--redline); }
+.clause-ref::after {
+  content: "¶";
+  padding-inline-start: 5px;
+  opacity: 0;
+}
+.clause:hover .clause-ref::after { opacity: .55; }
+.clause-ref.copied::after { content: "copied"; opacity: 1; font-size: 9px; letter-spacing: .1em; }
+
+.clause h3 {
+  font-family: var(--gothic);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .002em;
+  line-height: 1.35;
+  padding-bottom: 3px;
+}
+
+.clause p {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.56;
+}
+
+.clause :target,
+.clause:target { background: var(--redline-wash); }
+
+/* two-column clause set, for dense specification lists */
+.clause-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 46px;
+  align-items: start;
+}
+.clause-pair > .clauses { border-top: 1px solid var(--rule); max-width: none; }
+.clause-pair .clause { grid-template-columns: 50px minmax(0, 1fr); gap: 14px; }
+
+/* -- 8 · Blocks ---------------------------------------------------------- */
+
+/* full-width escape from the reading measure */
+.breakout { max-width: none; }
+
+.plate {
+  border: 1px solid var(--rule);
+  background: var(--ground-raise);
+  padding: 22px 24px;
+}
+
+.plate-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.plate-head h3 {
+  font-family: var(--gothic);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
+
+/* Note — a margin annotation in the reviewer's hand ---------------------- */
+
+.note {
+  max-width: var(--measure);
+  margin: 26px 0;
+  padding: 16px 20px;
+  border-inline-start: 2px solid var(--sig, var(--redline));
+  background: var(--ground-sink);
+}
+
+.note .label { color: var(--sig, var(--redline)); padding-bottom: 5px; display: block; }
+.note p { color: var(--ink-soft); font-size: 15.5px; }
+
+/* Eli — an aside for a reader who does not have the background ----------- */
+
+/* A term stays exact in the prose; the plain-English reading of it sits one
+   gesture away behind a mark. Opens on hover, on keyboard focus, and on tap,
+   because a plan is read on all three. Never load-bearing: a reader who
+   ignores every mark still gets the whole document, and print expands them
+   all inline so paper loses nothing. */
+
+.eli { position: relative; display: inline-block; }
+
+.eli-mark {
+  inline-size: 1.05em;
+  block-size: 1.05em;
+  margin-inline-start: 0.28em;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  font-size: 0.68em;
+  line-height: 1;
+  cursor: help;
+  vertical-align: super;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.eli-mark:hover,
+.eli-mark:focus-visible {
+  color: var(--sig, var(--redline));
+  border-color: var(--sig, var(--redline));
+}
+
+.eli-body {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 20;
+  inline-size: min(38ch, 78vw);
+  padding: 13px 16px;
+  border: 1px solid var(--rule);
+  border-inline-start: 2px solid var(--sig, var(--redline));
+  background: var(--ground-raise);
+  box-shadow: var(--shadow);
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: start;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+}
+
+.eli-body b {
+  display: block;
+  margin-block-end: 5px;
+  font-family: var(--gothic);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sig, var(--redline));
+}
+
+.eli:hover .eli-body,
+.eli:focus-within .eli-body,
+.eli[data-open] .eli-body { opacity: 1; visibility: visible; }
+
+/* Near the end of a line the box would run off the page — flip it. */
+.eli[data-align="end"] .eli-body { inset-inline-start: auto; inset-inline-end: 0; }
+
+/* Ledger — table-name / description pairs -------------------------------- */
+
+.ledger { border-top: 1px solid var(--rule); }
+
+.ledger-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ledger-head h3 {
+  font-family: var(--gothic);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ledger-row {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.ledger-row b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sig, var(--ink));
+  padding-bottom: 3px;
+}
+
+.ledger-row p { color: var(--ink-mute); font-size: 14.5px; line-height: 1.5; }
+.ledger-row em { font-style: normal; color: var(--ink-soft); border-bottom: 1px solid var(--sig, var(--rule)); }
+
+/* Seq — an ordered procedure, where order carries meaning ---------------- */
+
+.seq {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  border-top: 1px solid var(--rule);
+  border-inline-start: 1px solid var(--rule);
+}
+
+.seq-step {
+  position: relative;
+  padding: 16px 18px 20px;
+  border-inline-end: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.seq-step .num { color: var(--redline); }
+
+.seq-step b {
+  display: block;
+  padding: 8px 0 5px;
+  font-family: var(--gothic);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.seq-step p { color: var(--ink-mute); font-size: 14px; line-height: 1.46; }
+
+/* Rail — a system diagram read left to right ----------------------------- */
+
+.rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px minmax(0, 1fr) 124px minmax(0, 1fr);
+  gap: 0;
+  align-items: center;
+}
+
+.rail-col { display: grid; gap: 12px; align-content: start; }
+
+.rail-node {
+  padding: 15px 17px;
+  border: 1px solid var(--sig, var(--rule));
+  background: var(--ground-raise);
+}
+
+.rail-node b {
+  display: block;
+  padding-bottom: 5px;
+  font-family: var(--gothic);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rail-node p { color: var(--ink-mute); font-size: 13.5px; line-height: 1.45; }
+.rail-node[data-status="deferred"] { border-style: dashed; }
+
+.rail-link {
+  position: relative;
+  height: 1px;
+  background: var(--rule);
+  margin: 0 12px;
+}
+.rail-link::before,
+.rail-link::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid var(--ink-faint);
+  border-inline-end: 1px solid var(--ink-faint);
+}
+.rail-link::after { inset-inline-end: 0; transform: rotate(45deg); }
+.rail-link::before { inset-inline-start: 0; transform: rotate(225deg); }
+
+.rail-link span {
+  position: absolute;
+  top: -34px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 110px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  line-height: 1.35;
+  letter-spacing: .03em;
+  color: var(--ink-faint);
+}
+
+/* a row of stamps used as a key beneath a diagram */
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 24px;
+}
+
+/* Matrix — the release gate --------------------------------------------- */
+
+.matrix-scroll { overflow-x: auto; }
+
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.matrix th {
+  position: sticky;
+  top: var(--bar-h);
+  z-index: 2;
+  background: var(--ground);
+  padding: 11px 16px 10px;
+  border-bottom: 1px solid var(--rule);
+  text-align: start;
+  font-family: var(--gothic);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.matrix td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule-soft);
+  color: var(--ink-soft);
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.matrix tbody tr:hover td { background: var(--ground-sink); }
+
+.matrix td:first-child {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.matrix td:last-child {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sig, var(--ink-mute));
+  white-space: nowrap;
+}
+
+/* Phases — the build order ---------------------------------------------- */
+
+.phases { border-top: 1px solid var(--rule); }
+
+.phase {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 260px) minmax(0, 1fr);
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  align-items: start;
+}
+
+.phase .num { padding-top: 4px; color: var(--redline); }
+
+.phase h3 {
+  font-family: var(--gothic);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.008em;
+}
+
+.phase p { color: var(--ink-mute); font-size: 15px; line-height: 1.5; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 11px; }
+
+.tag {
+  padding: 3px 8px 2px;
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .05em;
+  color: var(--ink-faint);
+}
+
+/* Refs — the research basis --------------------------------------------- */
+
+.refs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+  border-top: 1px solid var(--rule);
+  border-inline-start: 1px solid var(--rule);
+}
+
+.ref {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  padding: 15px 18px 17px;
+  border-inline-end: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.ref a {
+  font-family: var(--gothic);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: inline-block;
+}
+
+.ref p { padding-top: 5px; color: var(--ink-mute); font-size: 13.5px; line-height: 1.44; }
+
+/* Tabset ----------------------------------------------------------------- */
+
+.tabset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 26px;
+}
+
+.tab {
+  position: relative;
+  padding: 11px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-mute);
+  font-family: var(--gothic);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: color .14s ease;
+}
+.tab:hover { color: var(--ink); }
+
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--redline);
+}
+
+.tab-panel[hidden] { display: none; }
+.tab-panel { animation: panel-in .18s ease both; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* -- 9 · Colophon -------------------------------------------------------- */
+
+.colophon {
+  margin-top: 40px;
+  border-top: 1px solid var(--rule);
+  background: var(--ground-deep);
+}
+
+.colophon-inner {
+  width: var(--page);
+  margin: 0 auto;
+  padding: 30px 0 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 26px;
+  align-items: start;
+}
+
+.colophon p {
+  max-width: 64ch;
+  color: var(--ink-mute);
+  font-size: 14.5px;
+}
+
+.colophon .mono { display: block; padding-top: 8px; color: var(--ink-faint); }
+
+/* -- 10 · Responsive ----------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .rail { grid-template-columns: 1fr; gap: 26px; }
+  .rail-link { height: auto; width: 1px; min-height: 42px; margin: 0 auto; background: var(--rule); }
+  .rail-link::before, .rail-link::after { inset-inline-start: -3px; }
+  .rail-link::before { top: 0; transform: rotate(-45deg); }
+  .rail-link::after { top: auto; bottom: 0; inset-inline-end: auto; transform: rotate(135deg); }
+  .rail-link span { position: static; display: block; transform: none; max-width: none; padding: 4px 0; }
+}
+
+@media (max-width: 1020px) {
+  :root { --spine-w: 0px; }
+  .doc-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .spine { display: none; }
+  .title-block { grid-template-columns: minmax(0, 1fr); gap: 0; align-items: start; }
+  /* the children carry explicit column numbers; without this reset the abstract
+     would open an implicit second track and starve the title */
+  .title-block > * { grid-column: 1; }
+  .title-block h1 { max-width: 20ch; }
+  .title-block-abstract { max-width: 62ch; padding: 20px 0 0; }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clause-pair { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .clause-pair > .clauses:last-child { border-top: 0; }
+}
+
+@media (max-width: 720px) {
+  :root { --page: calc(100vw - 32px); }
+  body { font-size: 16px; }
+  .doc-bar-nav a { display: none; }
+  .title-block { padding-top: 36px; }
+  .title-block h1 { max-width: none; }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sheet-head { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .clause { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .phase { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .colophon-inner { grid-template-columns: minmax(0, 1fr); }
+  /* there is no hover here — the mark is tapped, so give the box the width */
+  .eli-body { inline-size: min(38ch, calc(100vw - 44px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .sheet-head .stamp { opacity: 1; transform: rotate(-1.4deg); }
+}
+
+/* -- 11 · Print ---------------------------------------------------------- */
+
+@page {
+  margin: 15mm 14mm;
+}
+
+@media print {
+  :root {
+    --ground: #fff;
+    --ground-deep: #fff;
+    --ground-raise: #fff;
+    --ground-sink: #fff;
+    --ink: #000;
+    --ink-soft: #222;
+    --ink-mute: #444;
+    --ink-faint: #666;
+    --rule: #999;
+    --rule-soft: #ccc;
+    /* a hair inside the printable area so a stamp's outer border isn't clipped */
+    --page: calc(100% - 3px);
+  }
+  .doc-bar, .spine, .doc-tool, .skip { display: none; }
+  .doc-body { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
+  .sheet { break-inside: auto; padding-bottom: 30px; }
+  .sheet-head { break-after: avoid; }
+  .sheet-head .stamp { opacity: 1; transform: none; animation: none; }
+  .clause, .phase, .seq-step, .ref { break-inside: avoid; }
+
+  /* Multi-column grids page-break as whole rows, which strands a column-tall
+     row and leaves a blank sheet behind it. Stack them and let the rows flow. */
+  .clause-pair, .grid-2, .grid-3, .grid-4 { display: block; }
+  .clause-pair > .clauses { border-top: 0; }
+  .clause-pair > .clauses:first-child { border-top: 1px solid var(--rule); }
+  .grid-2 > * + *, .grid-3 > * + *, .grid-4 > * + * { margin-top: 26px; }
+
+  .rail { display: block; }
+  .rail-col > * + * { margin-top: 12px; }
+  .rail-link { height: auto; margin: 14px 0; background: none; }
+  .rail-link::before, .rail-link::after { display: none; }
+  .rail-link span { position: static; transform: none; max-width: none; text-align: start; }
+
+  /* every panel prints, so each one has to say which tab it came from.
+     The entrance animation restarts the moment print un-hides a panel, and a
+     paged snapshot catches it at frame zero — so it has to go. */
+  .tabset { display: none; }
+  .tab-panel { animation: none; opacity: 1; }
+  .tab-panel[hidden] { display: block; }
+  .tab-panel + .tab-panel {
+    margin-top: 26px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .tab-panel[data-print-title]::before {
+    content: attr(data-print-title);
+    display: block;
+    padding-bottom: 14px;
+    font-family: var(--gothic);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+
+  /* Nothing hides on paper. The mark is a gesture and paper has none, so the
+     aside prints inline where it was anchored, indented like a footnote. */
+  .eli-mark { display: none; }
+  .eli { display: block; }
+  .eli-body {
+    position: static;
+    opacity: 1;
+    visibility: visible;
+    inline-size: auto;
+    max-width: var(--measure);
+    margin-block: 10px;
+    margin-inline-start: 24px;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .matrix th { position: static; }
+  a { border-bottom: 0; text-decoration: underline; }
+}

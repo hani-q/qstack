@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+#
+# qstack installer — links every skill in this repo into each agent harness
+# that is present on this machine.
+#
+#   ./install              link skills into every harness found
+#   ./install --copy       copy instead of link (for machines where the repo
+#                          is not permanent, or a harness that follows no links)
+#   ./install --uninstall  remove what this script installed
+#   ./install --dry-run    print what would happen, change nothing
+#
+# Linking is the default on purpose: the repo stays the single source of truth,
+# so `git pull` updates every harness at once with nothing to re-run.
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PREFIX="qstack"
+
+# Harness skill directories. A harness is installed to only if its parent
+# directory already exists — we never create a config dir for a tool that is
+# not on this machine.
+HARNESSES=(
+  "$HOME/.claude:$HOME/.claude/skills:Claude Code"
+  "$HOME/.codex:$HOME/.codex/skills:Codex"
+  "$HOME/.agents:$HOME/.agents/skills:agents (generic)"
+)
+
+MODE=link
+DRY=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --copy)      MODE=copy ;;
+    --uninstall) MODE=uninstall ;;
+    --dry-run)   DRY=1 ;;
+    -h|--help)   sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *)           echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
+  esac
+done
+
+# Every top-level directory holding a SKILL.md is a skill.
+skills=()
+for dir in "$REPO"/*/; do
+  [ -f "${dir}SKILL.md" ] || continue
+  skills+=("$(basename "$dir")")
+done
+
+if [ ${#skills[@]} -eq 0 ]; then
+  echo "qstack: no skills found in $REPO" >&2
+  exit 1
+fi
+
+run() { [ "$DRY" -eq 1 ] && { echo "      would: $*"; return 0; }; "$@"; }
+
+echo "qstack  $REPO"
+echo "skills  ${skills[*]}"
+[ "$DRY" -eq 1 ] && echo "        (dry run — nothing will change)"
+echo
+
+installed=0
+for entry in "${HARNESSES[@]}"; do
+  IFS=: read -r home dest label <<<"$entry"
+
+  if [ ! -d "$home" ]; then
+    printf '  —  %-18s not installed, skipping\n' "$label"
+    continue
+  fi
+
+  printf '  ✓  %-18s %s\n' "$label" "$dest"
+  installed=$((installed + 1))
+  [ -d "$dest" ] || run mkdir -p "$dest"
+
+  for skill in "${skills[@]}"; do
+    target="$dest/$PREFIX-$skill"
+
+    # Only ever remove our own entries, and only when they are a link we made
+    # or a copy we made. A real directory that is not ours is left alone.
+    if [ -L "$target" ]; then
+      run rm -f "$target"
+    elif [ -e "$target" ]; then
+      if [ -f "$target/.qstack-installed" ]; then
+        run rm -rf "$target"
+      else
+        echo "      skip $PREFIX-$skill — exists and was not installed by qstack"
+        continue
+      fi
+    fi
+
+    case "$MODE" in
+      uninstall) echo "      removed $PREFIX-$skill" ;;
+      link)
+        run ln -s "$REPO/$skill" "$target"
+        echo "      linked  $PREFIX-$skill"
+        ;;
+      copy)
+        run cp -R "$REPO/$skill" "$target"
+        run touch "$target/.qstack-installed"
+        echo "      copied  $PREFIX-$skill"
+        ;;
+    esac
+  done
+done
+
+echo
+if [ "$installed" -eq 0 ]; then
+  echo "No agent harness found. Expected one of ~/.claude, ~/.codex, ~/.agents."
+  exit 1
+fi
+
+case "$MODE" in
+  uninstall) echo "Uninstalled from $installed harness(es)." ;;
+  *)         echo "Installed into $installed harness(es). Restart the agent to pick up new skills." ;;
+esac

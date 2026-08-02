@@ -1,0 +1,204 @@
+<!doctype html>
+<!--
+  Plan template v1 — a stencil, not a page.
+
+  Copy it to plans/<slug>/<slug>-plan.html and replace the content. The asset
+  paths below are written for that destination, so this file does NOT render
+  correctly where it sits; it renders once copied one level up and across.
+
+  Keep the structure: title block, spine, numbered sheets, colophon.
+  Component reference: plans/template/v1/README.md
+-->
+<html lang="en" data-theme="print">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Plan title — Product plan</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b1a2a'/%3E%3Crect x='12' y='12' width='40' height='40' fill='none' stroke='%23f2603f' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../template/v1/plan.css">
+</head>
+<body>
+  <a class="skip" href="#doc">Skip to the plan</a>
+
+  <!-- Document bar ------------------------------------------------------ -->
+  <header class="doc-bar">
+    <div class="doc-bar-inner">
+      <p class="doc-id">
+        <b>DOC-000</b>
+        <span class="doc-id-sep">/</span><span>rev 1</span>
+        <span class="doc-id-sep">/</span><span>draft</span>
+      </p>
+      <nav class="doc-bar-nav" aria-label="Sections">
+        <a href="#contract">Contract</a>
+        <a href="#build">Build order</a>
+        <a href="#gate">Gate</a>
+      </nav>
+      <button class="doc-tool" type="button" data-theme-toggle aria-label="Switch between print and vellum">◐</button>
+      <button class="doc-tool wide" type="button" data-print aria-label="Print this plan">PRINT</button>
+    </div>
+  </header>
+
+  <!-- Title block ------------------------------------------------------- -->
+  <header class="title-block">
+    <div class="title-block-kicker">
+      <span class="label">Product plan</span>
+      <span class="num">DOC-000</span>
+    </div>
+    <h1>The plan title, stated as the thing being built.</h1>
+    <p class="title-block-abstract">
+      One paragraph a reader can stop after. What is being built, for whom, and
+      the single constraint that shapes every decision below.
+    </p>
+
+    <dl class="fields">
+      <div class="field"><dt>Document</dt><dd>DOC-000</dd></div>
+      <div class="field"><dt>Revision</dt><dd>1</dd></div>
+      <div class="field" data-status="open"><dt>Status</dt><dd><span class="stamp">Draft</span></dd></div>
+      <div class="field"><dt>Owner</dt><dd>Name</dd></div>
+      <div class="field"><dt>Issued</dt><dd>2026-00-00</dd></div>
+      <div class="field"><dt>Supersedes</dt><dd>—</dd></div>
+      <div class="field"><dt>Sheets</dt><dd>3</dd></div>
+      <div class="field"><dt>Ships when</dt><dd class="free">The condition that closes this plan.</dd></div>
+    </dl>
+  </header>
+
+  <!-- Body -------------------------------------------------------------- -->
+  <div class="doc-body" id="doc">
+
+    <!-- Spine: built from the sheets below. Leave the containers empty. -->
+    <aside class="spine">
+      <p class="label spine-title">Contents</p>
+      <nav data-spine aria-label="Plan contents"></nav>
+      <div class="spine-legend" data-spine-legend></div>
+    </aside>
+
+    <main>
+
+      <!-- A sheet. id, data-title and data-status drive the spine. -->
+      <section class="sheet" id="contract" data-title="The product contract" data-status="locked">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">The product contract</span></p>
+            <h2>Say the boundary, not the implementation.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          What a reader should be able to infer from the interface without being
+          told. Keep this to what is settled.
+        </p>
+
+        <!-- Clauses are numbered §1.1, §1.2 … and each one is citable. -->
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>First boundary</h3>
+              <p>
+                One sentence of consequence. Say what the system does and what it
+                refuses to do. Keep a term of art exact, and hang its plain reading
+                off a mark<span class="eli"><button class="eli-mark" type="button"
+                  aria-label="Explain: eli asides">i</button><span class="eli-body" role="note">
+                  <b>Eli aside</b>
+                  A footnote that only shows up when someone wants it. The plan
+                  stays dense for the reader who wants density, and the reader who
+                  doesn't have the background is one hover away from plain English.
+                </span></span> rather than writing the document twice.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Second boundary</h3>
+              <p>Another promise, in the same register.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="note" data-status="open">
+          <span class="label">Open question</span>
+          <p>Anything still undecided goes in a note, in the open, next to the decision it blocks.</p>
+        </div>
+      </section>
+
+      <!-- Build order -->
+      <section class="sheet" id="build" data-title="Build order" data-status="locked">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Implementation sequence</span></p>
+            <h2>Each phase leaves the product coherent.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+
+        <div class="phases">
+          <article class="phase">
+            <span class="num">00</span>
+            <h3>Record the decision</h3>
+            <div>
+              <p>What lands, and where it is written down.</p>
+              <div class="tags"><span class="tag">decision record</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">01</span>
+            <h3>Substrate</h3>
+            <div>
+              <p>The layer everything above depends on.</p>
+              <div class="tags"><span class="tag">database</span><span class="tag">rollback</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Release gate -->
+      <section class="sheet" id="gate" data-title="Release gate" data-status="gate">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Release gate</span></p>
+            <h2>What has to hold before this ships.</h2>
+          </div>
+          <span class="stamp">Gate</span>
+        </div>
+
+        <div class="matrix-scroll">
+          <table class="matrix">
+            <thead>
+              <tr><th>Area</th><th>Scenario</th><th>Acceptance</th><th>Gate</th></tr>
+            </thead>
+            <tbody>
+              <tr data-status="gate">
+                <td>AREA</td>
+                <td>The situation a tester puts the product in.</td>
+                <td>The observable result that counts as passing.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="locked">
+                <td>AREA</td>
+                <td>A second scenario.</td>
+                <td>Its acceptance.</td>
+                <td>Required</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Colophon ---------------------------------------------------------- -->
+  <footer class="colophon">
+    <div class="colophon-inner">
+      <p>
+        One line naming what this document locks.
+        <span class="mono">DOC-000 · rev 1 · 2026-00-00</span>
+      </p>
+      <span class="stamp" data-status="open">Draft</span>
+    </div>
+  </footer>
+
+  <!-- pretext.js is optional and usually skipped — see README, "About pretext" -->
+  <script src="../template/v1/plan.js"></script>
+</body>
+</html>
