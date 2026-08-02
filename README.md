@@ -9,8 +9,8 @@ clobber my own work.
 
 | Skill | Purpose |
 | --- | --- |
-| [`plan-to-html`](plan-to-html/) | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
-| [`plan-close`](plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
+| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
+| [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
 
 Together they bracket a piece of work: `plan-to-html` at the start, when the
 design needs to be read and approved; `plan-close` at the end, when what was
@@ -25,6 +25,13 @@ cd ~/work/code/qstack && ./install
 
 Then restart your agent. That is the whole setup.
 
+Or, once this repo is public, via the [skills.sh](https://skills.sh) CLI, which
+knows ~70 agents:
+
+```bash
+npx skills add hani-q/qstack
+```
+
 `./install` links every skill into each harness it finds on the machine, and
 skips the ones that are not there:
 
@@ -32,7 +39,10 @@ skips the ones that are not there:
 | --- | --- |
 | Claude Code | `~/.claude/skills/` |
 | Codex | `~/.codex/skills/` |
-| generic `agents` | `~/.agents/skills/` |
+| generic `agents` (Cline, Warp, Zed, …) | `~/.agents/skills/` |
+
+Those paths match the ones the skills.sh CLI uses, so the two installers agree
+and neither surprises the other.
 
 | Flag | Effect |
 | --- | --- |
@@ -50,28 +60,37 @@ This repo is the single source of truth; the harnesses hold links back to it, so
 there is no second copy to drift.
 
 ```
-qstack/                            ← this repo, anywhere on disk
+qstack/                              ← this repo, anywhere on disk
 ├── install
-├── plan-close/SKILL.md
-└── plan-to-html/
-    ├── SKILL.md
-    └── template/v1/               ← "cyanotype & redline" plan template
-        ├── plan.css  plan.js  pretext.js
-        ├── plan-template.html
-        └── fonts/                 ← self-hosted woff2, offline-safe
+└── skills/                          ← the layout skills.sh discovers
+    ├── qstack-plan-close/SKILL.md
+    └── qstack-plan-to-html/
+        ├── SKILL.md
+        └── template/v1/             ← "cyanotype & redline" plan template
+            ├── plan.css  plan.js  pretext.js
+            ├── plan-template.html
+            └── fonts/               ← self-hosted woff2, offline-safe
 
 ~/.claude/skills/qstack-<name> ┐
-~/.codex/skills/qstack-<name>  ├─ symlinks → qstack/<name>
+~/.codex/skills/qstack-<name>  ├─ symlinks → qstack/skills/qstack-<name>
 ~/.agents/skills/qstack-<name> ┘
 ```
 
-The `qstack-` prefix is deliberate: it keeps these distinct from the vendored
-stacks sharing those directories, so a `gstack-upgrade` can never clobber them.
+**A skill's directory name is its name** — it matches the `name:` in its
+frontmatter, which is what the agent invokes. Nothing derives or appends a
+prefix, so there is one place to rename a skill.
+
+The `qstack-` prefix is deliberate. The ecosystem convention is to namespace by
+`owner/repo` and leave names bare (Anthropic ships `frontend-design`, not
+`anthropic-frontend-design`), but these directories are shared with vendored
+stacks — the prefix is what stops a `gstack-upgrade` from clobbering them. A
+worthwhile deviation.
 
 `template/v1` is vendored, not authored here — its component reference and house
-rules are in [`plan-to-html/template/v1/README.md`](plan-to-html/template/v1/README.md).
-`plan-to-html` copies it into the target repo rather than linking to it, so a
-rendered plan keeps working on a machine that has never heard of qstack.
+rules are in
+[`skills/qstack-plan-to-html/template/v1/README.md`](skills/qstack-plan-to-html/template/v1/README.md).
+The skill copies it into the target repo rather than linking to it, so a rendered
+plan keeps working on a machine that has never heard of qstack.
 
 ### Local changes to the vendored template
 
@@ -87,14 +106,15 @@ does not have these. Port them across before treating either copy as canonical.
 ## Adding a skill
 
 ```bash
-mkdir -p <name>
-$EDITOR <name>/SKILL.md    # frontmatter: name: qstack-<name>
-./install                  # picks it up automatically
+mkdir -p skills/qstack-<name>
+$EDITOR skills/qstack-<name>/SKILL.md    # frontmatter: name: qstack-<name>
+./install                                # picks it up automatically
 ```
 
-Any top-level directory holding a `SKILL.md` is a skill — the installer finds it
-with no list to maintain. Frontmatter `name:` must be `qstack-<name>`; that is
-what the agent invokes.
+Any directory under `skills/` holding a `SKILL.md` is a skill — the installer
+finds it with no list to maintain. Keep the directory name and the frontmatter
+`name:` identical; skills.sh requires `name` and `description`, lowercase with
+hyphens.
 
 ## Conventions these skills assume
 

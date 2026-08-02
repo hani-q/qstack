@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PREFIX="qstack"
+SKILLS_DIR="$REPO/skills"
 
 # Harness skill directories. A harness is installed to only if its parent
 # directory already exists — we never create a config dir for a tool that is
@@ -39,15 +39,21 @@ for arg in "$@"; do
   esac
 done
 
-# Every top-level directory holding a SKILL.md is a skill.
+# Every directory under skills/ holding a SKILL.md is a skill. This is the
+# layout skills.sh discovers (skills/<name>/SKILL.md), so the same tree works
+# for `./install` and for `npx skills add hani-q/qstack`.
+#
+# A skill's directory name IS its name — it matches the SKILL.md frontmatter
+# `name:`, which is what the agent invokes. The qstack- prefix lives in both,
+# so nothing here derives or appends it.
 skills=()
-for dir in "$REPO"/*/; do
+for dir in "$SKILLS_DIR"/*/; do
   [ -f "${dir}SKILL.md" ] || continue
   skills+=("$(basename "$dir")")
 done
 
 if [ ${#skills[@]} -eq 0 ]; then
-  echo "qstack: no skills found in $REPO" >&2
+  echo "qstack: no skills found in $SKILLS_DIR" >&2
   exit 1
 fi
 
@@ -72,7 +78,7 @@ for entry in "${HARNESSES[@]}"; do
   [ -d "$dest" ] || run mkdir -p "$dest"
 
   for skill in "${skills[@]}"; do
-    target="$dest/$PREFIX-$skill"
+    target="$dest/$skill"
 
     # Only ever remove our own entries, and only when they are a link we made
     # or a copy we made. A real directory that is not ours is left alone.
@@ -82,21 +88,21 @@ for entry in "${HARNESSES[@]}"; do
       if [ -f "$target/.qstack-installed" ]; then
         run rm -rf "$target"
       else
-        echo "      skip $PREFIX-$skill — exists and was not installed by qstack"
+        echo "      skip $skill — exists and was not installed by qstack"
         continue
       fi
     fi
 
     case "$MODE" in
-      uninstall) echo "      removed $PREFIX-$skill" ;;
+      uninstall) echo "      removed $skill" ;;
       link)
-        run ln -s "$REPO/$skill" "$target"
-        echo "      linked  $PREFIX-$skill"
+        run ln -s "$SKILLS_DIR/$skill" "$target"
+        echo "      linked  $skill"
         ;;
       copy)
-        run cp -R "$REPO/$skill" "$target"
+        run cp -R "$SKILLS_DIR/$skill" "$target"
         run touch "$target/.qstack-installed"
-        echo "      copied  $PREFIX-$skill"
+        echo "      copied  $skill"
         ;;
     esac
   done

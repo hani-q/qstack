@@ -67,15 +67,24 @@ sentence they have to read twice.
 
 ## Setup — copy the template, don't reference this skill
 
-The template lives at `template/v1/` inside this skill. **Copy it into the
-target repo**, so the plan survives without the skill installed:
+The template lives at `template/v1/` **next to this SKILL.md**. Resolve it
+relative to wherever you just read this file from — never a hardcoded path, since
+this skill installs into any of ~70 agent directories and may be a symlink.
+
+**Copy it into the target repo**, so the plan survives without the skill installed:
 
 ```bash
+# Resolve the skill's own directory, following a symlink if there is one.
+SKILL_DIR=$(dirname "$(readlink -f <path-of-this-SKILL.md>)")
+
 mkdir -p <plans-root>/template
-cp -R ~/.claude/skills/qstack/plan-to-html/template/v1 <plans-root>/template/v1
+cp -R "$SKILL_DIR/template/v1" <plans-root>/template/v1
 mkdir -p <plans-root>/<slug>
 cp <plans-root>/template/v1/plan-template.html <plans-root>/<slug>/<slug>-plan.html
 ```
+
+macOS `readlink` has no `-f` before coreutils 12 — if it fails, fall back to
+`cd "$(dirname <path>)" && pwd -P`.
 
 If `<plans-root>/template/v1` already exists, **do not overwrite it** — the repo
 may have a newer revision. Diff and report instead.
