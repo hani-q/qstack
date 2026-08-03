@@ -51,6 +51,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 ## qstack
 
 - Use `/qstack-plan-to-html` to turn completed plans into reviewable HTML.
+- Use `/qstack-ask-plan-open-questions [plan-path]` to resolve open decisions in a Markdown draft or authoritative HTML plan.
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and require independent review.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and independent review.
 - Use `/qstack-plan-close` after planned work ships.

@@ -6,7 +6,8 @@ description: >
   plan into an HLD half a product manager or founder can read end to end, and an
   LLD half an execution agent can orchestrate from. Adds inline SVG flow diagrams
   and, where the concept has rules a reader can poke at, a dependency-free JS
-  playground that models it.
+  playground that models it. After rendering, automatically resolves material
+  open questions with the user and writes the answers into the authoritative HTML.
   Use when asked to "turn this plan into HTML", "make an HTML plan", "render the
   plan", "plan to html", or after finishing a plan-mode markdown document.
 license: MIT
@@ -322,10 +323,38 @@ Check, and say which you checked:
   if the plan hard-codes widths).
 - No network requests — fonts and assets are all relative.
 
+## Resolve open questions in the authoritative HTML
+
+After the initial HTML is written and passes the checks above, run
+`/qstack-ask-plan-open-questions` against the exact new
+`qstack/compound_engineering/plans/<slug>/plan.html` path. This is a mandatory
+post-render phase. Skip it only when the user's current request directly says
+`skip open questions`, `do not ask open questions`, or includes
+`--no-open-questions`. Requests such as `just convert the plan`, `HTML only`, or
+`do it quickly` do not opt out. The HTML already exists before any question is
+asked and is authoritative from this point forward; do not write the answers
+back to the Markdown source.
+
+Resolve the sibling skill relative to this skill's installed directory, read
+its complete `SKILL.md`, and follow it exactly. If it is unavailable, do not
+silently skip the phase: report that the HTML was created but the conversion
+workflow is incomplete.
+
+The question skill asks one material decision at a time and writes every answer
+directly into the HTML before continuing. If it finds no material open
+questions, continue without ceremony. If the user leaves a blocking question
+unanswered, keep it marked `open`, keep the document status honest, and do not
+claim that the plan is fully resolved.
+
+Once the question skill returns, repeat the complete HTML verification above.
+Its edits can affect clauses, diagrams, phases, the release matrix, print
+layout, and sheet status. The post-question verification is the one reported to
+the user.
+
 ## After conversion — the accretion pass
 
-Once the document is written and verified, stop and put this question to
-yourself, in full:
+Once the post-render question pass and final verification are complete, stop
+and put this question to yourself, in full:
 
 > **What's the single smartest and most radically innovative and accretive and
 > useful and compelling addition you could make to the plan at this point?**
@@ -354,7 +383,8 @@ underneath, clearly marked as your own suggestion, for the user to take or leave
 Lead with the conversion: the path, local URL, serving command, sheet count,
 which sheets are HLD vs LLD, what diagrams were drawn, whether a playground was
 built (and if not, why not), which concepts got ELI10 asides, and anything from
-the markdown you could not verify. Say the plan has been converted.
+the markdown you could not verify. Include how many open questions were
+resolved and how many remain. Say the plan has been converted.
 
 Then, under a clear break — *"For your consideration"* — give the one addition
 from the accretion pass. Keep the two apart: the user asked for a conversion and

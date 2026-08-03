@@ -10,15 +10,17 @@ clobber my own work.
 | Skill | Purpose |
 | --- | --- |
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
+| [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
 | [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
 | [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Serve a repository's QStack plan collection on a local HTTP address. |
 | [`qstack-unyap`](skills/qstack-unyap/) | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
 
-The plan lifecycle starts with `plan-to-html`, runs through either execution
-loop, and ends with `plan-close`, when what was learned needs to outlive the
-session.
+The plan lifecycle starts with `plan-to-html`, which automatically runs
+`ask-plan-open-questions` against the new authoritative HTML. It then runs
+through either execution loop and ends with `plan-close`, when what was learned
+needs to outlive the session.
 
 ## Install
 
@@ -101,6 +103,7 @@ there is no second copy to drift.
 qstack/                              ← this repo, anywhere on disk
 ├── install
 └── skills/                          ← the layout skills.sh discovers
+    ├── qstack-ask-plan-open-questions/SKILL.md
     ├── qstack-plan-close/SKILL.md
     ├── qstack-loop-no-nonsense/SKILL.md
     ├── qstack-loop-trequartista/SKILL.md
@@ -161,9 +164,11 @@ hyphens.
 ## Conventions these skills assume
 
 **Compound engineering.** The renderer creates
-`qstack/compound_engineering/plans/<feature>/plan.html`, frozen once work
-starts. An execution loop maintains `execution.md` during the work, and
-`/qstack-plan-close` adds `outcome.md` afterward.
+`qstack/compound_engineering/plans/<feature>/plan.html`, then asks and records
+open decisions directly in that authoritative HTML. The Markdown input is not
+maintained. The HTML freezes once work starts. An execution loop maintains
+`execution.md` during the work, and `/qstack-plan-close` adds `outcome.md`
+afterward.
 
 The point is the promotion step. `CLAUDE.md` holds only rules an agent would
 **break something** without; everything else stays in the plan folder, loaded on
