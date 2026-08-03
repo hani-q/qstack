@@ -1,5 +1,7 @@
 # qstack
 
+[![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
+
 Personal skill stack — skills I maintain myself, kept separate from vendored
 stacks like [gstack](https://github.com/garrytan/gstack) and
 [greptile](https://github.com/greptileai/skills) so upgrades to those never
@@ -38,11 +40,22 @@ Print the installed release and exact source revision with:
 ./install --version
 ```
 
-Or, once this repo is public, via the [skills.sh](https://skills.sh) CLI, which
-knows ~70 agents:
+Or via the [skills.sh](https://skills.sh) CLI, which supports more than 70 agents:
 
 ```bash
 npx skills add hani-q/qstack
+```
+
+List the available skills without installing them:
+
+```bash
+npx skills add hani-q/qstack --list
+```
+
+Install only one skill with `--skill`, for example:
+
+```bash
+npx skills add hani-q/qstack --skill qstack-plan-to-html
 ```
 
 `./install` links every skill into each harness it finds on the machine, and
@@ -56,6 +69,11 @@ skips the ones that are not there:
 
 Those paths match the ones the skills.sh CLI uses, so the two installers agree
 and neither surprises the other.
+
+The plan execution loops require an agent host that can launch a fresh,
+independent review agent. They stop before claiming completion when the host
+does not provide that capability. The plan renderer and local plan server also
+require Bash and Python 3.
 
 | Flag | Effect |
 | --- | --- |
