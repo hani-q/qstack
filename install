@@ -54,7 +54,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and require independent review.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and independent review.
 - Use `/qstack-plan-close` after planned work ships.
-- Use `/qstack-serve-plans [port]` to serve the current repository plan collection locally.
+- Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
 <!-- qstack:instructions:end -->'
 
