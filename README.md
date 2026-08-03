@@ -88,7 +88,9 @@ Conventional Commit messages so the release level is derived automatically:
 
 Release Please maintains a release pull request containing `version.txt` and
 `CHANGELOG.md`. Merging that pull request creates the matching `vX.Y.Z` tag and
-GitHub Release. Do not update release numbers manually.
+GitHub Release. Because QStack squash-merges pull requests, the pull request
+title must use Conventional Commit syntax; a GitHub Actions check rejects titles
+that Release Please cannot parse. Do not update release numbers manually.
 
 ## Layout
 

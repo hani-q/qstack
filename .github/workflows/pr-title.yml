@@ -1,0 +1,28 @@
+name: PR title
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|chore|refactor|perf|test|ci|build|revert)(\([[:alnum:]_.\/-]+\))?!?: .+'
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "PR title must use Conventional Commit syntax."
+            echo "Examples: feat: add a skill, fix(installer): repair links, feat!: change a public contract"
+            exit 1
+          fi

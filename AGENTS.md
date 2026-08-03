@@ -22,10 +22,11 @@
 - Choose designs that meet present needs without creating known architectural
   dead ends. Do not build unused future capabilities.
 
-- Use Conventional Commit prefixes for commits: `fix:` for patches, `feat:`
-  for minor releases, and `!` or a `BREAKING CHANGE:` footer for major releases.
-  Use non-releasing prefixes such as `docs:`, `test:`, or `chore:` when no QStack
-  release is warranted.
+- Use Conventional Commit prefixes for commits and pull request titles: `fix:`
+  for patches, `feat:` for minor releases, and `!` or a `BREAKING CHANGE:` footer
+  for major releases. QStack squash-merges pull requests, so Release Please reads
+  the pull request title as the resulting commit subject. Use non-releasing
+  prefixes such as `docs:`, `test:`, or `chore:` when no release is warranted.
 
 - Do not edit `version.txt`, `.release-please-manifest.json`, or generated
   changelog entries manually. Release Please owns release versioning.
