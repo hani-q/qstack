@@ -328,9 +328,12 @@ Check, and say which you checked:
 After the initial HTML is written and passes the checks above, run
 `/qstack-ask-plan-open-questions` against the exact new
 `qstack/compound_engineering/plans/<slug>/plan.html` path. This is a mandatory
-post-render phase unless the user explicitly opts out. The HTML already exists
-before any question is asked and is authoritative from this point forward; do
-not write the answers back to the Markdown source.
+post-render phase. Skip it only when the user's current request directly says
+`skip open questions`, `do not ask open questions`, or includes
+`--no-open-questions`. Requests such as `just convert the plan`, `HTML only`, or
+`do it quickly` do not opt out. The HTML already exists before any question is
+asked and is authoritative from this point forward; do not write the answers
+back to the Markdown source.
 
 Resolve the sibling skill relative to this skill's installed directory, read
 its complete `SKILL.md`, and follow it exactly. If it is unavailable, do not
