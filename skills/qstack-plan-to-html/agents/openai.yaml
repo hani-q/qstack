@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Plan to HTML"
+  short_description: "Render a reviewable two-part HTML plan"
+  default_prompt: "Use $qstack-plan-to-html to turn the current Markdown plan into a reviewable HTML plan."
+policy:
+  allow_implicit_invocation: false
