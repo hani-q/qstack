@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Ask Plan Open Questions"
+  short_description: "Resolve open plan decisions in plain language"
+  default_prompt: "Use $qstack-ask-plan-open-questions to resolve the current plan’s open questions and update its authoritative artifact."
+policy:
+  allow_implicit_invocation: false
