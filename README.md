@@ -30,6 +30,12 @@ cd ~/work/code/qstack && ./install
 The installer also maintains a small `## qstack` routing section in the user-wide
 Claude Code and Codex instruction files. Restart your agent after installation.
 
+Print the installed release and exact source revision with:
+
+```bash
+./install --version
+```
+
 Or, once this repo is public, via the [skills.sh](https://skills.sh) CLI, which
 knows ~70 agents:
 
@@ -55,6 +61,7 @@ and neither surprises the other.
 | `--copy` | Copy instead, for a harness that will not follow a link, or a machine where this checkout is temporary. Needs a re-run after every pull. |
 | `--dry-run` | Print what would happen, change nothing. |
 | `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
+| `--version` | Print the release version and exact Git revision. |
 
 Because the default install creates user-global symlinks, it must be run from
 the repository's primary Git worktree. The installer refuses to link from a
@@ -69,6 +76,19 @@ so uninstall can still identify them if that checkout later moves or disappears
 without trusting a user-replaced link.
 The instruction sections use HTML comment markers; re-running replaces only the
 marked block and preserves every other line in the file.
+
+## Releases
+
+QStack follows Semantic Versioning and uses Release Please on `main`. Write
+Conventional Commit messages so the release level is derived automatically:
+
+- `fix:` creates a patch release.
+- `feat:` creates a minor release.
+- `feat!:` or a `BREAKING CHANGE:` footer creates a major release.
+
+Release Please maintains a release pull request containing `version.txt` and
+`CHANGELOG.md`. Merging that pull request creates the matching `vX.Y.Z` tag and
+GitHub Release. Do not update release numbers manually.
 
 ## Layout
 
@@ -162,5 +182,8 @@ The renderer also installs `qstack/scripts/serve.sh`. During execution and
 close-out, `execution.md` and `outcome.md` join `plan.html` in the feature
 folder.
 
-Run `./qstack/scripts/serve.sh` or `/qstack-serve-plans` to serve
-`qstack/compound_engineering/` at `http://127.0.0.1:8000`.
+Run `./qstack/scripts/serve.sh [port] [bind-address]` or
+`/qstack-serve-plans [address] [port]` to serve
+`qstack/compound_engineering/`. The skill asks for any missing address and port
+before starting; use `127.0.0.1` for local-only access or explicitly choose
+`0.0.0.0` to listen on every interface.
