@@ -303,14 +303,15 @@ Rules:
 Serve the complete `qstack/compound_engineering` tree with one command:
 
 ```bash
-./qstack/scripts/serve.sh          # defaults to http://127.0.0.1:8000
-./qstack/scripts/serve.sh 4173     # optional custom port
+./qstack/scripts/serve.sh                       # 127.0.0.1:8000
+./qstack/scripts/serve.sh 4173 127.0.0.1        # custom port and bind address
 ```
 
 Then open
 `http://127.0.0.1:<port>/plans/<slug>/plan.html`. The script uses
 `python3 -m http.server`; Bash itself has no HTTP server. The user can invoke
-`/qstack-serve-plans [port]` instead of running the script directly.
+`/qstack-serve-plans [address] [port]` instead of running the script directly;
+the skill asks for either value that was not supplied.
 
 Check, and say which you checked:
 
