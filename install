@@ -54,6 +54,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-ask-plan-open-questions [plan-path]` to resolve open decisions in a Markdown draft or authoritative HTML plan.
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and require independent review.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and independent review.
+- Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
