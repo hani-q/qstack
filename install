@@ -367,6 +367,39 @@ install_optional_collection() {
   "$@"
 }
 
+HUMAN_REVIEW_REPO=https://github.com/petergyang/human-review.git
+HUMAN_REVIEW_TAG=v0.5.0   # the commit below is this tag, kept for reference
+HUMAN_REVIEW_COMMIT=95df2fb2925e8e64e1aea6cbedf0b87856e4b1eb
+
+install_human_review() {
+  local tmp rc head
+  tmp=$(mktemp -d) || return 1
+
+  # Fetch the repository ourselves and check out the reviewed commit, so what
+  # runs is bound to that commit. Verifying a tag and then letting npx resolve
+  # it again would resolve twice, and only the second one decides what runs.
+  if ! git clone -q "$HUMAN_REVIEW_REPO" "$tmp" 2>/dev/null \
+     || ! git -C "$tmp" checkout -q "$HUMAN_REVIEW_COMMIT" 2>/dev/null; then
+    echo "qstack: could not fetch human-review at $HUMAN_REVIEW_COMMIT" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
+
+  head=$(git -C "$tmp" rev-parse HEAD 2>/dev/null)
+  if [ "$head" != "$HUMAN_REVIEW_COMMIT" ]; then
+    echo "qstack: refusing to install human-review." >&2
+    echo "  expected $HUMAN_REVIEW_COMMIT" >&2
+    echo "  checked out ${head:-nothing}" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
+
+  ( cd "$tmp" && npm install --omit=dev --silent && node src/cli.js setup --global )
+  rc=$?
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # One collection failing must not cancel the ones after it, but the installer
 # still exits non-zero so a scripted run can see that something was missed.
 install_optional_collections() {
@@ -375,13 +408,15 @@ install_optional_collections() {
   install_optional_collection "$MATT_POCOCK_SKILLS" "Matt Pocock's skills" \
     npx skills@latest add mattpocock/skills --global || failed=1
 
-  # Pinned to the source tag, not the npm package. The published release only
-  # installs a Claude Code skill; Codex and ~/.agents support exists in the
-  # tagged source and has never been published. Pinned to a commit, not a tag:
-  # a tag can be moved to different content, and this runs as an installer.
-  # 95df2fb is v0.5.0.
+  # From the source tag, not the npm package: the published release only installs
+  # a Claude Code skill, while Codex and ~/.agents support exists in the tagged
+  # source and has never been published.
+  #
+  # npx cannot install a git dependency by commit SHA — it fails with "GitFetcher
+  # requires an Arborist constructor" — so the checkout is done here instead,
+  # binding what runs to the reviewed commit.
   install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
-    npx -y "github:petergyang/human-review#95df2fb2925e8e64e1aea6cbedf0b87856e4b1eb" setup --global || failed=1
+    install_human_review || failed=1
 
   return "$failed"
 }

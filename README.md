@@ -105,13 +105,14 @@ so a bare Enter takes the recommended set:
 Both need `npx`. Each is installed by running its own upstream installer, so
 both stay owned upstream: QStack does not update or uninstall them.
 
-`human-review` is installed from its source at commit `95df2fb` (`v0.5.0`)
-rather than from npm.
+`human-review` is installed from its source tag `v0.5.0` rather than from npm.
 Its published release only installs a Claude Code skill; Codex and `~/.agents`
 support exists in the tagged source and has never been published, so an install
-from npm silently leaves those two harnesses without it. It is pinned to a
-commit rather than a tag or branch: a tag can be moved to different content,
-and this runs as an installer. Note that its installer writes into `~/.claude`, `~/.codex` and
+from npm silently leaves those two harnesses without it. npx cannot install a
+git dependency by commit SHA, so QStack clones that repository itself, checks
+out the reviewed commit, verifies `HEAD` matches, and runs the installer from
+that checkout. What runs is bound to the commit rather than to a tag that could
+be moved between being checked and being used. Note that its installer writes into `~/.claude`, `~/.codex` and
 `~/.agents` whether or not those harnesses already exist — unlike QStack's own
 install, which only touches directories that are already there — and that the
 skill it writes tells agents to run `npx -y human-review`, which resolves to
