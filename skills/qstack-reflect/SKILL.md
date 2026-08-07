@@ -82,7 +82,9 @@ which expands differently under bash and zsh — then resolve and deduplicate:
 norm_origin() {
   printf '%s\n' "$1" | tr 'A-Z' 'a-z' \
     | sed -e 's#^ssh://##' -e 's#^git://##' -e 's#^https\{0,1\}://##' \
-          -e 's#^[^@/]*@##' -e 's#:#/#' -e 's#\.git$##' -e 's#/$##'
+          -e 's#^[^@/]*@##' \
+          -e 's#^\([^/:]*\):[0-9][0-9]*/#\1/#' \
+          -e 's#:#/#' -e 's#\.git$##' -e 's#/$##'
 }
 
 origin=$(norm_origin "$(git -C <repo-root> remote get-url origin)")
