@@ -367,6 +367,22 @@ install_optional_collection() {
   "$@"
 }
 
+HUMAN_REVIEW_REPO=https://github.com/petergyang/human-review.git
+HUMAN_REVIEW_TAG=v0.5.0
+HUMAN_REVIEW_COMMIT=95df2fb2925e8e64e1aea6cbedf0b87856e4b1eb
+
+install_human_review() {
+  local resolved
+  resolved=$(git ls-remote "$HUMAN_REVIEW_REPO" "refs/tags/$HUMAN_REVIEW_TAG" 2>/dev/null | cut -f1)
+  if [ "$resolved" != "$HUMAN_REVIEW_COMMIT" ]; then
+    echo "qstack: refusing to install human-review." >&2
+    echo "  $HUMAN_REVIEW_TAG should be $HUMAN_REVIEW_COMMIT" >&2
+    echo "  it now resolves to ${resolved:-nothing}" >&2
+    return 1
+  fi
+  npx -y "github:petergyang/human-review#$HUMAN_REVIEW_TAG" setup --global
+}
+
 # One collection failing must not cancel the ones after it, but the installer
 # still exits non-zero so a scripted run can see that something was missed.
 install_optional_collections() {
@@ -375,13 +391,16 @@ install_optional_collections() {
   install_optional_collection "$MATT_POCOCK_SKILLS" "Matt Pocock's skills" \
     npx skills@latest add mattpocock/skills --global || failed=1
 
-  # Pinned to the source tag, not the npm package. The published release only
-  # installs a Claude Code skill; Codex and ~/.agents support exists in the
-  # tagged source and has never been published. Pinned to a commit, not a tag:
-  # a tag can be moved to different content, and this runs as an installer.
-  # 95df2fb is v0.5.0.
+  # From the source tag, not the npm package: the published release only installs
+  # a Claude Code skill, while Codex and ~/.agents support exists in the tagged
+  # source and has never been published.
+  #
+  # npx cannot install a git dependency by commit SHA — it fails with "GitFetcher
+  # requires an Arborist constructor" — so the tag is the only usable ref. A tag
+  # can be moved, so verify it still points at the reviewed commit and refuse
+  # rather than run whatever it points at now.
   install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
-    npx -y "github:petergyang/human-review#95df2fb2925e8e64e1aea6cbedf0b87856e4b1eb" setup --global || failed=1
+    install_human_review || failed=1
 
   return "$failed"
 }
