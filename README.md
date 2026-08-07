@@ -18,6 +18,7 @@ clobber my own work.
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Serve a repository's QStack plan collection on a local HTTP address. |
+| [`qstack-reflect`](skills/qstack-reflect/) | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. |
 | [`qstack-unyap`](skills/qstack-unyap/) | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
 
 The plan lifecycle starts with `plan-to-html`, which automatically runs
@@ -82,8 +83,35 @@ require Bash and Python 3.
 | *(none)* | Symlink each skill in. `git pull` then updates every harness at once. |
 | `--copy` | Copy instead, for a harness that will not follow a link, or a machine where this checkout is temporary. Needs a re-run after every pull. |
 | `--dry-run` | Print what would happen, change nothing. |
+| `--with-matt-pocock` | Install [Matt Pocock's skills](https://github.com/mattpocock/skills) globally after QStack, without asking. The upstream installer still lets you select skills and agents. |
+| `--without-matt-pocock` | Skip the optional Matt Pocock skills prompt. |
+| `--with-human-review` | Install [human-review](https://github.com/petergyang/human-review) globally after QStack, without asking. |
+| `--without-human-review` | Skip the optional human-review prompt. |
 | `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
 | `--version` | Print the release version and exact Git revision. |
+
+### Optional collections
+
+QStack is not only its own skills; it is also a shelf of tools worth having next
+to them. An interactive install offers each one separately and defaults to yes,
+so a bare Enter takes the recommended set:
+
+| Collection | What it adds |
+| --- | --- |
+| [Matt Pocock's skills](https://github.com/mattpocock/skills) | A broad general-purpose skill library, installed through the `skills` CLI. |
+| [human-review](https://github.com/petergyang/human-review) | Opens an HTML or Markdown file, or a localhost page, in the browser so you can edit the text and comment on specific parts, then sends the whole batch back to the agent. It closes the loop `/qstack-plan-to-html` opens: a rendered plan becomes something you redline directly instead of describing in chat. Needs Node 20+. |
+
+Both need `npx`. Each is installed by running its own upstream installer, so
+both stay owned upstream: QStack does not update or uninstall them, and
+`human-review`'s installer writes its skill into `~/.claude`, `~/.codex` and
+`~/.agents` whether or not those harnesses already exist — unlike QStack's own
+install, which only touches harness directories that are already there.
+
+In the default ask mode, a non-interactive invocation installs neither, so a
+piped or scripted install never pulls third-party code on a silent default; pass
+`--with-…` to opt in explicitly. Dry-run and uninstall invocations never prompt.
+If one optional install fails, the other is still attempted and the installer
+exits non-zero.
 
 Because the default install creates user-global symlinks, it must be run from
 the repository's primary Git worktree. The installer refuses to link from a
@@ -129,6 +157,7 @@ qstack/                              ← this repo, anywhere on disk
     ├── qstack-loop-no-nonsense/SKILL.md
     ├── qstack-loop-trequartista/SKILL.md
     ├── qstack-serve-plans/SKILL.md
+    ├── qstack-reflect/SKILL.md
     ├── qstack-unyap/SKILL.md
     └── qstack-plan-to-html/
         ├── SKILL.md

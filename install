@@ -8,6 +8,10 @@
 #                          is not permanent, or a harness that follows no links)
 #   ./install --uninstall  remove what this script installed
 #   ./install --dry-run    print what would happen, change nothing
+#   ./install --with-matt-pocock      install Matt Pocock's skills too
+#   ./install --without-matt-pocock   skip that optional installation
+#   ./install --with-human-review     install human-review too
+#   ./install --without-human-review  skip that optional installation
 #   ./install --version    print the release version and exact Git revision
 #
 # Link installs must run from the primary Git worktree. Global links into a
@@ -57,20 +61,27 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
+- Use `/qstack-reflect` to report how a project is actually being worked, from counts only.
 - Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
 <!-- qstack:instructions:end -->'
 
 MODE=link
 DRY=0
+MATT_POCOCK_SKILLS=ask
+HUMAN_REVIEW_SKILL=ask
 
 for arg in "$@"; do
   case "$arg" in
-    --copy)      MODE=copy ;;
-    --uninstall) MODE=uninstall ;;
-    --dry-run)   DRY=1 ;;
-    --version)   echo "qstack $QSTACK_BUILD"; exit 0 ;;
-    -h|--help)   sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *)           echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
+    --copy)                  MODE=copy ;;
+    --uninstall)             MODE=uninstall ;;
+    --dry-run)               DRY=1 ;;
+    --with-matt-pocock)      MATT_POCOCK_SKILLS=yes ;;
+    --without-matt-pocock)   MATT_POCOCK_SKILLS=no ;;
+    --with-human-review)     HUMAN_REVIEW_SKILL=yes ;;
+    --without-human-review)  HUMAN_REVIEW_SKILL=no ;;
+    --version)               echo "qstack $QSTACK_BUILD"; exit 0 ;;
+    -h|--help)               sed -n '3,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *)                       echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
   esac
 done
 
@@ -301,6 +312,73 @@ remove_instruction_file_block() {
   echo "      removed qstack instructions ($label)"
 }
 
+# qstack is also a curated shelf: each optional collection below is offered on
+# its own, then handed to that project's own installer. Those projects keep
+# owning what they write, so qstack never updates or uninstalls them.
+#
+#   install_optional_collection <choice> <label> <command...>
+#
+# <choice> is yes, no, or ask. Asking defaults to yes, so a bare Enter takes the
+# recommended set; a non-interactive run in ask mode installs nothing, because a
+# piped or scripted install must not pull third-party code on a silent default.
+install_optional_collection() {
+  local choice="$1" label="$2" answer
+  shift 2
+
+  [ "$MODE" != uninstall ] || return 0
+  [ "$choice" != no ] || return 0
+
+  if [ "$DRY" -eq 1 ]; then
+    if [ "$choice" = yes ]; then
+      echo "Would install $label."
+    elif [ -t 0 ] && [ -t 1 ]; then
+      echo "Would ask whether to install $label."
+    else
+      echo "Would skip $label (non-interactive input)."
+    fi
+    return 0
+  fi
+
+  if [ "$choice" = ask ]; then
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+      echo "Skipping $label (non-interactive input)."
+      return 0
+    fi
+
+    printf '\nInstall %s? [Y/n] ' "$label"
+    IFS= read -r answer || answer=n
+    case "$answer" in
+      n|N|no|NO)
+        echo "Skipping $label."
+        return 0
+        ;;
+    esac
+  fi
+
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "qstack: npx is required to install $label" >&2
+    return 1
+  fi
+
+  echo
+  echo "Installing $label..."
+  "$@"
+}
+
+# One collection failing must not cancel the ones after it, but the installer
+# still exits non-zero so a scripted run can see that something was missed.
+install_optional_collections() {
+  local failed=0
+
+  install_optional_collection "$MATT_POCOCK_SKILLS" "Matt Pocock's skills" \
+    npx skills@latest add mattpocock/skills --global || failed=1
+
+  install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
+    npx -y human-review@latest setup --global || failed=1
+
+  return "$failed"
+}
+
 echo "qstack  $QSTACK_BUILD  $REPO"
 echo "skills  ${skills[*]}"
 [ "$DRY" -eq 1 ] && echo "        (dry run — nothing will change)"
@@ -387,3 +465,5 @@ case "$MODE" in
   uninstall) echo "Uninstalled from $installed harness(es)." ;;
   *)         echo "Installed into $installed harness(es). Restart the agent to pick up new skills." ;;
 esac
+
+install_optional_collections
