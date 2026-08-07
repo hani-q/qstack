@@ -12,6 +12,7 @@
 #   ./install --without-matt-pocock   skip that optional installation
 #   ./install --with-human-review     install human-review too
 #   ./install --without-human-review  skip that optional installation
+#   ./install --yes, -y    accept every optional collection without prompting
 #   ./install --version    print the release version and exact Git revision
 #
 # Link installs must run from the primary Git worktree. Global links into a
@@ -79,8 +80,9 @@ for arg in "$@"; do
     --without-matt-pocock)   MATT_POCOCK_SKILLS=no ;;
     --with-human-review)     HUMAN_REVIEW_SKILL=yes ;;
     --without-human-review)  HUMAN_REVIEW_SKILL=no ;;
+    -y|--yes)                MATT_POCOCK_SKILLS=yes; HUMAN_REVIEW_SKILL=yes ;;
     --version)               echo "qstack $QSTACK_BUILD"; exit 0 ;;
-    -h|--help)               sed -n '3,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)               sed -n '3,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)                       echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
   esac
 done
