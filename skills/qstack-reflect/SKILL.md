@@ -49,8 +49,12 @@ name this argument, rather than concluding the project has no plans.
    checkouts elsewhere, or using `git worktree`, will not match it. Keep every
    candidate whose `origin` remote matches this repository's and discard the
    rest, so the guess is verified rather than trusted, and report both numbers.
-3. Resolve every candidate to its physical path with `pwd -P` and deduplicate
-   on that. A friendly alias symlinked to a generated workspace name is one
+3. Detect aliases with `[ -L ]` on the entry itself, then resolve the rest to
+   their physical paths with `pwd -P` and deduplicate on those. Do not identify
+   an alias by comparing a logical path against a physical one: that compares
+   the whole ancestry, so a single symlinked parent — `/tmp` on macOS, a
+   symlinked home, a network mount — marks every entry an alias and empties the
+   workspace set. A friendly alias symlinked to a generated workspace name is one
    workspace, not two, and counting both invents duplication that is not there.
    Report aliases separately as aliases. Workspace managers and hand-made
    shortcuts both produce readable names pointing at generated ones, and a run
@@ -74,13 +78,23 @@ Enumerate with `find <project> -maxdepth 1 -mindepth 1` — not a shell glob,
 which expands differently under bash and zsh — then resolve and deduplicate:
 
 ```bash
+origin=$(git -C <repo-root> remote get-url origin)
 find <project-dir> -maxdepth 1 -mindepth 1 | while read -r w; do
+  [ -L "$w" ] && { echo "ALIAS|$(basename $w)|$(readlink "$w")"; continue; }
   real=$(cd "$w" 2>/dev/null && pwd -P) || continue
-  [ "$real" = "$(cd "$w" && pwd)" ] || { echo "ALIAS|$(basename $w)|$real"; continue; }
   b=$(git -C "$real" rev-parse --abbrev-ref HEAD 2>/dev/null) || { echo "BROKEN|$(basename $w)"; continue; }
+  [ "$(git -C "$real" remote get-url origin 2>/dev/null)" = "$origin" ] \
+    || { echo "FOREIGN|$(basename $w)"; continue; }
   echo "$b|$(basename $w)|$(git -C "$real" log -1 --format=%at)|$(git -C "$real" rev-list --count origin/main..HEAD 2>/dev/null)|$(git -C "$real" status --porcelain | wc -l)"
 done
 ```
+
+The origin check is what makes the directory convention a verified guess rather
+than a trusted one. Without it, any unrelated repository parked in the same
+parent directory is counted as a workspace of this project. Report the foreign
+count alongside the workspace count; a parent directory holding mostly other
+projects means the convention did not match and the topology findings are
+about a set the reader should see.
 
 Report: branches carrying more than one *distinct* workspace, workspaces with
 no unmerged commits, broken checkouts, and idle time. When two distinct
@@ -173,8 +187,13 @@ State the corpus size for a category before its finding. Below these, write
 - fewer than 3 workspaces — no topology findings
 - fewer than 3 months of commits — no momentum trajectory
 - fewer than 20 commits — no rework rate
-- fewer than 5 plans in a recognised layout, or zero with `outcome.md` — no
-  findings about plan-record completeness
+- fewer than 5 plans in a recognised layout — no findings about plan-record
+  completeness
+
+Zero plans carrying an outcome record is never a reason to refuse. Above the
+plan threshold it is the strongest finding the category has: a corpus of plans
+that never got closed out. Refusing there would suppress the very count that
+makes the finding, which is what every other rule here exists to prevent.
 
 Refusing is the correct outcome, not a failure. Report refusals as plainly as
 findings.
