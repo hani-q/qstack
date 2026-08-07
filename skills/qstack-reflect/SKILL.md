@@ -85,15 +85,46 @@ many commits touched the file, when it was last touched, and added/removed
 lines per commit.
 
 ```bash
-git log --follow --format='%h %ad' --date=short --numstat -- CLAUDE.md
+for instructions in CLAUDE.md AGENTS.md; do
+  [ -f "$instructions" ] || continue
+  echo "== $instructions"
+  git log --follow --format='%h %ad' --date=short --numstat -- "$instructions"
+done
 ```
 
 Report large single-commit deletions (a pruning event), regrowth after one, and
 staleness — the file untouched while commits continued is a finding, stated as
 the two counts side by side.
 
-**E. Plan records.** Under `qstack/compound_engineering/plans/`, count plans and
-how many carry `execution.md` and `outcome.md`.
+**E. Plan records.** Discover plan documents; never assume a location. Plans
+predate this skill and often sit outside any managed directory.
+
+```bash
+find . \( -name plan.html -o -name plan.md \) \
+  -not -path './.git/*' -not -path '*/node_modules/*'
+```
+
+Classify each hit by the directory holding it:
+
+- `qstack/compound_engineering/plans/` — current layout
+- `compound-engineering/plans/` — legacy layout, equally valid
+- anything else — unmanaged
+
+For plans in either managed layout, count how many carry `execution.md` and
+`outcome.md`. Do not apply that completeness check to unmanaged plans; they
+were never promised those files.
+
+Report three things: the count per location, any plan slug appearing in more
+than one location (duplicated or a half-finished migration), and the total of
+unmanaged plans. A repository with plan documents but no execution or outcome
+records is a finding in itself — the plan lifecycle is not being used — and it
+is a different finding from having no plans at all.
+
+Count `execution.md` and `outcome.md` wherever they sit, and say where. Never
+report zero outcomes while outcome files exist outside the managed layout. On
+the first project this ran against, both outcome records lived in an unmanaged
+directory while the managed copies of the same plans had none — the plan had
+been migrated and its outcome left behind.
 
 Do not attempt to detect rules restated in different words. It was tested
 against a 507-line instruction file and returned one match, which was a false
@@ -107,10 +138,17 @@ State the corpus size for a category before its finding. Below these, write
 - fewer than 3 workspaces — no topology findings
 - fewer than 3 months of commits — no momentum trajectory
 - fewer than 20 commits — no rework rate
-- fewer than 5 plans, or zero with `outcome.md` — no plan-record findings
+- fewer than 5 managed plans, or zero with `outcome.md` — no findings about
+  plan-record completeness
 
 Refusing is the correct outcome, not a failure. Report refusals as plainly as
 findings.
+
+A refusal withholds the finding, never the count. Always print what was
+discovered, including plans found outside a managed layout, before saying the
+evidence is too thin. A reader must never be able to mistake "not enough
+evidence for a trend" for "you have no plans" — that misreading is the exact
+failure this skill exists to avoid.
 
 ## Output
 
