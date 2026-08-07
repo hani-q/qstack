@@ -103,10 +103,19 @@ so a bare Enter takes the recommended set:
 | [human-review](https://github.com/petergyang/human-review) | Opens an HTML or Markdown file, or a localhost page, in the browser so you can edit the text and comment on specific parts, then sends the whole batch back to the agent. It closes the loop `/qstack-plan-to-html` opens: a rendered plan becomes something you redline directly instead of describing in chat. Needs Node 20+. |
 
 Both need `npx`. Each is installed by running its own upstream installer, so
-both stay owned upstream: QStack does not update or uninstall them, and
-`human-review`'s installer writes its skill into `~/.claude`, `~/.codex` and
+both stay owned upstream: QStack does not update or uninstall them.
+
+`human-review` is installed from its source at commit `95df2fb` (`v0.5.0`)
+rather than from npm.
+Its published release only installs a Claude Code skill; Codex and `~/.agents`
+support exists in the tagged source and has never been published, so an install
+from npm silently leaves those two harnesses without it. It is pinned to a
+commit rather than a tag or branch: a tag can be moved to different content,
+and this runs as an installer. Note that its installer writes into `~/.claude`, `~/.codex` and
 `~/.agents` whether or not those harnesses already exist — unlike QStack's own
-install, which only touches harness directories that are already there.
+install, which only touches directories that are already there — and that the
+skill it writes tells agents to run `npx -y human-review`, which resolves to
+that project's published npm release at the time of use.
 
 In the default ask mode, a non-interactive invocation installs neither, so a
 piped or scripted install never pulls third-party code on a silent default. Pass
