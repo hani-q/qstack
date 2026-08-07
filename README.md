@@ -109,9 +109,10 @@ both stay owned upstream: QStack does not update or uninstall them.
 Its published release only installs a Claude Code skill; Codex and `~/.agents`
 support exists in the tagged source and has never been published, so an install
 from npm silently leaves those two harnesses without it. npx cannot install a
-git dependency by commit SHA, so the tag is the only usable ref; because a tag
-can be moved, the installer checks that it still resolves to the reviewed
-commit and refuses rather than running whatever it points at now. Note that its installer writes into `~/.claude`, `~/.codex` and
+git dependency by commit SHA, so QStack clones that repository itself, checks
+out the reviewed commit, verifies `HEAD` matches, and runs the installer from
+that checkout. What runs is bound to the commit rather than to a tag that could
+be moved between being checked and being used. Note that its installer writes into `~/.claude`, `~/.codex` and
 `~/.agents` whether or not those harnesses already exist — unlike QStack's own
 install, which only touches directories that are already there — and that the
 skill it writes tells agents to run `npx -y human-review`, which resolves to
