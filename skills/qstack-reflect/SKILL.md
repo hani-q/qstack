@@ -80,11 +80,18 @@ which expands differently under bash and zsh — then resolve and deduplicate:
 ```bash
 # One repository has several spellings. Compare identity, not the raw string.
 norm_origin() {
-  printf '%s\n' "$1" | tr 'A-Z' 'a-z' \
-    | sed -e 's#^ssh://##' -e 's#^git://##' -e 's#^https\{0,1\}://##' \
-          -e 's#^[^@/]*@##' \
-          -e 's#^\([^/:]*\):[0-9][0-9]*/#\1/#' \
-          -e 's#:#/#' -e 's#\.git$##' -e 's#/$##'
+  local u
+  u=$(printf '%s' "$1" | tr 'A-Z' 'a-z')
+  case "$u" in
+    *://*)
+      # scheme://[user@]host[:port]/path — a colon here is a port.
+      u=$(printf '%s' "${u#*://}" \
+          | sed -e 's#^[^/]*@##' -e 's#^\([^/]*\):[0-9][0-9]*/#\1/#') ;;
+    *)
+      # [user@]host:path — the colon separates host from path, never a port.
+      u=$(printf '%s' "$u" | sed -e 's#^[^/]*@##' -e 's#:#/#') ;;
+  esac
+  printf '%s\n' "$u" | sed -e 's#\.git$##' -e 's#/*$##'
 }
 
 origin=$(norm_origin "$(git -C <repo-root> remote get-url origin)")
