@@ -94,12 +94,18 @@ norm_origin() {
   printf '%s\n' "$u" | sed -e 's#\.git$##' -e 's#/*$##'
 }
 
-origin=$(norm_origin "$(git -C <repo-root> remote get-url origin)")
+origin=$(norm_origin "$(git -C <repo-root> remote get-url origin 2>/dev/null)")
+# An empty identity matches nothing. Without an origin there is no way to tell a
+# sibling from a stranger, so say the set is unverified rather than compare
+# empty against empty and admit every neighbouring repository.
+[ -n "$origin" ] || { echo "UNVERIFIABLE|this repository has no origin remote"; }
+
 find <project-dir> -maxdepth 1 -mindepth 1 | while read -r w; do
   [ -L "$w" ] && { echo "ALIAS|$(basename $w)|$(readlink "$w")"; continue; }
   real=$(cd "$w" 2>/dev/null && pwd -P) || continue
   b=$(git -C "$real" rev-parse --abbrev-ref HEAD 2>/dev/null) || { echo "BROKEN|$(basename $w)"; continue; }
-  [ "$(norm_origin "$(git -C "$real" remote get-url origin 2>/dev/null)")" = "$origin" ] \
+  cand=$(norm_origin "$(git -C "$real" remote get-url origin 2>/dev/null)")
+  [ -n "$origin" ] && [ -n "$cand" ] && [ "$cand" = "$origin" ] \
     || { echo "FOREIGN|$(basename $w)"; continue; }
   echo "$b|$(basename $w)|$(git -C "$real" log -1 --format=%at)|$(git -C "$real" rev-list --count origin/main..HEAD 2>/dev/null)|$(git -C "$real" status --porcelain | wc -l)"
 done
@@ -112,7 +118,19 @@ identity rather than the raw remote string: `git@host:owner/repo.git`,
 `ssh://git@host/owner/repo.git` and `https://host/owner/repo` are one
 repository, and checkouts made over different protocols are common. Matching
 raw strings drops real workspaces, which is the same false negative in the
-other direction. Report the foreign
+other direction.
+
+Ports are deliberately discarded, including non-default ones. A self-hosted
+server reached over SSH on `:2222` and over HTTPS on `:443` is one repository,
+and that pairing is exactly where cross-protocol clones occur. Keeping the port
+would restore protocol-dependent matching for the users most likely to have
+one. The cost is a host that routes the same path to different repositories on
+different ports; that is rare enough, and visible enough to whoever configured
+it, to be the better trade.
+
+When a repository has no `origin` at all, no candidate can be verified against
+it. Report the workspace set as unverified and say so; never compare one empty
+identity against another, which would admit every neighbouring repository. Report the foreign
 count alongside the workspace count; a parent directory holding mostly other
 projects means the convention did not match and the topology findings are
 about a set the reader should see.
