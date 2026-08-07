@@ -18,7 +18,7 @@ clobber my own work.
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Serve a repository's QStack plan collection on a local HTTP address. |
-| [`qstack-reflect`](skills/qstack-reflect/) | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. |
+| [`qstack-reflect`](skills/qstack-reflect/) | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
 | [`qstack-unyap`](skills/qstack-unyap/) | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
 
 The plan lifecycle starts with `plan-to-html`, which automatically runs

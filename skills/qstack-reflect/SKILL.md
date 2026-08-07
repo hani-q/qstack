@@ -6,9 +6,10 @@ description: >
   churn, and plan-record completeness. Every finding cites a count the reader
   can reproduce, and any category without enough evidence is refused rather
   than padded. Reads across every sibling workspace of the same repository, not
-  just the current checkout. Use when invoked as /qstack-reflect, or when asked
-  how the work is going, what patterns show up across workspaces, or where
-  effort is being lost.
+  just the current checkout. Use when invoked as /qstack-reflect, optionally
+  with one or more plan directories such as /qstack-reflect docs/rfcs, or when
+  asked how the work is going, what patterns show up across workspaces, or
+  where effort is being lost.
 ---
 
 # /qstack-reflect
@@ -21,6 +22,21 @@ This is a mechanical evidence pass. Do not interpret motive, diagnose the
 reader, or write anything you cannot cite a number for. A finding is a count
 plus its location. If a category lacks evidence, say so and move on.
 
+## Arguments
+
+`/qstack-reflect [plan-dir ...]`
+
+Every argument is a directory holding plan documents, relative to the
+repository root or absolute. Supplied paths are authoritative: use exactly
+those and skip plan discovery entirely. This is the escape hatch for any
+project whose plans live somewhere this skill would not think to look — a
+`docs/` tree, an `rfcs/` directory, a path outside the repository.
+
+With no arguments, fall back to discovery (category E). Discovery is a
+convenience for projects using a known layout, not a claim to know where a
+given project keeps its plans. When it finds nothing, say where it looked and
+name this argument, rather than concluding the project has no plans.
+
 ## Scope
 
 1. Resolve the repository root with `git rev-parse --show-toplevel`. Outside
@@ -31,9 +47,9 @@ plus its location. If a category lacks evidence, say so and move on.
 3. Resolve every candidate to its physical path with `pwd -P` and deduplicate
    on that. A friendly alias symlinked to a generated workspace name is one
    workspace, not two, and counting both invents duplication that is not there.
-   Report aliases separately as aliases. This is not hypothetical: the first
-   project this was run against had five aliases among eleven entries, and
-   counting them as workspaces produced a confident, entirely false finding.
+   Report aliases separately as aliases. Workspace managers and hand-made
+   shortcuts both produce readable names pointing at generated ones, and a run
+   that skips this step reports confident, entirely false duplication.
 4. State the scope out loud before any finding: repository, how many distinct
    workspaces, how many aliases, and the commit span. A reader must know what
    was and was not read.
@@ -96,8 +112,9 @@ Report large single-commit deletions (a pruning event), regrowth after one, and
 staleness — the file untouched while commits continued is a finding, stated as
 the two counts side by side.
 
-**E. Plan records.** Discover plan documents; never assume a location. Plans
-predate this skill and often sit outside any managed directory.
+**E. Plan records.** When plan directories were given as arguments, use those
+and skip the rest of this section. Otherwise discover them, and treat the
+result as a guess rather than an inventory.
 
 ```bash
 find . \( -name plan.html -o -name plan.md \) \
@@ -108,23 +125,27 @@ Classify each hit by the directory holding it:
 
 - `qstack/compound_engineering/plans/` — current layout
 - `compound-engineering/plans/` — legacy layout, equally valid
-- anything else — unmanaged
+- anything else — unrecognised, which means unrecognised by this skill and
+  says nothing about whether the project considers it managed
 
-For plans in either managed layout, count how many carry `execution.md` and
-`outcome.md`. Do not apply that completeness check to unmanaged plans; they
-were never promised those files.
+Plan documents may be named anything. `plan.html` and `plan.md` are the two
+names qstack itself writes, so discovery finds those and misses every other
+convention. A project naming them `design.md` or `rfc-001.md` will look empty.
+That is the limit of the guess and must be stated in the report, alongside the
+argument that overrides it.
 
-Report three things: the count per location, any plan slug appearing in more
-than one location (duplicated or a half-finished migration), and the total of
-unmanaged plans. A repository with plan documents but no execution or outcome
-records is a finding in itself — the plan lifecycle is not being used — and it
-is a different finding from having no plans at all.
+For plans in a recognised layout, count how many carry `execution.md` and
+`outcome.md`. Do not apply that completeness check elsewhere; those plans were
+never promised those files.
+
+Report the count per location, any plan slug appearing in more than one
+location (duplicated, or a half-finished migration), and the total outside the
+recognised layouts. A project with plan documents but no execution or outcome
+records is a finding in itself, and a different finding from having no plans.
 
 Count `execution.md` and `outcome.md` wherever they sit, and say where. Never
-report zero outcomes while outcome files exist outside the managed layout. On
-the first project this ran against, both outcome records lived in an unmanaged
-directory while the managed copies of the same plans had none — the plan had
-been migrated and its outcome left behind.
+report zero outcomes while outcome files exist elsewhere in the tree —
+completeness records are routinely left behind when a plan moves.
 
 Do not attempt to detect rules restated in different words. It was tested
 against a 507-line instruction file and returned one match, which was a false
@@ -138,17 +159,20 @@ State the corpus size for a category before its finding. Below these, write
 - fewer than 3 workspaces — no topology findings
 - fewer than 3 months of commits — no momentum trajectory
 - fewer than 20 commits — no rework rate
-- fewer than 5 managed plans, or zero with `outcome.md` — no findings about
-  plan-record completeness
+- fewer than 5 plans in a recognised layout, or zero with `outcome.md` — no
+  findings about plan-record completeness
 
 Refusing is the correct outcome, not a failure. Report refusals as plainly as
 findings.
 
-A refusal withholds the finding, never the count. Always print what was
-discovered, including plans found outside a managed layout, before saying the
-evidence is too thin. A reader must never be able to mistake "not enough
-evidence for a trend" for "you have no plans" — that misreading is the exact
-failure this skill exists to avoid.
+A refusal withholds the finding, never the count. Always print what was found
+and where it was looked for before saying the evidence is too thin. A reader
+must never be able to mistake "not enough evidence for a trend" for "you have
+no plans" — that misreading is the exact failure this skill exists to avoid.
+
+When plan discovery returns nothing, that is a statement about this skill's
+guesses, not about the project. Say which directories and filenames were
+checked, and name the argument that overrides them.
 
 ## Output
 
