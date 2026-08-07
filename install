@@ -61,6 +61,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
+- Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
 - Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
 <!-- qstack:instructions:end -->'
 
