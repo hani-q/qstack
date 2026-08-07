@@ -87,6 +87,7 @@ require Bash and Python 3.
 | `--without-matt-pocock` | Skip the optional Matt Pocock skills prompt. |
 | `--with-human-review` | Install [human-review](https://github.com/petergyang/human-review) globally after QStack, without asking. |
 | `--without-human-review` | Skip the optional human-review prompt. |
+| `--yes`, `-y` | Accept every optional collection without prompting. A later `--without-…` still wins, so `--yes --without-human-review` takes only the rest. |
 | `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
 | `--version` | Print the release version and exact Git revision. |
 
@@ -108,8 +109,10 @@ both stay owned upstream: QStack does not update or uninstall them, and
 install, which only touches harness directories that are already there.
 
 In the default ask mode, a non-interactive invocation installs neither, so a
-piped or scripted install never pulls third-party code on a silent default; pass
-`--with-…` to opt in explicitly. Dry-run and uninstall invocations never prompt.
+piped or scripted install never pulls third-party code on a silent default. Pass
+`--with-…` to opt into one, or `--yes` to take them all — that flag is the whole
+answer for an unattended install, and it keeps working as collections are
+added. Dry-run and uninstall invocations never prompt.
 If one optional install fails, the other is still attempted and the installer
 exits non-zero.
 
