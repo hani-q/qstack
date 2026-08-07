@@ -78,12 +78,19 @@ Enumerate with `find <project> -maxdepth 1 -mindepth 1` — not a shell glob,
 which expands differently under bash and zsh — then resolve and deduplicate:
 
 ```bash
-origin=$(git -C <repo-root> remote get-url origin)
+# One repository has several spellings. Compare identity, not the raw string.
+norm_origin() {
+  printf '%s\n' "$1" | tr 'A-Z' 'a-z' \
+    | sed -e 's#^ssh://##' -e 's#^git://##' -e 's#^https\{0,1\}://##' \
+          -e 's#^[^@/]*@##' -e 's#:#/#' -e 's#\.git$##' -e 's#/$##'
+}
+
+origin=$(norm_origin "$(git -C <repo-root> remote get-url origin)")
 find <project-dir> -maxdepth 1 -mindepth 1 | while read -r w; do
   [ -L "$w" ] && { echo "ALIAS|$(basename $w)|$(readlink "$w")"; continue; }
   real=$(cd "$w" 2>/dev/null && pwd -P) || continue
   b=$(git -C "$real" rev-parse --abbrev-ref HEAD 2>/dev/null) || { echo "BROKEN|$(basename $w)"; continue; }
-  [ "$(git -C "$real" remote get-url origin 2>/dev/null)" = "$origin" ] \
+  [ "$(norm_origin "$(git -C "$real" remote get-url origin 2>/dev/null)")" = "$origin" ] \
     || { echo "FOREIGN|$(basename $w)"; continue; }
   echo "$b|$(basename $w)|$(git -C "$real" log -1 --format=%at)|$(git -C "$real" rev-list --count origin/main..HEAD 2>/dev/null)|$(git -C "$real" status --porcelain | wc -l)"
 done
@@ -91,7 +98,12 @@ done
 
 The origin check is what makes the directory convention a verified guess rather
 than a trusted one. Without it, any unrelated repository parked in the same
-parent directory is counted as a workspace of this project. Report the foreign
+parent directory is counted as a workspace of this project. Compare normalised
+identity rather than the raw remote string: `git@host:owner/repo.git`,
+`ssh://git@host/owner/repo.git` and `https://host/owner/repo` are one
+repository, and checkouts made over different protocols are common. Matching
+raw strings drops real workspaces, which is the same false negative in the
+other direction. Report the foreign
 count alongside the workspace count; a parent directory holding mostly other
 projects means the convention did not match and the topology findings are
 about a set the reader should see.
