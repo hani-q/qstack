@@ -2,13 +2,13 @@
 name: qstack-reflect
 description: >
   Produce an evidence-only report on how a project is actually being worked:
-  workspace and branch topology, momentum over time, rework, instruction-file
+  checkout and branch topology, momentum over time, rework, instruction-file
   churn, and plan-record completeness. Every finding cites a count the reader
   can reproduce, and any category without enough evidence is refused rather
-  than padded. Reads across every sibling workspace of the same repository, not
+  than padded. Reads across every worktree Git tracks for the repository, not
   just the current checkout. Use when invoked as /qstack-reflect, optionally
   with one or more plan directories such as /qstack-reflect docs/rfcs, or when
-  asked how the work is going, what patterns show up across workspaces, or
+  asked how the work is going, what patterns show up across checkouts, or
   where effort is being lost.
 ---
 
@@ -41,106 +41,54 @@ name this argument, rather than concluding the project has no plans.
 
 1. Resolve the repository root with `git rev-parse --show-toplevel`. Outside
    Git, say the skill needs a Git repository and stop.
-2. Determine the workspace set. If the root sits at
-   `<...>/workspaces/<project>/<workspace>`, the set is every sibling directory
-   of `<project>`. Otherwise the set is the single checkout.
+2. Take the checkout set from `git worktree list --porcelain`. Git maintains
+   this list itself, so it is an answer rather than a guess: no directory
+   convention to match, no candidate to verify, and nothing to exclude.
+3. State the scope out loud before any finding: repository, how many checkouts,
+   how many of those Git marks `prunable`, and the commit span.
 
-   This is a guess from one directory convention. Projects keeping their
-   checkouts elsewhere, or using `git worktree`, will not match it. Keep every
-   candidate whose `origin` remote matches this repository's and discard the
-   rest, so the guess is verified rather than trusted, and report both numbers.
-3. Detect aliases with `[ -L ]` on the entry itself, then resolve the rest to
-   their physical paths with `pwd -P` and deduplicate on those. Do not identify
-   an alias by comparing a logical path against a physical one: that compares
-   the whole ancestry, so a single symlinked parent — `/tmp` on macOS, a
-   symlinked home, a network mount — marks every entry an alias and empties the
-   workspace set. A friendly alias symlinked to a generated workspace name is one
-   workspace, not two, and counting both invents duplication that is not there.
-   Report aliases separately as aliases. Workspace managers and hand-made
-   shortcuts both produce readable names pointing at generated ones, and a run
-   that skips this step reports confident, entirely false duplication.
-4. State the scope out loud before any finding: repository, how many distinct
-   workspaces, how many aliases, the commit span, and — always — where
-   workspaces were looked for. One checkout found is never reported as a bare
-   fact; it is reported as what the search covered and what it turned up, so a
-   layout this skill does not recognise reads as an unmatched guess rather than
-   as a project with no other work in flight.
+Do not enumerate directories looking for sibling checkouts, and do not compare
+remote URLs to decide which belong. An earlier version did both. It missed
+checkouts living outside the directory convention it knew — nine against five
+on the first project it ran against — while the URL comparison it needed to
+screen out strangers had to reason about protocols, ports and absent remotes,
+none of which it got right. Git already knows where its worktrees are.
 
 ## Evidence
 
 Collect all five. Report what each yields, including nothing.
 
-**A. Workspace topology.** For each workspace: branch, last commit date, days
-idle, commits ahead of `origin/main`, uncommitted file count, and whether the
-checkout is valid.
-
-Enumerate with `find <project> -maxdepth 1 -mindepth 1` — not a shell glob,
-which expands differently under bash and zsh — then resolve and deduplicate:
+**A. Checkout topology.** For each worktree: branch, last commit date, days
+idle, commits ahead of the default branch, uncommitted file count, and whether
+Git marks it prunable.
 
 ```bash
-# One repository has several spellings. Compare identity, not the raw string.
-norm_origin() {
-  local u
-  u=$(printf '%s' "$1" | tr 'A-Z' 'a-z')
-  case "$u" in
-    *://*)
-      # scheme://[user@]host[:port]/path — a colon here is a port.
-      u=$(printf '%s' "${u#*://}" \
-          | sed -e 's#^[^/]*@##' -e 's#^\([^/]*\):[0-9][0-9]*/#\1/#') ;;
-    *)
-      # [user@]host:path — the colon separates host from path, never a port.
-      u=$(printf '%s' "$u" | sed -e 's#^[^/]*@##' -e 's#:#/#') ;;
-  esac
-  printf '%s\n' "$u" | sed -e 's#\.git$##' -e 's#/*$##'
-}
-
-origin=$(norm_origin "$(git -C <repo-root> remote get-url origin 2>/dev/null)")
-# An empty identity matches nothing. Without an origin there is no way to tell a
-# sibling from a stranger, so say the set is unverified rather than compare
-# empty against empty and admit every neighbouring repository.
-[ -n "$origin" ] || { echo "UNVERIFIABLE|this repository has no origin remote"; }
-
-find <project-dir> -maxdepth 1 -mindepth 1 | while read -r w; do
-  [ -L "$w" ] && { echo "ALIAS|$(basename $w)|$(readlink "$w")"; continue; }
-  real=$(cd "$w" 2>/dev/null && pwd -P) || continue
-  b=$(git -C "$real" rev-parse --abbrev-ref HEAD 2>/dev/null) || { echo "BROKEN|$(basename $w)"; continue; }
-  cand=$(norm_origin "$(git -C "$real" remote get-url origin 2>/dev/null)")
-  [ -n "$origin" ] && [ -n "$cand" ] && [ "$cand" = "$origin" ] \
-    || { echo "FOREIGN|$(basename $w)"; continue; }
-  echo "$b|$(basename $w)|$(git -C "$real" log -1 --format=%at)|$(git -C "$real" rev-list --count origin/main..HEAD 2>/dev/null)|$(git -C "$real" status --porcelain | wc -l)"
-done
+git worktree list --porcelain | awk '
+  /^worktree /  { path = substr($0, 10) }
+  /^branch /    { branch = substr($0, 8) }
+  /^detached$/  { branch = "(detached)" }
+  /^prunable /  { prunable = 1 }
+  /^$/          { if (path) print path "|" branch "|" prunable; path=branch=prunable="" }
+  END           { if (path) print path "|" branch "|" prunable }
+'
 ```
 
-The origin check is what makes the directory convention a verified guess rather
-than a trusted one. Without it, any unrelated repository parked in the same
-parent directory is counted as a workspace of this project. Compare normalised
-identity rather than the raw remote string: `git@host:owner/repo.git`,
-`ssh://git@host/owner/repo.git` and `https://host/owner/repo` are one
-repository, and checkouts made over different protocols are common. Matching
-raw strings drops real workspaces, which is the same false negative in the
-other direction.
+Then, for each live path:
 
-Ports are deliberately discarded, including non-default ones. A self-hosted
-server reached over SSH on `:2222` and over HTTPS on `:443` is one repository,
-and that pairing is exactly where cross-protocol clones occur. Keeping the port
-would restore protocol-dependent matching for the users most likely to have
-one. The cost is a host that routes the same path to different repositories on
-different ports; that is rare enough, and visible enough to whoever configured
-it, to be the better trade.
+```bash
+git -C "$path" log -1 --format=%at
+git -C "$path" rev-list --count <default-branch>..HEAD
+git -C "$path" status --porcelain | wc -l
+```
 
-When a repository has no `origin` at all, no candidate can be verified against
-it. Report the workspace set as unverified and say so; never compare one empty
-identity against another, which would admit every neighbouring repository. Report the foreign
-count alongside the workspace count; a parent directory holding mostly other
-projects means the convention did not match and the topology findings are
-about a set the reader should see.
+Report: how many checkouts exist, how many carry no unmerged commits, how many
+Git marks prunable, and idle time. A prunable entry is a checkout Git still
+tracks whose directory is gone — worth listing, since it is work that was
+started and abandoned without being cleaned up.
 
-Report: branches carrying more than one *distinct* workspace, workspaces with
-no unmerged commits, broken checkouts, and idle time. When two distinct
-workspaces share a branch and both are dirty, diff their uncommitted changes
-and say explicitly whether work is at risk of being lost. Identical diffs
-almost always mean the two paths are the same checkout — verify that before
-reporting anything as at risk.
+Two worktrees cannot share a branch; Git refuses. So there is no duplication to
+detect here, and no aliasing either — `git worktree list` reports canonical
+paths, so a symlinked shortcut to a checkout never appears as a second entry.
 
 **B. Momentum.** Commits per month across the span, plus weekday distribution.
 A monotonic rise or fall over three or more months is the finding; month-to-month
@@ -223,7 +171,7 @@ positive. Reinstate it only with evidence that it works.
 State the corpus size for a category before its finding. Below these, write
 "not enough evidence" and give the count instead of a finding:
 
-- fewer than 3 workspaces — no topology findings
+- fewer than 3 checkouts — no topology findings
 - fewer than 3 months of commits — no momentum trajectory
 - fewer than 20 commits — no rework rate
 - fewer than 5 plans in a recognised layout — no findings about plan-record
