@@ -134,9 +134,15 @@ convention. A project naming them `design.md` or `rfc-001.md` will look empty.
 That is the limit of the guess and must be stated in the report, alongside the
 argument that overrides it.
 
-For plans in a recognised layout, count how many carry `execution.md` and
-`outcome.md`. Do not apply that completeness check elsewhere; those plans were
-never promised those files.
+For plans in a recognised layout, count how many carry an execution record and
+an outcome record. Do not apply that completeness check elsewhere; those plans
+were never promised those files.
+
+An execution record is `execution.md`, `executor.md`, or the legacy
+`implementation-notes.md` — the three names the other qstack skills read.
+Any one of them counts, and the report names which was found. Counting only
+`execution.md` reports an executed plan as never executed, which is the same
+false-negative as missing its directory.
 
 Report the count per location, any plan slug appearing in more than one
 location (duplicated, or a half-finished migration), and the total outside the
