@@ -1,16 +1,16 @@
 ---
-name: qstack-unyap
-description: Rewrite the immediately previous assistant answer in plain, non-technical language using far fewer lines. Use when the user invokes `/qstack-unyap`, optionally with a target such as `/qstack-unyap 4`, or asks to make the last answer shorter and simpler.
+name: qstack-be-concise
+description: Rewrite the immediately previous assistant answer in plain, non-technical language using far fewer lines. Use when the user invokes `/qstack-be-concise`, optionally with a target such as `/qstack-be-concise 4`, or asks to make the last answer shorter and simpler.
 ---
 
-# /qstack-unyap
+# /qstack-be-concise
 
 Rewrite the immediately previous assistant answer. Output only the rewrite.
 
 ## Choose the length
 
 - If the invocation includes a positive whole number `N`, use `N` or `N + 1`
-  short lines. For example, `/qstack-unyap 4` produces about 4–5 lines.
+  short lines. For example, `/qstack-be-concise 4` produces about 4–5 lines.
 - Otherwise, count the non-empty lines in the previous answer and use this guide:
   - 1–5 lines: rewrite in 1–2 lines.
   - 6–12 lines: rewrite in 2–3 lines.

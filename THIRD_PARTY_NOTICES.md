@@ -19,7 +19,7 @@ at commit `60c641e4fad674784b30abcf9f8915dea39df38d`:
 | `principle-build-the-lever` | `qstack-build-the-lever` |
 | `principle-fix-root-causes` | `qstack-fix-root-causes` |
 | `principle-prove-it-works` | `qstack-prove-it-works` |
-| `unslop` | `GENERAL_INSTRUCTIONS.md` writing guidance |
+| `unslop` | `GENERAL_INSTRUCTIONS.md` writing guidance and `qstack-unslop` |
 
 PStack is licensed under the following terms:
 

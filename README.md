@@ -19,7 +19,8 @@ clobber my own work.
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit only | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit only | Serve a repository's QStack plan collection on a local HTTP address. |
 | [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
-| [`qstack-unyap`](skills/qstack-unyap/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
+| [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-be-concise 4`. |
+| [`qstack-unslop`](skills/qstack-unslop/) | Explicit only | Remove AI writing patterns from the previous answer while preserving its meaning, useful detail, and technical accuracy. |
 | [`qstack-blast-radius`](skills/qstack-blast-radius/) | Automatic | Find the critical safety fact behind a change, prove it with real code, and mark anything weaker as unproven. |
 | [`qstack-separate-before-serializing-shared-state`](skills/qstack-separate-before-serializing-shared-state/) | Automatic | Remove shared mutable ownership before adding locks or sequential access. |
 | [`qstack-encode-lessons-in-structure`](skills/qstack-encode-lessons-in-structure/) | Automatic | Turn recurring corrections into the strongest practical structural guardrail. |
@@ -193,7 +194,8 @@ qstack/                              ← this repo, anywhere on disk
     ├── qstack-loop-trequartista/SKILL.md
     ├── qstack-serve-plans/SKILL.md
     ├── qstack-reflect/SKILL.md
-    ├── qstack-unyap/SKILL.md
+    ├── qstack-be-concise/SKILL.md
+    ├── qstack-unslop/SKILL.md
     ├── qstack-blast-radius/SKILL.md
     ├── qstack-separate-before-serializing-shared-state/SKILL.md
     ├── qstack-encode-lessons-in-structure/SKILL.md
