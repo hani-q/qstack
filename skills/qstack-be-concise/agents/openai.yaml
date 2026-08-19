@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Be Concise"
+  short_description: "Rewrite the last answer briefly and simply"
+  default_prompt: "Use $qstack-be-concise to rewrite your last answer in fewer, simpler lines."
+policy:
+  allow_implicit_invocation: true

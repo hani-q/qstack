@@ -71,7 +71,8 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
-- Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
+- Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
+- Use `/qstack-unslop` to remove AI writing patterns from the previous answer without losing useful detail.
 - Use `/qstack-blast-radius` to find and prove the critical safety fact behind a change.
 - Use `/qstack-separate-before-serializing-shared-state` to remove shared mutable ownership before adding serialization.
 - Use `/qstack-encode-lessons-in-structure` to turn recurring corrections into enforceable guardrails.
@@ -153,6 +154,10 @@ for dir in "$SKILLS_DIR"/*/; do
   skills+=("$(basename "$dir")")
 done
 
+# Skills removed or renamed by QStack. A later install removes only copies and
+# links carrying QStack's ownership proof, so a user-owned replacement survives.
+RETIRED_SKILLS=(qstack-unyap)
+
 if [ ${#skills[@]} -eq 0 ]; then
   echo "qstack: no skills found in $SKILLS_DIR" >&2
   exit 1
@@ -170,6 +175,11 @@ is_qstack_owned_skill_link() {
     [ -n "$recorded" ] && [ "$link_dest" = "$recorded" ] && return 0
     return 1
   fi
+
+  # A pre-marker link into this checkout is still ours even when a rename made
+  # its old target disappear.
+  [ "$link_dest" = "$SKILLS_DIR/$skill" ] && return 0
+
   case "$link_dest" in
     /*) resolved="$link_dest" ;;
     *)  resolved="$(dirname "$target")/$link_dest" ;;
@@ -581,6 +591,29 @@ for entry in "${HARNESSES[@]}"; do
   printf '  ✓  %-18s %s\n' "$label" "$dest"
   installed=$((installed + 1))
   [ -d "$dest" ] || run mkdir -p "$dest"
+
+  for retired_skill in "${RETIRED_SKILLS[@]}"; do
+    retired_target="$dest/$retired_skill"
+    retired_marker="$dest/.qstack-installed-$retired_skill"
+    if [ -L "$retired_target" ]; then
+      if is_qstack_owned_skill_link "$retired_target" "$retired_skill"; then
+        run rm -f "$retired_target" "$retired_marker"
+        echo "      removed retired $retired_skill"
+      else
+        echo "      skip retired $retired_skill — symlink was not installed by qstack"
+      fi
+    elif [ -e "$retired_target" ]; then
+      if [ -f "$retired_target/.qstack-installed" ]; then
+        run rm -rf "$retired_target"
+        run rm -f "$retired_marker"
+        echo "      removed retired $retired_skill"
+      else
+        echo "      skip retired $retired_skill — exists and was not installed by qstack"
+      fi
+    else
+      [ ! -e "$retired_marker" ] || run rm -f "$retired_marker"
+    fi
+  done
 
   for skill in "${skills[@]}"; do
     target="$dest/$skill"

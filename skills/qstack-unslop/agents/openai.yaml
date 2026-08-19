@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Unslop"
+  short_description: "Remove AI tells without losing useful detail"
+  default_prompt: "Use $qstack-unslop to rewrite your last answer with a natural human voice."
+policy:
+  allow_implicit_invocation: false
