@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Separate Shared State"
+  short_description: "Remove shared writes before adding locks"
+  default_prompt: "Use $qstack-separate-before-serializing-shared-state to redesign these concurrent writes around clear ownership."
+policy:
+  allow_implicit_invocation: true

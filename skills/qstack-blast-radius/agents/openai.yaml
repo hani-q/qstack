@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Blast Radius"
+  short_description: "Prove what a change could break elsewhere"
+  default_prompt: "Use $qstack-blast-radius to assess this change’s downstream risks and prove its critical safety fact."
+policy:
+  allow_implicit_invocation: true

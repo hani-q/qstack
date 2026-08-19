@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Build the Lever"
+  short_description: "Build the smallest rerunnable work tool"
+  default_prompt: "Use $qstack-build-the-lever to build the smallest safe rerunnable tool for this work."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Foundational Thinking"
+  short_description: "Set data shape and ownership before logic"
+  default_prompt: "Use $qstack-foundational-thinking to settle this feature’s data shape, ownership, concurrency, and shared setup before implementation."
+policy:
+  allow_implicit_invocation: false
