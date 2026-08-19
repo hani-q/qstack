@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Encode Lessons in Structure"
+  short_description: "Turn recurring corrections into guardrails"
+  default_prompt: "Use $qstack-encode-lessons-in-structure to replace this recurring instruction with an enforceable mechanism."
+policy:
+  allow_implicit_invocation: true

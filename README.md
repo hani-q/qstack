@@ -20,6 +20,22 @@ clobber my own work.
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit only | Serve a repository's QStack plan collection on a local HTTP address. |
 | [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
 | [`qstack-unyap`](skills/qstack-unyap/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
+| [`qstack-blast-radius`](skills/qstack-blast-radius/) | Automatic | Find the critical safety fact behind a change, prove it with real code, and mark anything weaker as unproven. |
+| [`qstack-separate-before-serializing-shared-state`](skills/qstack-separate-before-serializing-shared-state/) | Automatic | Remove shared mutable ownership before adding locks or sequential access. |
+| [`qstack-encode-lessons-in-structure`](skills/qstack-encode-lessons-in-structure/) | Automatic | Turn recurring corrections into the strongest practical structural guardrail. |
+| [`qstack-make-operations-idempotent`](skills/qstack-make-operations-idempotent/) | Automatic | Make retries, partial failures, restarts, and stale state converge safely. |
+| [`qstack-model-the-domain`](skills/qstack-model-the-domain/) | Explicit only | Replace scattered domain assumptions with a fitting structure without forcing abstraction. |
+| [`qstack-foundational-thinking`](skills/qstack-foundational-thinking/) | Explicit only | Settle data shape, access, ownership, concurrency, and useful setup before logic. |
+| [`qstack-how`](skills/qstack-how/) | Automatic | Explain runtime flow, ownership, files, and non-obvious behavior without changing code. |
+| [`qstack-build-the-lever`](skills/qstack-build-the-lever/) | Explicit only | Build the smallest rerunnable tool that makes non-trivial work repeatable and reviewable. |
+| [`qstack-fix-root-causes`](skills/qstack-fix-root-causes/) | Automatic | Reproduce and diagnose a failure before proposing or implementing a repair. |
+| [`qstack-prove-it-works`](skills/qstack-prove-it-works/) | Automatic | Verify the real artifact and complete feature path instead of trusting a proxy. |
+
+The ten engineering-practice skills above and the writing guidance in
+[`GENERAL_INSTRUCTIONS.md`](GENERAL_INSTRUCTIONS.md) are adapted from Lauren
+Tan's PStack at a pinned source commit. See
+[Third-party notices](THIRD_PARTY_NOTICES.md) for the source map and complete
+MIT license.
 
 The plan lifecycle starts with `plan-to-html`, which automatically runs
 `ask-plan-open-questions` against the new authoritative HTML. It then runs
@@ -34,8 +50,11 @@ git clone https://github.com/hani-q/qstack.git ~/work/code/qstack
 cd ~/work/code/qstack && ./install
 ```
 
-The installer also maintains a small `## qstack` routing section in the user-wide
-Claude Code and Codex instruction files. Restart your agent after installation.
+The installer maintains the same `## General instructions` section at the top
+of the user-wide Claude Code and Codex instruction files, plus a small
+`## qstack` routing section. The general section includes concise gstack routing;
+the host's installed skill catalog remains the command source of truth. Restart
+your agent after installation.
 
 Print the installed release and exact source revision with:
 
@@ -88,7 +107,7 @@ require Bash and Python 3.
 | `--with-human-review` | Install [human-review](https://github.com/petergyang/human-review) globally after QStack, without asking. |
 | `--without-human-review` | Skip the optional human-review prompt. |
 | `--yes`, `-y` | Accept every optional collection without prompting. A later `--without-…` still wins, so `--yes --without-human-review` takes only the rest. |
-| `--uninstall` | Remove the linked skills and qstack-managed instruction sections. |
+| `--uninstall` | Remove the linked skills and both qstack-managed instruction sections. |
 | `--version` | Print the release version and exact Git revision. |
 
 ### Optional collections
@@ -162,6 +181,7 @@ there is no second copy to drift.
 
 ```
 qstack/                              ← this repo, anywhere on disk
+├── GENERAL_INSTRUCTIONS.md          ← shared Claude/Codex behavior and writing source
 ├── install
 ├── scripts/
 │   └── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
@@ -174,6 +194,18 @@ qstack/                              ← this repo, anywhere on disk
     ├── qstack-serve-plans/SKILL.md
     ├── qstack-reflect/SKILL.md
     ├── qstack-unyap/SKILL.md
+    ├── qstack-blast-radius/SKILL.md
+    ├── qstack-separate-before-serializing-shared-state/SKILL.md
+    ├── qstack-encode-lessons-in-structure/SKILL.md
+    ├── qstack-make-operations-idempotent/SKILL.md
+    ├── qstack-model-the-domain/SKILL.md
+    ├── qstack-foundational-thinking/SKILL.md
+    ├── qstack-how/
+    │   ├── SKILL.md
+    │   └── references/               ← exploration, explanation, critique
+    ├── qstack-build-the-lever/SKILL.md
+    ├── qstack-fix-root-causes/SKILL.md
+    ├── qstack-prove-it-works/SKILL.md
     └── qstack-plan-to-html/
         ├── SKILL.md
         └── template/v1/             ← "cyanotype & redline" plan template

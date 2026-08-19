@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Prove It Works"
+  short_description: "Verify the real artifact and full feature path"
+  default_prompt: "Use $qstack-prove-it-works to verify this work against the real artifact and complete feature path."
+policy:
+  allow_implicit_invocation: true

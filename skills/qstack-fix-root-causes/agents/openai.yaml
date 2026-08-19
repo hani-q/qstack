@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Fix Root Causes"
+  short_description: "Diagnose root causes before changing code"
+  default_prompt: "Use $qstack-fix-root-causes to reproduce this failure and trace its evidence-backed root cause before proposing a repair."
+policy:
+  allow_implicit_invocation: true

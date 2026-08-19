@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack How"
+  short_description: "Explain subsystem flow and ownership"
+  default_prompt: "Use $qstack-how to explain how this subsystem works from its real code paths and boundaries."
+policy:
+  allow_implicit_invocation: true

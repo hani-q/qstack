@@ -49,6 +49,14 @@ INSTRUCTION_FILES=(
   "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/CLAUDE.md:Claude Code"
   "$QSTACK_INSTALL_HOME/.codex:$QSTACK_INSTALL_HOME/.codex/AGENTS.md:Codex"
 )
+GENERAL_INSTRUCTIONS_SOURCE="$REPO/GENERAL_INSTRUCTIONS.md"
+GENERAL_INSTRUCTIONS_START='<!-- qstack:general-instructions:start -->'
+GENERAL_INSTRUCTIONS_END='<!-- qstack:general-instructions:end -->'
+if [ ! -f "$GENERAL_INSTRUCTIONS_SOURCE" ]; then
+  echo "qstack: missing $GENERAL_INSTRUCTIONS_SOURCE" >&2
+  exit 1
+fi
+GENERAL_INSTRUCTIONS_BLOCK=$(<"$GENERAL_INSTRUCTIONS_SOURCE")
 INSTRUCTIONS_START='<!-- qstack:instructions:start -->'
 INSTRUCTIONS_END='<!-- qstack:instructions:end -->'
 INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
@@ -64,6 +72,16 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
 - Use `/qstack-unyap [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
+- Use `/qstack-blast-radius` to find and prove the critical safety fact behind a change.
+- Use `/qstack-separate-before-serializing-shared-state` to remove shared mutable ownership before adding serialization.
+- Use `/qstack-encode-lessons-in-structure` to turn recurring corrections into enforceable guardrails.
+- Use `/qstack-make-operations-idempotent` to make retries and partial runs converge safely.
+- Use `/qstack-model-the-domain` to replace scattered assumptions with a fitting domain structure.
+- Use `/qstack-foundational-thinking` to settle data shape, ownership, concurrency, and shared setup before logic.
+- Use `/qstack-how [subject]` to explain runtime flow, ownership, files, and non-obvious behavior without editing code.
+- Use `/qstack-build-the-lever` to build the smallest rerunnable tool for non-trivial work.
+- Use `/qstack-fix-root-causes` to reproduce and diagnose failures before fixing them.
+- Use `/qstack-prove-it-works` to verify the real artifact and complete feature path.
 <!-- qstack:instructions:end -->'
 
 MODE=link
@@ -188,43 +206,88 @@ write_link_marker() {
   fi
 }
 
-validate_managed_block() {
-  local file="$1" starts ends structure
+validate_named_block() {
+  local file="$1" start="$2" end="$3" label="$4" starts ends structure
   [ -f "$file" ] || return 0
-  starts=$(grep -Fxc "$INSTRUCTIONS_START" "$file" || true)
-  ends=$(grep -Fxc "$INSTRUCTIONS_END" "$file" || true)
+  starts=$(grep -Fxc "$start" "$file" || true)
+  ends=$(grep -Fxc "$end" "$file" || true)
   if [ "$starts" -ne "$ends" ] || [ "$starts" -gt 1 ]; then
-    echo "qstack: malformed managed instruction block in $file; leaving it unchanged" >&2
+    echo "qstack: malformed $label block in $file; leaving it unchanged" >&2
     return 1
   fi
   if [ "$starts" -eq 1 ]; then
-    structure=$(awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" '
+    structure=$(awk -v start="$start" -v end="$end" '
       $0 == start && state == 0 { state = 1; next }
       $0 == end && state == 1 { state = 2; next }
       END { print state + 0 }
     ' "$file")
     if [ "$structure" -ne 2 ]; then
-      echo "qstack: malformed managed instruction block in $file; leaving it unchanged" >&2
+      echo "qstack: malformed $label block in $file; leaving it unchanged" >&2
       return 1
     fi
   fi
   return 0
 }
 
-write_without_managed_block() {
-  local source="$1" destination="$2"
-  awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" '
+validate_instruction_blocks() {
+  local file="$1"
+  validate_named_block "$file" \
+    "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END" \
+    "qstack general-instructions" || return 1
+  validate_named_block "$file" \
+    "$INSTRUCTIONS_START" "$INSTRUCTIONS_END" \
+    "qstack instructions" || return 1
+  [ -f "$file" ] || return 0
+
+  if ! awk \
+    -v general_start="$GENERAL_INSTRUCTIONS_START" \
+    -v general_end="$GENERAL_INSTRUCTIONS_END" \
+    -v instructions_start="$INSTRUCTIONS_START" \
+    -v instructions_end="$INSTRUCTIONS_END" '
+      $0 == general_start {
+        if (active != "") invalid = 1
+        active = "general"
+        next
+      }
+      $0 == instructions_start {
+        if (active != "") invalid = 1
+        active = "instructions"
+        next
+      }
+      $0 == general_end {
+        if (active != "general") invalid = 1
+        active = ""
+        next
+      }
+      $0 == instructions_end {
+        if (active != "instructions") invalid = 1
+        active = ""
+        next
+      }
+      END {
+        if (active != "") invalid = 1
+        exit invalid
+      }
+    ' "$file"; then
+    echo "qstack: overlapping managed instruction blocks in $file; leaving it unchanged" >&2
+    return 1
+  fi
+}
+
+write_without_named_block() {
+  local source="$1" destination="$2" start="$3" end="$4"
+  awk -v start="$start" -v end="$end" '
     $0 == start { managed = 1; next }
     $0 == end { managed = 0; next }
     !managed { print }
   ' "$source" > "$destination"
 }
 
-write_with_managed_block() {
-  local source="$1" destination="$2" block_file
+write_with_named_block() {
+  local source="$1" destination="$2" start="$3" end="$4" block="$5" block_file
   block_file=$(mktemp "${destination}.block.XXXXXX")
-  printf '%s\n' "$INSTRUCTIONS_BLOCK" > "$block_file"
-  if ! awk -v start="$INSTRUCTIONS_START" -v end="$INSTRUCTIONS_END" -v block_file="$block_file" '
+  printf '%s\n' "$block" > "$block_file"
+  if ! awk -v start="$start" -v end="$end" -v block_file="$block_file" '
     $0 == start {
       while ((getline line < block_file) > 0) print line
       close(block_file)
@@ -238,6 +301,28 @@ write_with_managed_block() {
     return 1
   fi
   rm -f "$block_file"
+}
+
+write_with_prepended_block() {
+  local source="$1" destination="$2" start="$3" end="$4" block="$5"
+  printf '%s\n' "$start" > "$destination"
+  printf '%s\n' "$block" >> "$destination"
+  printf '%s\n' "$end" >> "$destination"
+  if [ -s "$source" ]; then
+    printf '\n' >> "$destination"
+    cat "$source" >> "$destination"
+  fi
+}
+
+append_named_block() {
+  local destination="$1" block="$2"
+  if [ -s "$destination" ] && [ "$(tail -c 1 "$destination" | wc -l | tr -d ' ')" -eq 0 ]; then
+    printf '\n' >> "$destination"
+  fi
+  if [ -s "$destination" ]; then
+    printf '\n' >> "$destination"
+  fi
+  printf '%s\n' "$block" >> "$destination"
 }
 
 # Update the file a symlink points to instead of replacing the symlink itself.
@@ -260,58 +345,116 @@ resolve_instruction_storage_path() {
 }
 
 update_instruction_file() {
-  local file="$1" label="$2" storage temp mode
+  local file="$1" label="$2" storage general_temp final_temp without_block_temp mode
   storage=$(resolve_instruction_storage_path "$file") || return 1
-  validate_managed_block "$storage" || return 1
+  validate_instruction_blocks "$storage" || return 1
 
   if [ "$DRY" -eq 1 ]; then
     if [ -f "$storage" ]; then
-      echo "      would: update qstack instructions in $file"
+      echo "      would: synchronize qstack general and command instructions in $file"
     else
-      echo "      would: create $file with qstack instructions"
+      echo "      would: create $file with qstack general and command instructions"
     fi
     return 0
   fi
 
-  temp=$(mktemp "${storage}.qstack.XXXXXX")
+  general_temp=$(mktemp "${storage}.qstack-general.XXXXXX")
+  final_temp=$(mktemp "${storage}.qstack-final.XXXXXX")
   if [ -f "$storage" ]; then
     mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
-    if grep -Fqx "$INSTRUCTIONS_START" "$storage"; then
-      write_with_managed_block "$storage" "$temp"
-    else
-      cp "$storage" "$temp"
-      if [ -s "$temp" ] && [ "$(tail -c 1 "$temp" | wc -l | tr -d ' ')" -eq 0 ]; then
-        printf '\n' >> "$temp"
+    if grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage"; then
+      if [ "$(sed -n '1p' "$storage")" = "$GENERAL_INSTRUCTIONS_START" ]; then
+        write_with_named_block "$storage" "$general_temp" \
+          "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END" \
+          "$GENERAL_INSTRUCTIONS_START
+$GENERAL_INSTRUCTIONS_BLOCK
+$GENERAL_INSTRUCTIONS_END"
+      else
+        without_block_temp=$(mktemp "${storage}.qstack-without-general.XXXXXX")
+        write_without_named_block "$storage" "$without_block_temp" \
+          "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END"
+        write_with_prepended_block "$without_block_temp" "$general_temp" \
+          "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END" \
+          "$GENERAL_INSTRUCTIONS_BLOCK"
+        rm -f "$without_block_temp"
       fi
-      printf '%s\n' "$INSTRUCTIONS_BLOCK" >> "$temp"
+    else
+      write_with_prepended_block "$storage" "$general_temp" \
+        "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END" \
+        "$GENERAL_INSTRUCTIONS_BLOCK"
     fi
   else
     mode=644
-    printf '%s\n' "$INSTRUCTIONS_BLOCK" > "$temp"
+    write_with_prepended_block /dev/null "$general_temp" \
+      "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END" \
+      "$GENERAL_INSTRUCTIONS_BLOCK"
   fi
-  chmod "$mode" "$temp"
-  mv "$temp" "$storage"
-  echo "      updated qstack instructions ($label)"
+
+  if ! validate_instruction_blocks "$general_temp"; then
+    rm -f "$general_temp" "$final_temp"
+    return 1
+  fi
+
+  if grep -Fqx "$INSTRUCTIONS_START" "$general_temp"; then
+    if [ "$(tail -n 1 "$general_temp")" = "$INSTRUCTIONS_END" ]; then
+      write_with_named_block "$general_temp" "$final_temp" \
+        "$INSTRUCTIONS_START" "$INSTRUCTIONS_END" "$INSTRUCTIONS_BLOCK"
+    else
+      without_block_temp=$(mktemp "${storage}.qstack-without-commands.XXXXXX")
+      write_without_named_block "$general_temp" "$without_block_temp" \
+        "$INSTRUCTIONS_START" "$INSTRUCTIONS_END"
+      cp "$without_block_temp" "$final_temp"
+      append_named_block "$final_temp" "$INSTRUCTIONS_BLOCK"
+      rm -f "$without_block_temp"
+    fi
+  else
+    cp "$general_temp" "$final_temp"
+    append_named_block "$final_temp" "$INSTRUCTIONS_BLOCK"
+  fi
+  rm -f "$general_temp"
+  chmod "$mode" "$final_temp"
+  mv "$final_temp" "$storage"
+  echo "      synchronized qstack general and command instructions ($label)"
 }
 
 remove_instruction_file_block() {
-  local file="$1" label="$2" storage temp mode
+  local file="$1" label="$2" storage general_temp final_temp mode
   storage=$(resolve_instruction_storage_path "$file") || return 1
   [ -f "$storage" ] || return 0
-  validate_managed_block "$storage" || return 1
-  grep -Fqx "$INSTRUCTIONS_START" "$storage" || return 0
-
-  if [ "$DRY" -eq 1 ]; then
-    echo "      would: remove qstack instructions from $file"
+  validate_instruction_blocks "$storage" || return 1
+  if ! grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage" \
+     && ! grep -Fqx "$INSTRUCTIONS_START" "$storage"; then
     return 0
   fi
 
-  temp=$(mktemp "${storage}.qstack.XXXXXX")
-  write_without_managed_block "$storage" "$temp"
+  if [ "$DRY" -eq 1 ]; then
+    echo "      would: remove qstack general and command instructions from $file"
+    return 0
+  fi
+
+  general_temp=$(mktemp "${storage}.qstack-general.XXXXXX")
+  final_temp=$(mktemp "${storage}.qstack-final.XXXXXX")
+  if grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage"; then
+    write_without_named_block "$storage" "$general_temp" \
+      "$GENERAL_INSTRUCTIONS_START" "$GENERAL_INSTRUCTIONS_END"
+  else
+    cp "$storage" "$general_temp"
+  fi
+  if ! validate_instruction_blocks "$general_temp"; then
+    rm -f "$general_temp" "$final_temp"
+    return 1
+  fi
+  if grep -Fqx "$INSTRUCTIONS_START" "$general_temp"; then
+    write_without_named_block "$general_temp" "$final_temp" \
+      "$INSTRUCTIONS_START" "$INSTRUCTIONS_END"
+  else
+    cp "$general_temp" "$final_temp"
+  fi
+  rm -f "$general_temp"
   mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
-  chmod "$mode" "$temp"
-  mv "$temp" "$storage"
-  echo "      removed qstack instructions ($label)"
+  chmod "$mode" "$final_temp"
+  mv "$final_temp" "$storage"
+  echo "      removed qstack general and command instructions ($label)"
 }
 
 # qstack is also a curated shelf: each optional collection below is offered on
