@@ -3,4 +3,4 @@ interface:
   short_description: "Score plan execution against code evidence"
   default_prompt: "Use $qstack-plan-adherence-review to compare the current plan with its execution record and code changes."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

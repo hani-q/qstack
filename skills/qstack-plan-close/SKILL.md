@@ -1,13 +1,9 @@
 ---
 name: qstack-plan-close
 description: >
-  Close out an executed plan in its QStack or legacy compound-engineering plan
-  directory by writing or updating outcome.md and promoting durable lessons into CLAUDE.md. Diffs the
-  plan against execution.md (or legacy implementation-notes.md) and the actual shipped code plus git
-  history, extracts what diverged and what surprised us, then proposes the
-  minimal set of CLAUDE.md edits that pass the admission test.
-  Use when asked to "close out the plan", "write the outcome", "the plan shipped",
-  "promote the lessons", or after landing work that has a plan folder.
+  Close an executed plan by recording its outcome and proposing only durable
+  instruction-file lessons.
+disable-model-invocation: true
 license: MIT
 metadata:
   author: hani

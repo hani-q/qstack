@@ -1,6 +1,7 @@
 ---
 name: qstack-serve-plans
-description: Serve the current repository's HTML plan collection from qstack/compound_engineering on a user-selected IP address and port. Use when the user invokes `/qstack-serve-plans`, optionally with an address and port such as `/qstack-serve-plans 127.0.0.1 4173`, or asks to open or serve QStack plans.
+description: Serve the current repository's QStack HTML plan collection on a chosen local address and port.
+disable-model-invocation: true
 ---
 
 # /qstack-serve-plans

@@ -1,12 +1,9 @@
 ---
 name: qstack-loop-no-nonsense
 description: >
-  Execute an approved implementation plan end to end without making unapproved
-  deviations. Orchestrate the work, maintain execution.md beside the plan, run
-  validation, and require a fresh independent adversarial agent to review the
-  actual implementation before completion. Use when the user invokes
-  /qstack-loop-no-nonsense, asks to execute a plan exactly, or wants strict
-  plan fidelity with questions raised before any departure.
+  Execute an approved implementation plan exactly, maintaining QStack execution
+  evidence and requiring independent adversarial review.
+disable-model-invocation: true
 ---
 
 # /qstack-loop-no-nonsense
