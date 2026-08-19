@@ -1,0 +1,133 @@
+.part-break {
+  grid-column: 1 / -1;
+  margin-block: 56px 8px;
+  padding-block-end: 10px;
+  border-block-end: 1px solid var(--rule);
+}
+
+.part-break .label {
+  color: var(--ink-mute);
+}
+
+.part-break h2 {
+  margin-block-start: 6px;
+}
+
+.flow-map {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  color: var(--ink);
+}
+
+.flow-map .box {
+  fill: var(--ground-raise);
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.flow-map .box-source {
+  color: var(--ink-mute);
+}
+
+.flow-map .box-lock {
+  color: var(--redline);
+}
+
+.flow-map .connector {
+  fill: none;
+  stroke: var(--ink-mute);
+  stroke-width: 2;
+}
+
+.flow-map .connector-gate {
+  stroke: var(--redline);
+}
+
+.flow-map text {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 18px;
+}
+
+.flow-map .small {
+  fill: var(--ink-mute);
+  font-size: 14px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-block: 24px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.fact {
+  padding: 18px;
+  background: var(--ground);
+}
+
+.fact b {
+  display: block;
+  margin-block-end: 4px;
+  font-family: var(--gothic);
+  font-size: 1.6rem;
+}
+
+.command-map code,
+.path-list code {
+  overflow-wrap: anywhere;
+}
+
+.decision-list {
+  display: grid;
+  gap: 12px;
+  margin-block: 24px;
+}
+
+.decision {
+  padding: 18px;
+  border: 1px solid var(--rule);
+  border-inline-start: 4px solid var(--sig);
+}
+
+.decision h3 {
+  margin-block: 4px 8px;
+}
+
+.path-list {
+  columns: 2;
+  column-gap: 32px;
+}
+
+.path-list li {
+  break-inside: avoid;
+  margin-block-end: 8px;
+}
+
+.no-playground {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
+@media (max-width: 720px) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .path-list {
+    columns: 1;
+  }
+}
+
+@media print {
+  .facts {
+    break-inside: avoid;
+  }
+
+  .decision {
+    break-inside: avoid;
+  }
+}

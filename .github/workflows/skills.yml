@@ -28,13 +28,8 @@ jobs:
           python3 -m pip install
           "git+https://github.com/agentskills/agentskills.git@38a2ff82958afee88dadf4831509e6f7e9d8ef4e#subdirectory=skills-ref"
 
-      - name: Validate every skill against the specification
-        run: |
-          for skill in skills/*; do
-            if [ -f "$skill/SKILL.md" ]; then
-              skills-ref validate "$skill"
-            fi
-          done
+      - name: Validate skill metadata and invocation parity
+        run: scripts/validate-skill-invocation
 
       - name: Verify skills.sh CLI discovery
         run: npx --yes skills@1.5.21 add . --list --agent codex

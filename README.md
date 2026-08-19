@@ -9,17 +9,17 @@ clobber my own work.
 
 ## Skills
 
-| Skill | Purpose |
-| --- | --- |
-| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
-| [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
-| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
-| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
-| [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
-| [`qstack-plan-close`](skills/qstack-plan-close/) | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
-| [`qstack-serve-plans`](skills/qstack-serve-plans/) | Serve a repository's QStack plan collection on a local HTTP address. |
-| [`qstack-reflect`](skills/qstack-reflect/) | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
-| [`qstack-unyap`](skills/qstack-unyap/) | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
+| Skill | Invocation | Purpose |
+| --- | --- | --- |
+| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
+| [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
+| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit only | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
+| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit only | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
+| [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
+| [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit only | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
+| [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit only | Serve a repository's QStack plan collection on a local HTTP address. |
+| [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
+| [`qstack-unyap`](skills/qstack-unyap/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-unyap 4`. |
 
 The plan lifecycle starts with `plan-to-html`, which automatically runs
 `ask-plan-open-questions` against the new authoritative HTML. It then runs
@@ -163,6 +163,8 @@ there is no second copy to drift.
 ```
 qstack/                              ← this repo, anywhere on disk
 ├── install
+├── scripts/
+│   └── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack-ask-plan-open-questions/SKILL.md
     ├── qstack-plan-close/SKILL.md
@@ -223,6 +225,16 @@ Any directory under `skills/` holding a `SKILL.md` is a skill — the installer
 finds it with no list to maintain. Keep the directory name and the frontmatter
 `name:` identical; skills.sh requires `name` and `description`, lowercase with
 hyphens.
+
+Every skill also has `agents/openai.yaml`, and Claude and Codex use the same
+invocation mode. `SKILL.md` owns that choice: omit
+`disable-model-invocation` for automatic selection or set it to `true` for a
+manual-only skill. Mirror the choice with
+`policy.allow_implicit_invocation: true` or `false` in `agents/openai.yaml`.
+CI runs `scripts/validate-skill-invocation` in the same Python environment as
+its pinned Agent Skills reference validator. The script checks parity, validates
+each `agents/openai.yaml`, and sends a temporary portable projection through
+`skills-ref`.
 
 ## Conventions these skills assume
 

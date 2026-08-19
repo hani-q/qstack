@@ -3,4 +3,4 @@ interface:
   short_description: "Rewrite the last answer briefly and simply"
   default_prompt: "Use $qstack-unyap to rewrite your last answer in fewer, simpler lines."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

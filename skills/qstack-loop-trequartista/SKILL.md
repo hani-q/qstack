@@ -1,13 +1,9 @@
 ---
 name: qstack-loop-trequartista
 description: >
-  Execute an implementation plan end to end with controlled creative freedom.
-  Orchestrate the work, maintain execution.md beside the plan, record every
-  interpretation and deviation, run validation, and require a fresh independent
-  adversarial agent to review the actual implementation before completion. Use
-  when the user invokes /qstack-loop-trequartista, asks to execute a plan while
-  adapting to reality, or wants deviations documented instead of strict literal
-  plan fidelity.
+  Execute an approved implementation plan with documented adaptations, QStack
+  execution evidence, and independent adversarial review.
+disable-model-invocation: true
 ---
 
 # /qstack-loop-trequartista

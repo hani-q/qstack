@@ -1,15 +1,9 @@
 ---
 name: qstack-plan-to-html
 description: >
-  Convert a markdown plan (typically written in plan mode) into a self-contained
-  HTML plan document using the bundled "cyanotype & redline" template. Splits the
-  plan into an HLD half a product manager or founder can read end to end, and an
-  LLD half an execution agent can orchestrate from. Adds inline SVG flow diagrams
-  and, where the concept has rules a reader can poke at, a dependency-free JS
-  playground that models it. After rendering, automatically resolves material
-  open questions with the user and writes the answers into the authoritative HTML.
-  Use when asked to "turn this plan into HTML", "make an HTML plan", "render the
-  plan", "plan to html", or after finishing a plan-mode markdown document.
+  Render a Markdown plan as a reviewable QStack HLD/LLD HTML document and resolve
+  its material open questions.
+disable-model-invocation: true
 license: MIT
 metadata:
   author: hani

@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Reflect"
+  short_description: "Audit work patterns from reproducible evidence"
+  default_prompt: "Use $qstack-reflect to report how this project is being worked from reproducible evidence."
+policy:
+  allow_implicit_invocation: true
