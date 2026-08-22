@@ -3,4 +3,4 @@ interface:
   short_description: "Shape domain state without forced abstractions"
   default_prompt: "Use $qstack-model-the-domain to replace these scattered assumptions with a fitting domain structure."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

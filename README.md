@@ -11,12 +11,13 @@ clobber my own work.
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
-| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent. |
+| [`qstack-plan-prior-art`](skills/qstack-plan-prior-art/) | Automatic | Read the existing compound-engineering plans before a new plan is drafted and report what was already decided, deferred, and learned. |
+| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent — then break it into the cards of its execution board. Adds a board to a plan that already has HTML and none. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
 | [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit only | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
 | [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit only | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
-| [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit only | Close out an executed plan: write `outcome.md`, promote durable lessons into `CLAUDE.md`. |
+| [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit only | Close out an executed plan: write `outcome.md` and close the board. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit only | Serve a repository's QStack plan collection on a local HTTP address. |
 | [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
 | [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-be-concise 4`. |
@@ -25,7 +26,7 @@ clobber my own work.
 | [`qstack-separate-before-serializing-shared-state`](skills/qstack-separate-before-serializing-shared-state/) | Automatic | Remove shared mutable ownership before adding locks or sequential access. |
 | [`qstack-encode-lessons-in-structure`](skills/qstack-encode-lessons-in-structure/) | Automatic | Turn recurring corrections into the strongest practical structural guardrail. |
 | [`qstack-make-operations-idempotent`](skills/qstack-make-operations-idempotent/) | Automatic | Make retries, partial failures, restarts, and stale state converge safely. |
-| [`qstack-model-the-domain`](skills/qstack-model-the-domain/) | Explicit only | Replace scattered domain assumptions with a fitting structure without forcing abstraction. |
+| [`qstack-model-the-domain`](skills/qstack-model-the-domain/) | Automatic | Replace scattered domain assumptions with a fitting structure without forcing abstraction. |
 | [`qstack-foundational-thinking`](skills/qstack-foundational-thinking/) | Explicit only | Settle data shape, access, ownership, concurrency, and useful setup before logic. |
 | [`qstack-how`](skills/qstack-how/) | Automatic | Explain runtime flow, ownership, files, and non-obvious behavior without changing code. |
 | [`qstack-build-the-lever`](skills/qstack-build-the-lever/) | Explicit only | Build the smallest rerunnable tool that makes non-trivial work repeatable and reviewable. |
@@ -38,11 +39,13 @@ Tan's PStack at a pinned source commit. See
 [Third-party notices](THIRD_PARTY_NOTICES.md) for the source map and complete
 MIT license.
 
-The plan lifecycle starts with `plan-to-html`, which automatically runs
-`ask-plan-open-questions` against the new authoritative HTML. It then runs
-through either execution loop, can be checked independently with
-`plan-adherence-review`, and ends with `plan-close`, when what was learned needs
-to outlive the session.
+The plan lifecycle starts with `prior-art`, which reads the existing plans
+before a new one is drafted. `plan-to-html` then does the whole conversion in
+one command: it renders the document, runs `ask-plan-open-questions` against the
+authoritative HTML, and breaks the frozen plan into cards. Either execution loop
+works those cards one at a time, `plan-adherence-review` checks the result
+independently, and `plan-close` writes what was learned into the plan folder for
+the next `prior-art` run.
 
 ## Install
 
@@ -187,6 +190,7 @@ qstack/                              ← this repo, anywhere on disk
 ├── scripts/
 │   └── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
 └── skills/                          ← the layout skills.sh discovers
+    ├── qstack-plan-prior-art/SKILL.md
     ├── qstack-ask-plan-open-questions/SKILL.md
     ├── qstack-plan-close/SKILL.md
     ├── qstack-plan-adherence-review/SKILL.md
@@ -210,8 +214,9 @@ qstack/                              ← this repo, anywhere on disk
     ├── qstack-prove-it-works/SKILL.md
     └── qstack-plan-to-html/
         ├── SKILL.md
+        ├── references/board-breakdown.md   ← epics, cards, points, dependencies
         └── template/v1/             ← "cyanotype & redline" plan template
-            ├── plan.css  plan.js  pretext.js
+            ├── board.js  plan.css  plan.js  pretext.js
             ├── plan-template.html
             └── fonts/               ← self-hosted woff2, offline-safe
 
@@ -275,14 +280,17 @@ each `agents/openai.yaml`, and sends a temporary portable projection through
 **Compound engineering.** The renderer creates
 `qstack/compound_engineering/plans/<feature>/plan.html`, then asks and records
 open decisions directly in that authoritative HTML. The Markdown input is not
-maintained. The HTML freezes once work starts. An execution loop maintains
+maintained. The HTML freezes once work starts, and the same command writes
+`board.jsonl` beside it. An execution loop maintains that board and
 `execution.md` during the work, and `/qstack-plan-close` adds `outcome.md`
 afterward.
 
-The point is the promotion step. `CLAUDE.md` holds only rules an agent would
-**break something** without; everything else stays in the plan folder, loaded on
-demand. Without that split, either the always-on context bloats until the real
-invariants drown, or the hard-won detail evaporates when the session ends.
+Nothing in that cycle writes to `CLAUDE.md`. What a plan taught stays in its
+folder, where `/qstack-plan-prior-art` reads it before the next plan in the same
+area is drafted. A rule strong enough to bind everywhere is not a plan lesson at
+all, and `/qstack-encode-lessons-in-structure` turns it into a check that
+enforces itself. An always-loaded instruction file that grows with every shipped
+plan stops being read.
 
 ### Generated project layout
 
@@ -295,8 +303,8 @@ qstack/compound_engineering/plans/
 ```
 
 The renderer also installs `qstack/scripts/serve.sh`. During execution and
-close-out, `execution.md` and `outcome.md` join `plan.html` in the feature
-folder.
+close-out, `board.jsonl`, `execution.md`, and `outcome.md` join `plan.html` in
+the feature folder.
 
 Run `./qstack/scripts/serve.sh [port] [bind-address]` or
 `/qstack-serve-plans [address] [port]` to serve

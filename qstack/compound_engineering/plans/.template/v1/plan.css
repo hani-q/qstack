@@ -18,9 +18,10 @@
      6  Spine (section index + reading position)
      7  Sheets, clauses, stamps
      8  Blocks: plate, note, ledger, seq, rail, matrix, phases, refs, tabset
-     9  Colophon
-    10  Responsive
-    11  Print
+     9  Execution board
+    10  Colophon
+    11  Responsive
+    12  Print
    ========================================================================= */
 
 /* -- 1 · Fonts ----------------------------------------------------------- */
@@ -248,15 +249,22 @@ button { cursor: pointer; }
   color: var(--ink-faint);
 }
 
-.doc-bar-nav {
+.doc-bar-nav,
+.doc-bar-views {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-inline-start: auto;
 }
 
-.doc-bar-nav a {
+/* with both navs in the bar only the first one takes the free space */
+.doc-bar-nav + .doc-bar-views { margin-inline-start: 14px; }
+
+.doc-bar-nav a,
+.doc-bar-views a {
   border: 0;
+  /* every link carries the rule, so the selected one does not sit 1px low */
+  border-block-end: 1px solid transparent;
   padding: 6px 9px;
   font-family: var(--gothic);
   font-size: 11px;
@@ -265,7 +273,14 @@ button { cursor: pointer; }
   text-transform: uppercase;
   color: var(--ink-mute);
 }
-.doc-bar-nav a:hover { color: var(--ink); background: var(--rule-soft); }
+.doc-bar-nav a:hover,
+.doc-bar-views a:hover { color: var(--ink); background: var(--rule-soft); }
+
+/* the view on screen, marked in the reviewer's pencil */
+.doc-bar-views a[aria-current="true"] {
+  color: var(--ink);
+  border-block-end-color: var(--redline);
+}
 
 .doc-tool {
   width: 32px;
@@ -1019,7 +1034,307 @@ button { cursor: pointer; }
 .tab-panel { animation: panel-in .18s ease both; }
 @keyframes panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* -- 9 · Colophon -------------------------------------------------------- */
+/* -- 9 · Execution board ------------------------------------------------- */
+
+/* A plan freezes when execution starts, and the board is the record of running
+   it. board.js folds ./board.jsonl into the markup below. Nothing in it is a
+   control: no card moves in the browser and there is no write path back.
+
+     .board-lane  > .board-lane-head + .board-scroll > .board-cols
+     .board-cols  > six .board-col, one per status
+     .board-col   > .board-col-head + one .board-card per card
+     .board-card  > .board-card-head + -title + -refs + -meta + -flag + -note */
+
+/* The view switch -------------------------------------------------------- */
+
+/* One file, two views. board.js sets data-view on <html> from the #board hash.
+   The board is a view, not a sheet: no § number, and no entry in the spine. */
+@media screen {
+  :root[data-view="board"] .doc-body,
+  :root[data-view="board"] .title-block { display: none; }
+  :root:not([data-view="board"]) .board { display: none; }
+}
+
+.board {
+  width: var(--page);
+  margin-inline: auto;
+  padding-block: 54px 74px;
+}
+
+.board-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  padding-block-end: 22px;
+  border-block-end: 1px solid var(--rule);
+}
+
+.board-head h2 {
+  margin-block-start: 8px;
+  font-family: var(--gothic);
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.022em;
+  max-width: 26ch;
+}
+
+/* the title block's field grid, turned on its side */
+.board-meter {
+  display: grid;
+  grid-auto-flow: column;
+  margin: 0;
+  border-inline-start: 1px solid var(--rule);
+}
+
+.board-meter > div {
+  padding-inline: 16px;
+  border-inline-end: 1px solid var(--rule);
+}
+
+.board-meter dt {
+  font-family: var(--gothic);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.board-meter dd {
+  margin: 0;
+  padding-block-start: 5px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* progress is counted in points, so points is the field sized to be found
+   first: a card count hides the difference between a 1 and a 5 */
+.board-meter > div:first-child dd { font-size: 20px; }
+
+/* the last field holds the coordinator, and an actor slug is a name rather than
+   a count — a branch-derived one can run 31 characters, and a field is 155px
+   wide at 375px. It wraps; the counts beside it never do. */
+.board-meter > div:last-child dd {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* board.js hides both of these with the hidden attribute, which a display
+   declaration would otherwise beat */
+.board-meter[hidden],
+.board-state[hidden] { display: none; }
+
+/* one line for every state that is not a board: loading, no board.jsonl yet,
+   opened over file:// with the serve command to fix it, and the count of
+   unreadable lines */
+.board-state {
+  padding-block: 26px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: .03em;
+  color: var(--ink-mute);
+}
+
+.board-state[data-tone="warn"] { color: var(--sig-open); }
+.board-state[data-tone="error"] { color: var(--redline); }
+
+/* Lanes and columns — a swimlane per epic -------------------------------- */
+
+.board-lane { padding-block-start: 30px; }
+
+.board-lane-head {
+  position: sticky;
+  inset-block-start: var(--bar-h);
+  z-index: 3;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-block: 13px 11px;
+  background: var(--ground);
+  border-block-end: 1px solid var(--rule);
+}
+
+.board-lane-head h3 {
+  font-family: var(--gothic);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.008em;
+}
+
+.board-lane-points {
+  margin-inline-start: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* overflow-inline is still unimplemented in Chrome and Safari, and the row
+   has to scroll or the six columns overflow the page */
+.board-scroll { overflow-x: auto; }
+
+/* the 1px gap over a ruled ground is the only line work between columns */
+.board-cols {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(168px, 1fr));
+  gap: 1px;
+  /* 6 × 168 plus 5 rules. Under that the row scrolls inside .board-scroll
+     rather than crushing six columns into a phone. */
+  min-inline-size: 1013px;
+  background: var(--rule);
+  border-block-end: 1px solid var(--rule);
+}
+
+.board-col {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  background: var(--ground);
+}
+
+.board-col-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-block-end: 2px;
+}
+
+.board-col-name {
+  font-family: var(--gothic);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.board-col-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cards ------------------------------------------------------------------ */
+
+.board-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: var(--ground-raise);
+  border: 1px solid var(--rule);
+  /* the column a card sits in already names its status, so the edge stays
+     faint unless something upstream set --sig */
+  border-inline-start: 2px solid var(--sig, var(--ink-faint));
+}
+
+/* the id reads on the left, its size on the right */
+.board-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.board-card-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-card-title {
+  font-family: var(--gothic);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.board-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-block-start: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-mute);
+}
+
+.board-card-points {
+  padding: 2px 7px 1px;
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the mono face carries 400 and 500, so weight is the whole scale — enough to
+   mark the two sizes that will take a review round, and it costs no colour */
+.board-card-points[data-points="5"],
+.board-card-points[data-points="8"] { font-weight: 500; }
+
+.board-card-owner {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-mute);
+}
+.board-card-owner::before { content: "@"; }
+
+.board-card-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.board-card-refs a {
+  border: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-faint);
+}
+.board-card-refs a:hover { color: var(--redline); }
+
+/* A bad write has to be visible: a moved event whose from did not match, or a
+   second claim with no released between. The board spends the redline here and
+   nowhere else. */
+.board-card[data-flagged] { border-inline-start-color: var(--redline); }
+
+.board-card-flag {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--redline);
+}
+
+/* what a card is waiting on, and the last thing an agent said about it */
+.board-card-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* done is closed, not deleted: dim the title, never strike it */
+.board-card[data-status="done"] .board-card-title,
+.board-card[data-status="split"] .board-card-title { color: var(--ink-mute); }
+
+/* -- 10 · Colophon ------------------------------------------------------- */
 
 .colophon {
   margin-top: 40px;
@@ -1045,7 +1360,7 @@ button { cursor: pointer; }
 
 .colophon .mono { display: block; padding-top: 8px; color: var(--ink-faint); }
 
-/* -- 10 · Responsive ----------------------------------------------------- */
+/* -- 11 · Responsive ----------------------------------------------------- */
 
 @media (max-width: 1180px) {
   .rail { grid-template-columns: 1fr; gap: 26px; }
@@ -1083,6 +1398,13 @@ button { cursor: pointer; }
   .phase { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .colophon-inner { grid-template-columns: minmax(0, 1fr); }
+  .board-head { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .board-meter {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-inline-start: 0;
+  }
+  .board-meter > div { padding-inline: 0 16px; }
   /* there is no hover here — the mark is tapped, so give the box the width */
   .eli-body { inline-size: min(38ch, calc(100vw - 44px)); }
 }
@@ -1097,7 +1419,7 @@ button { cursor: pointer; }
   .sheet-head .stamp { opacity: 1; transform: rotate(-1.4deg); }
 }
 
-/* -- 11 · Print ---------------------------------------------------------- */
+/* -- 12 · Print ---------------------------------------------------------- */
 
 @page {
   margin: 15mm 14mm;
@@ -1120,6 +1442,11 @@ button { cursor: pointer; }
   }
   .doc-bar, .spine, .doc-tool, .skip { display: none; }
   .doc-body { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
+
+  /* paper gets the plan whichever view was on screen — the board is a live
+     record of a file that keeps changing, so it has no printed form */
+  .board, .doc-bar-views { display: none; }
+
   .sheet { break-inside: auto; padding-bottom: 30px; }
   .sheet-head { break-after: avoid; }
   .sheet-head .stamp { opacity: 1; transform: none; animation: none; }

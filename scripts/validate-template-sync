@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+from fnmatch import fnmatch
+from pathlib import Path
+
+
+# The three fonts/OFL-*.txt licences ship verbatim from each font's upstream
+# release, which means CRLF endings on all 93 lines of OFL-IBMPlexMono.txt and a
+# trailing space in each of the three. Any editor that touches this repository's
+# own copy normalizes that whitespace, so the two trees differ there for good.
+# Licence wording changes nothing about how a plan renders, so it is named here
+# and excluded rather than dropped without a word. Everything else under fonts/,
+# including the five .woff2 files, is still compared.
+EXCLUDED = ("fonts/OFL-*.txt",)
+
+
+def collect_files(root: Path) -> tuple[set[str], set[str]]:
+    compared: set[str] = set()
+    excluded: set[str] = set()
+
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        name = path.relative_to(root).as_posix()
+        if any(fnmatch(name, pattern) for pattern in EXCLUDED):
+            excluded.add(name)
+        else:
+            compared.add(name)
+
+    return compared, excluded
+
+
+def display(path: Path, repo: Path) -> str:
+    try:
+        return str(path.relative_to(repo))
+    except ValueError:
+        return str(path)
+
+
+def main() -> int:
+    repo = Path(__file__).resolve().parent.parent
+    parser = argparse.ArgumentParser(
+        description="Validate that the shipped plan template and this repository's own copy are byte-identical."
+    )
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=repo / "skills" / "qstack-plan-to-html" / "template" / "v1",
+    )
+    parser.add_argument(
+        "--instance",
+        type=Path,
+        default=repo / "qstack" / "compound_engineering" / "plans" / ".template" / "v1",
+    )
+    args = parser.parse_args()
+
+    source_label = display(args.source, repo)
+    instance_label = display(args.instance, repo)
+
+    for label, root in ((source_label, args.source), (instance_label, args.instance)):
+        if not root.is_dir():
+            print(f"qstack: template directory not found: {label}", file=sys.stderr)
+            return 1
+
+    source_files, source_excluded = collect_files(args.source)
+    instance_files, instance_excluded = collect_files(args.instance)
+    if not source_files:
+        print(f"qstack: no template files found in {source_label}", file=sys.stderr)
+        return 1
+
+    failures: list[str] = []
+    for name in sorted(source_files - instance_files):
+        failures.append(f"{name}: in {source_label}, missing from {instance_label}")
+    for name in sorted(instance_files - source_files):
+        failures.append(f"{name}: in {instance_label}, missing from {source_label}")
+
+    identical = 0
+    for name in sorted(source_files & instance_files):
+        if (args.source / name).read_bytes() == (args.instance / name).read_bytes():
+            print(f"qstack: {name}: identical")
+            identical += 1
+        else:
+            failures.append(f"{name}: contents differ")
+
+    excluded = sorted(source_excluded | instance_excluded)
+    if excluded:
+        print(f"qstack: licence text, not compared: {', '.join(excluded)}")
+
+    if failures:
+        print("qstack: template sync failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"  - {failure}", file=sys.stderr)
+        print(
+            f"qstack: {source_label} and {instance_label} are byte-identical by "
+            f"contract; copy the source over the instance",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"qstack: validated {identical} template files in {source_label} and {instance_label}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

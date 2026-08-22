@@ -22,6 +22,12 @@
 - Choose designs that meet present needs without creating known architectural
   dead ends. Do not build unused future capabilities.
 
+- `skills/qstack-plan-to-html/template/v1/` and
+  `qstack/compound_engineering/plans/.template/v1/` are byte-identical by
+  contract, apart from the `fonts/OFL-*.txt` licences. `/qstack-plan-to-html`
+  never overwrites an existing copy, so a change to either directory means the
+  same change to both. `scripts/validate-template-sync` checks this in CI.
+
 - Use Conventional Commit prefixes for commits and pull request titles: `fix:`
   for patches, `feat:` for minor releases, and `!` or a `BREAKING CHANGE:` footer
   for major releases. QStack squash-merges pull requests, so Release Please reads

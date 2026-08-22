@@ -32,6 +32,10 @@ otherwise report in the final response.
 4. In the plan directory, prefer `execution.md`. Also read `executor.md` and
    legacy `implementation-notes.md` when present; do not discard history merely
    because a newer filename exists.
+5. Read `board.jsonl` beside them when it exists, folding the lines in file
+   order for each card's final status, owner, `refs`, and `files`. Agents write
+   the board while they work, so it has the standing `execution.md` already has
+   here: evidence to be checked against the code, never trusted on its own.
 
 Read repository instruction files and the whole authoritative plan. Record the
 plan status. A draft or proposed plan may be reviewed, but state that it lacked
@@ -84,14 +88,29 @@ current tree. When safe and proportionate, rerun focused validation rather than
 repeating a recorded success. Distinguish a missing test from a failing test
 and from a test that was not run.
 
-Check the execution record separately for:
+With a board present, every card whose `refs` cite an obligation's clause is
+part of that obligation's evidence trail. A card at `done` is a claim that its
+per-card review passed, not proof that the obligation holds, so verify the code
+exactly as above. Two board findings carry more weight than any card status:
+
+- an obligation no card cites, which means the breakdown missed a requirement
+  and nothing was ever scheduled to satisfy it;
+- a card at `done` whose `files` show no corresponding change in the tree,
+  which is the strongest single finding a board can produce.
+
+Check the execution record and the board separately for:
 
 - completed boxes whose implementation is missing;
 - changes or decisions absent from the record;
 - deviations mislabeled as ordinary implementation detail;
 - approval claims with no recorded decision;
 - stale validation results or fingerprints;
-- a `complete` status that does not satisfy the plan's completion gate.
+- a `complete` status that does not satisfy the plan's completion gate;
+- cards at `done` with no per-card review recorded;
+- cards left at `claimed` or `in-progress` while the record calls the work
+  complete;
+- `blocked` cards whose question in `note` was never put to the user;
+- `split` parents whose children were never created.
 
 ## Score adherence
 
@@ -114,6 +133,9 @@ Apply these score caps:
   data correctness, migration safety, or a required release gate.
 - Cap at **4** when any material obligation is not verifiable or the execution
   record materially misstates reality.
+- Cap at **4** when the board and the execution record disagree about what was
+  completed, because one of the two records is wrong and the review cannot tell
+  which.
 - Do not penalize an approved deviation merely for differing from the frozen
   plan; judge whether the approved replacement was actually implemented.
 
@@ -130,7 +152,8 @@ Lead with the verdict and score. Then provide:
 2. **Findings** — ordered by severity, with plan clause, code or test evidence,
    impact, and concrete remedy. State explicitly when there are no findings.
 3. **Traceability matrix** — one row per obligation: clause, concise promise,
-   status, implementation evidence, and execution-record evidence.
+   status, implementation evidence, execution-record evidence, and the cards
+   citing that clause with their final status.
 4. **Record accuracy** — contradictions and omissions in the execution record.
 5. **Score rationale** — status counts, material failures, and any score caps.
 6. **Next actions** — the smallest steps needed to reach a 5.

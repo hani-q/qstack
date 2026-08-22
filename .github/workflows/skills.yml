@@ -23,6 +23,12 @@ jobs:
         with:
           node-version: 22.20.0
 
+      - name: Validate plan template sync
+        run: scripts/validate-template-sync
+
+      - name: Validate the board fold against its fixture
+        run: scripts/validate-board-fold
+
       - name: Install the Agent Skills reference validator
         run: >-
           python3 -m pip install
