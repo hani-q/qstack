@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+# The board fold is written out six times over: once in board.js, once as
+# instructions in each execution loop, once in prior-art, plan-close and
+# adherence-review, and several times as awk in qstack-reflect. They have
+# already been caught disagreeing — board.js broke a claim race on `ts`, the
+# reflect awk broke it on file order — and nothing in a JavaScript file, an awk
+# program and a Markdown instruction can share code to stop it happening again.
+#
+# They can share a fixture. scripts/fixtures/board-fold.jsonl exercises every
+# rule in the contract, and scripts/fixtures/board-fold.expected is the fold all
+# six have to agree on. This script folds the fixture with the one implementation
+# that can be executed, board.js, and diffs it against that file. An
+# implementation that cannot be executed is still bound by the same file: it is
+# the arbiter, and a reviewer reads it beside the prose.
+#
+# The expected file is one fact per line, sorted, `<subject> <name> <value>`:
+#
+#     board holders belmont,carlton
+#     card T-05 waiting T-10,T-11
+#
+# One fact per line so a difference names the rule that broke. Lists are sorted
+# and comma-joined, an empty list and an empty owner both read `-`, and no value
+# carries a space, so a line splits on its last space and nothing here depends
+# on JSON key order.
+
+
+# Extracting the fold from board.js, which exports nothing and expects a DOM.
+#
+# board.js is one arrow IIFE. `fold` is a const inside that closure, so loading
+# the file — as a script, as a module, in a vm — reaches nothing. Rather than
+# edit board.js to suit its test, this harness takes the IIFE's body as text and
+# rebuilds it as a function whose last statement is `return { fold };`.
+#
+# Two anchors, both checked: `(() => {` at the start of a line, which the body
+# never repeats because every arrow inside it is indented, `.catch(() => {`
+# included; and the last `})();` in the file. If board.js is ever restructured
+# the anchors miss and the harness says so, rather than quietly folding nothing.
+#
+# The rebuilt body still runs top to bottom before it renders anything, so it
+# gets a DOM stub big enough to reach the end. Only `[data-board-lanes]` has to
+# answer — without it the IIFE returns early and takes `fold` with it. Every
+# other selector may answer null, which board.js already reads as "not on this
+# page". `location.hash` is empty, so the last line picks the plan view and
+# calls stopPolling(): nothing fetches, and no timer is left running.
+HARNESS = r"""
+const fs = require('node:fs');
+
+const fail = (message) => {
+  process.stderr.write(`${message}\n`);
+  process.exit(2);
+};
+
+const [boardPath, fixturePath] = process.argv.slice(2);
+if (!boardPath || !fixturePath) fail('usage: board-fold.js <board.js> <fixture.jsonl>');
+
+const source = fs.readFileSync(boardPath, 'utf8');
+const head = /^\(\(\) => \{\r?\n/m.exec(source);
+const tail = source.lastIndexOf('})();');
+if (!head || tail <= head.index) {
+  fail('no top-level IIFE here, so there is no fold to take');
+}
+const body = source.slice(head.index + head[0].length, tail);
+
+const stub = () => ({
+  dataset: {},
+  hidden: false,
+  textContent: '',
+  append() {}, replaceChildren() {}, setAttribute() {}, addEventListener() {},
+  querySelector: () => null, querySelectorAll: () => [],
+});
+const lanes = stub();
+
+const exported = new Function(
+  'document', 'location', 'history', 'addEventListener', 'fetch',
+  `${body}\n;return { fold };`,
+)(
+  {
+    documentElement: stub(),
+    visibilityState: 'hidden',
+    querySelector: (selector) =>
+      (selector === '[data-board-lanes]' ? lanes : null),
+    querySelectorAll: () => [],
+    createElement: () => stub(),
+    addEventListener() {},
+  },
+  { hash: '' },
+  { pushState() {} },
+  () => {},
+  () => Promise.reject(new Error('the fixture is read from disk, never fetched')),
+);
+
+if (!exported || typeof exported.fold !== 'function') {
+  fail('the IIFE returned before fold was reachable');
+}
+
+const board = exported.fold(fs.readFileSync(fixturePath, 'utf8'));
+
+// A list the fold never computed reads as (none), which lands in the diff as a
+// missing rule rather than as a crash.
+const ids = (value) => {
+  if (!Array.isArray(value)) return '(none)';
+  return value.length ? [...value].sort().join(',') : '-';
+};
+
+const facts = [];
+const fact = (subject, name, value) => facts.push(`${subject} ${name} ${value}`);
+
+for (const card of board.cards.values()) {
+  const subject = `card ${card.id}`;
+  // The same three tests drawCard marks the card with: a claim race, points
+  // outside 1, 2, 3, 5, 8, and a `moved` or `released` that missed.
+  const flagged = card.race || card.sized === false || card.drift.length;
+  fact(subject, 'blocks', ids(card.blocks));
+  fact(subject, 'flagged', flagged ? 'yes' : 'no');
+  fact(subject, 'owner', card.owner || '-');
+  fact(subject, 'points', String(card.points));
+  fact(subject, 'related', ids(card.related));
+  fact(subject, 'status', card.status);
+  fact(subject, 'waiting', ids(card.waiting));
+}
+
+// The fold hands the holders back as the one string the meter shows. Split it
+// again so two coordinators read as two names and not as one label.
+const holders = board.coordinator ? board.coordinator.split(', ') : [];
+fact('board', 'holders', ids(holders));
+fact('board', 'unreadable', String(board.unreadable));
+
+process.stdout.write(`${facts.sort().join('\n')}\n`);
+"""
+
+
+def display(path: Path, repo: Path) -> str:
+    try:
+        return str(path.relative_to(repo))
+    except ValueError:
+        return str(path)
+
+
+def read_expected(path: Path) -> dict[str, str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        raise ValueError("holds no facts")
+    if lines != sorted(lines):
+        raise ValueError("must be sorted, so a diff reads in one order")
+
+    facts: dict[str, str] = {}
+    for line in lines:
+        if line.count(" ") < 2:
+            raise ValueError(f"not a fact: {line}")
+        key, value = line.rsplit(" ", 1)
+        if key in facts:
+            raise ValueError(f"{key} is stated twice")
+        facts[key] = value
+    return facts
+
+
+def fold_with_board_js(node: str, board_js: Path, fixture: Path, harness: Path) -> dict[str, str]:
+    result = subprocess.run(
+        [node, str(harness), str(board_js), str(fixture)],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(result.stderr.strip() or f"node exited {result.returncode}")
+
+    facts: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        key, value = line.rsplit(" ", 1)
+        facts[key] = value
+    return facts
+
+
+def compare(label: str, folded: dict[str, str], expected: dict[str, str]) -> list[str]:
+    failures: list[str] = []
+    for key in sorted(set(expected) | set(folded)):
+        if key not in folded:
+            failures.append(f"{label}: {key}: expected {expected[key]}, folded nothing")
+        elif key not in expected:
+            failures.append(f"{label}: {key}: folded {folded[key]}, which no fact expects")
+        elif folded[key] != expected[key]:
+            failures.append(f"{label}: {key}: expected {expected[key]}, folded {folded[key]}")
+    return failures
+
+
+def main() -> int:
+    repo = Path(__file__).resolve().parent.parent
+    parser = argparse.ArgumentParser(
+        description="Validate that every executable board fold agrees with the committed fixture."
+    )
+    parser.add_argument(
+        "--board-js",
+        type=Path,
+        default=repo / "skills" / "qstack-plan-to-html" / "template" / "v1" / "board.js",
+    )
+    parser.add_argument("--fixture", type=Path, default=repo / "scripts" / "fixtures" / "board-fold.jsonl")
+    parser.add_argument("--expected", type=Path, default=repo / "scripts" / "fixtures" / "board-fold.expected")
+    parser.add_argument("--node", default=os.environ.get("QSTACK_NODE_BIN", "node"))
+    args = parser.parse_args()
+
+    board_label = display(args.board_js, repo)
+    fixture_label = display(args.fixture, repo)
+    expected_label = display(args.expected, repo)
+
+    node = shutil.which(args.node)
+    if not node:
+        print(f"qstack: node not found: {args.node}", file=sys.stderr)
+        return 1
+    for label, path in ((board_label, args.board_js), (fixture_label, args.fixture), (expected_label, args.expected)):
+        if not path.is_file():
+            print(f"qstack: file not found: {label}", file=sys.stderr)
+            return 1
+
+    try:
+        expected = read_expected(args.expected)
+    except ValueError as error:
+        print(f"qstack: {expected_label}: {error}", file=sys.stderr)
+        return 1
+
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="qstack-board-fold-") as temporary:
+        harness = Path(temporary) / "board-fold.js"
+        harness.write_text(HARNESS, encoding="utf-8")
+        try:
+            folded = fold_with_board_js(node, args.board_js, args.fixture, harness)
+        except ValueError as error:
+            print(f"qstack: {board_label}: {error}", file=sys.stderr)
+            return 1
+
+    failures.extend(compare(board_label, folded, expected))
+
+    events = sum(1 for line in args.fixture.read_text(encoding="utf-8").splitlines() if line.strip())
+    cards = len({key.split(" ")[1] for key in expected if key.startswith("card ")})
+    print(f"qstack: {fixture_label}: {events} lines, {cards} cards")
+    if not failures:
+        print(f"qstack: {board_label}: {len(folded)} facts match {expected_label}")
+
+    if failures:
+        sys.stdout.flush()
+        print("qstack: board fold validation failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"  - {failure}", file=sys.stderr)
+        print(
+            f"qstack: {expected_label} is the fold every implementation agrees on; "
+            f"change the implementation, or change the fixture and every implementation with it",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"qstack: validated {len(expected)} board facts against 1 executable fold")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

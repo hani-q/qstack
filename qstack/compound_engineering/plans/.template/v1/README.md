@@ -147,6 +147,13 @@ terminal for the parent of a split. A card whose `depends_on` are unfinished
 waits in `backlog`; `blocked` is the stall only a human can clear, and the
 blocking question goes in `note`.
 
+A `depends_on` naming a card that later splits resolves to that split's children
+and stays unsatisfied until every one of them closes. The parent closed the
+moment it split, but the work it held moved into the children, so a downstream
+card that started on the parent's closure would start on top of work still
+running. Children inherit the parent's own `depends_on`; the board repairs the
+reverse edges, because the file is append-only and no line can be rewritten.
+
 Cards carry six fields beyond their id, title and status:
 
 | Field | Kind | Who uses it |
@@ -170,8 +177,15 @@ Points are Fibonacci, capped, and set once at breakdown:
 - `5` — a subsystem; expect rework.
 - `8` — too coarse. Split it before claiming it.
 
+The set is closed. A card carrying any other value is a bad write: the board
+flags it and no loop will ever call it ready. A `13` is not a large card, it is
+a card whose size nobody thought about, and unlike an `8` it carries no `note`
+saying what it splits into, so it needs a human.
+
 Progress is read in points, not cards — "21 of 55 points" — because a card count
-hides the difference between a 1 and a 5.
+hides the difference between a 1 and a 5. A card whose points are off the scale
+counts in neither total, so the points figure and the card figure can disagree
+about how much is on the board. That gap is the flag doing its job.
 
 `plan.html` carries a `Plan | Board` switch in the document bar, and `#board` in
 the URL selects the board. `board.js` re-fetches `board.jsonl` every 3 s while

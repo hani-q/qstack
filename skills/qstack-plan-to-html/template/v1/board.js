@@ -11,9 +11,14 @@
 
    What it does
      · switches plan ⇄ board on #board, and keeps back and forward working
+     · scrolls a §ref into view itself, because the plan was hidden when the
+       browser went looking for the clause
      · folds the log into epics, cards, owners, statuses, and the coordinator
+     · resolves a depends_on naming a split parent to that split's children
+     · reads related off shared refs and shared files, and stores nothing
      · draws one lane per epic and six columns per lane
-     · flags a second coordinator, a claim race, and a `moved` whose `from` missed
+     · flags a second coordinator, a claim race, a `moved` whose `from` missed,
+       and points outside 1, 2, 3, 5, 8
      · re-fetches every 3 s while the board view is on screen
      · over file:// the fetch fails, so it names the serve command instead
 
@@ -43,6 +48,9 @@
   const COLUMNS = Object.keys(COLUMN_LABEL);
   const STATUSES = new Set([...COLUMNS, 'split']);
   const CLOSED = new Set(['done', 'split']);
+  // Fibonacci, capped, and closed: anything else is a size nobody set.
+  const POINTS = new Set([1, 2, 3, 5, 8]);
+  const RELATED_SHOWN = 3;
   const POLL_MS = 3000;
 
   const NO_BOARD =
@@ -51,7 +59,10 @@
 
   const list = (value) => (Array.isArray(value) ? value : []);
   const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
-  const sum = (cards) => cards.reduce((total, card) => total + card.points, 0);
+  // An unsized card adds nothing to a total: 13 is not a size, it is a card
+  // whose size nobody set, and adding it would report work nobody weighed.
+  const sum = (cards) =>
+    cards.reduce((total, card) => total + (card.sized ? card.points : 0), 0);
   const parse = (line) => {
     try { return JSON.parse(line); } catch { return null; }
   };
@@ -126,6 +137,11 @@
           return true;
         case 'split':
           card.status = 'split';
+          /* `into` is the whole point of the event: work a card depends on
+             moves into these children, and a dependency on this card waits on
+             them now. A split naming nobody leaves the card standing for
+             itself, which is the old reading and the safe one. */
+          card.into = list(event.into).filter(Boolean);
           return true;
         case 'note':
           return true;
@@ -174,7 +190,7 @@
           dependsOn: list(event.depends_on),
           splitFrom: event.split_from || '',
           // Below this line is fold state rather than a `created` field.
-          status: 'backlog', owner: '', claimedAt: '',
+          status: 'backlog', owner: '', claimedAt: '', into: [],
           notes: [], race: '', raceWith: '', drift: [],
         });
         return true;
@@ -201,11 +217,69 @@
       if (event.actor) actors.add(event.actor);
     }
 
-    // depends_on is stored one way. Reverse it so a card says what it holds up.
+    /* A child of a split carries the parent's own depends_on. The loops write
+       it that way; the fold adds it back when a line left it out, so splitting
+       a card can never drop an ordering constraint the parent was still under.
+       A chain of splits inherits all the way up, and a split_from cycle stops
+       at the first id the walk has already read. */
+    for (const card of cards.values()) {
+      const deps = new Set(card.dependsOn);
+      const seen = new Set([card.id]);
+      let parent = cards.get(card.splitFrom);
+      while (parent && !seen.has(parent.id)) {
+        seen.add(parent.id);
+        for (const dep of parent.dependsOn) deps.add(dep);
+        parent = cards.get(parent.splitFrom);
+      }
+      card.dependsOn = [...deps];
+    }
+
+    /* A depends_on naming a card that later split waits on that split's
+       children, never on the parent. The parent closed the moment it split,
+       but the work it was holding went into the children, and a downstream card
+       that starts there starts on top of work still running. A child that split
+       again resolves onward, and an id already expanded is not expanded twice,
+       so a split naming its own parent stops instead of running forever. */
+    const resolve = (ids) => {
+      const out = new Set();
+      const seen = new Set();
+      const walk = (id) => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        const card = cards.get(id);
+        if (card?.status === 'split' && card.into.length) {
+          for (const child of card.into) walk(child);
+          return;
+        }
+        out.add(id);
+      };
+      for (const id of ids) walk(id);
+      return [...out];
+    };
+    for (const card of cards.values()) card.needs = resolve(card.dependsOn);
+
+    /* depends_on is stored one way. Reverse the resolved set, not the written
+       one, so a parent's dependents show up on the children that now carry the
+       work rather than on a card that is already closed. */
     const blocks = new Map();
     for (const card of cards.values()) {
-      for (const dep of card.dependsOn) {
+      for (const dep of card.needs) {
         blocks.set(dep, [...(blocks.get(dep) || []), card.id]);
+      }
+    }
+
+    /* Related is computed here and stored nowhere: two cards are related when
+       they share a refs clause or a files path. Refs and files are indexed
+       apart so a file called 7.2 cannot read as clause §7.2, and a ref is
+       matched on its number, the way the §link on the card is written. */
+    const keysOf = (card) => [
+      ...card.refs.map((ref) => `ref ${String(ref).replace(/^§/, '')}`),
+      ...card.files.map((file) => `file ${file}`),
+    ];
+    const shared = new Map();
+    for (const card of cards.values()) {
+      for (const key of keysOf(card)) {
+        shared.set(key, [...(shared.get(key) || []), card.id]);
       }
     }
 
@@ -213,10 +287,26 @@
       card.blocks = blocks.get(card.id) || [];
       // Unfinished dependencies leave a card waiting in backlog. That is not
       // `blocked`, which is kept for a stall only a human can clear.
-      card.waiting = card.dependsOn.filter(
+      card.waiting = card.needs.filter(
         (dep) =>
           card.status === 'backlog' && !CLOSED.has(cards.get(dep)?.status),
       );
+      /* Points outside the closed set are a bad write, so the card is flagged
+         and it never reads as ready. It stays on the board: dropping it would
+         hide the one thing worth seeing. */
+      card.sized = POINTS.has(card.points);
+      /* Related drops the card's own ordering edges, which already read on the
+         card as "blocks" and "Waiting on": the same id a second time under
+         related is a word that says nothing. A split parent and its children
+         stay, because sharing a clause is what related is about and neither
+         card names the other as an edge. */
+      const near = new Set();
+      for (const key of keysOf(card)) {
+        for (const id of shared.get(key) || []) near.add(id);
+      }
+      const edges = [card.id, ...card.dependsOn, ...card.needs, ...card.blocks];
+      for (const id of edges) near.delete(id);
+      card.related = [...near];
     }
 
     /* Both are read off the set once the whole file is folded, never carried
@@ -264,14 +354,30 @@
     return node;
   };
 
+  /* Related runs long on a busy file, and a card has to stay one glance. Three
+     names, then the count of the ones that did not fit. */
+  const capped = (ids) => {
+    const rest = ids.length - RELATED_SHOWN;
+    return rest > 0
+      ? `${ids.slice(0, RELATED_SHOWN).join(', ')} +${rest} more`
+      : ids.join(', ');
+  };
+
   const drawCard = (card) => {
     // One line per bad write, because a card can take more than one and the
     // second must not cover the first. The claim race, if any, reads first.
-    const flags = [card.race, ...card.drift].filter(Boolean);
+    const flags = [
+      card.race,
+      !card.sized && `Points ${card.points}, not 1, 2, 3, 5 or 8. Not ready.`,
+      ...card.drift,
+    ].filter(Boolean);
+    // Related sits with the other facts rather than on a row of its own: it is
+    // one more thing the card knows, not a second subject.
     const facts = [];
     if (card.files.length) facts.push(count(card.files.length, 'file'));
     if (card.splitFrom) facts.push(`from ${card.splitFrom}`);
     if (card.blocks.length) facts.push(`blocks ${card.blocks.join(', ')}`);
+    if (card.related.length) facts.push(`related ${capped(card.related)}`);
     const notes = [
       card.waiting.length && `Waiting on ${card.waiting.join(', ')}`,
       card.notes[card.notes.length - 1],
@@ -374,7 +480,9 @@
     if (meter) meter.hidden = !all.length && !board.coordinator;
 
     // One line, whatever went wrong. Bad data outranks an empty board.
-    const flagged = all.filter((card) => card.race || card.drift.length).length;
+    const flagged = all.filter(
+      (card) => card.race || card.drift.length || !card.sized,
+    ).length;
     const faults = [];
     if (board.clash) faults.push(board.clash);
     if (board.unreadable) faults.push(count(board.unreadable, 'unreadable line'));
@@ -446,6 +554,22 @@
     else stopPolling();
   };
 
+  /* The two hashes the switch owns name a view, not a place inside one, so
+     neither ever scrolls: clicking Plan keeps the reader where they were. */
+  const viewHashes = new Set(switchLinks.map((link) => link.hash));
+
+  /* Clicking a §ref from the board hands the browser a clause that is still
+     display:none, so it scrolls to a box that is not there and lands at the
+     top of the page. The scroll happens here instead, once the plan view is
+     actually on. scrollIntoView with no argument inherits scroll-behavior from
+     the stylesheet, which is smooth and turns instant under reduced motion. */
+  const openHash = (hash) => {
+    applyView(viewOf(hash));
+    if (viewHashes.has(hash) || hash.length < 2) return;
+    const target = doc.getElementById(hash.slice(1));
+    if (target) target.scrollIntoView();
+  };
+
   for (const link of switchLinks) {
     link.addEventListener('click', (event) => {
       event.preventDefault();
@@ -455,11 +579,14 @@
     });
   }
 
-  addEventListener('hashchange', () => applyView(viewOf(location.hash)));
+  addEventListener('hashchange', () => openHash(location.hash));
   doc.addEventListener('visibilitychange', () => {
     if (boardVisible()) load();
     else stopPolling();
   });
 
-  applyView(viewOf(location.hash));
+  /* A load can land on a clause too, and plan.js only gives the clause its id
+     a moment ago, so the browser's own look for the fragment may already have
+     missed it. Same call, same repair. */
+  openHash(location.hash);
 })();

@@ -81,6 +81,12 @@ moves is not a signal.
 | `5` | A subsystem; expect rework. |
 | `8` | Too coarse. Must be split before it can be claimed. |
 
+The set is closed: `1`, `2`, `3`, `5`, `8` and nothing else. Any other value is
+a bad write. The execution loops refuse it, the board flags the card, and the
+card is never ready, so it stays in the backlog until somebody re-cuts it. A
+`13` is not a large card, it is a card whose size nobody thought about. Write
+the `8` and the `note` naming what it splits into instead.
+
 Progress is read in points, never in cards: "21 of 55 points". A card count
 hides the difference between a 1 and a 5.
 
@@ -98,6 +104,16 @@ one direction, and the board reverses the edges to show "blocks: T-08, T-09".
 Do not encode "feels later" as a dependency. Every false edge serializes a swarm
 that could have run those cards at the same time.
 
+A dependency on a card that later splits follows the work rather than the id.
+The edge resolves to that split's children and stays unsatisfied until every one
+of them closes, because the work the downstream card waits on moved into the
+children when the parent went `split`. The children inherit the parent's own
+`depends_on`, and the fold repairs the reverse edges. The ready-set rule above
+still reads `done` or `split`, since the fold has replaced the edge before that
+rule runs. So depending on a card you expect to split is safe, and it is the
+right thing to write. Name the card that produces the output, not the children
+that do not exist yet.
+
 `files` is ownership. Two cards that write the same file need a dependency
 between them, or the order they run in is decided by whichever agent claims
 first, and the second one writes over a state it did not plan for. Prefer
@@ -110,11 +126,12 @@ and stop, when any of these holds:
 
 - a card cites a clause that does not exist in the plan;
 - `depends_on` contains a cycle, however long;
+- a card carries `points` outside `1`, `2`, `3`, `5`, `8`;
 - an 8-point card carries no `note` naming what it splits into;
 - two cards list the same file with no dependency either way;
 - an epic has no cards.
 
-Run all five against the cards in memory, before the first `printf`. The file is
+Run all six against the cards in memory, before the first `printf`. The file is
 append-only, so a bad card cannot be taken back, only noted and split.
 
 ## Check the other boards

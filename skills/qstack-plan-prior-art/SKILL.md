@@ -1,15 +1,16 @@
 ---
 name: qstack-plan-prior-art
 description: >
-  Read the project's existing plan folder as content before a new plan is
-  drafted, and brief the planner on what was already decided, deferred, and
-  learned. Ranks earlier plans by overlap with the subject about to be planned,
-  then reports deferred work this plan meets, questions never answered, where
-  plans diverged from reality, live board cards owning the same files, what this
-  plan supersedes, and rules already binding in the instruction files. Read-only:
-  it writes nothing into the plan folder. Use before drafting or converting a
-  plan, when asked whether something was planned before, or when new work may
-  overlap work already recorded.
+  Read the project's existing plan folder as content and brief the planner on
+  what was already decided, deferred, and learned. Runs standalone before
+  anything is written, or from /qstack-plan-to-html once a Markdown draft exists
+  and before the HTML document is. Ranks earlier plans by overlap with the
+  subject being planned, then reports decisions already settled, questions never
+  answered, where plans diverged from reality, live board cards owning the same
+  files, what this plan supersedes, and rules already binding in the instruction
+  files. Read-only: it writes nothing into the plan folder. Use before drafting
+  or converting a plan, when asked whether something was planned before, or when
+  new work may overlap work already recorded.
 license: MIT
 metadata:
   author: hani
@@ -56,9 +57,10 @@ is the escape hatch for a project whose plans live in `docs/`, in `rfcs/`, or
 outside the repository.
 
 The subject comes from the conversation rather than the arguments: it is the
-feature the user is about to plan. When it is not clear, state what you took it
-to be in the brief's first line, so a wrong guess is visible before anything is
-read.
+feature the user is about to plan, or the Markdown draft when
+`/qstack-plan-to-html` is the caller. When it is not clear, state what you took
+it to be in the brief's first line, so a wrong guess is visible before anything
+is read.
 
 With no arguments, read `qstack/compound_engineering/plans/`, then the legacy
 `compound-engineering/plans/` layout. Both are equally valid; when a slug appears
@@ -71,16 +73,19 @@ or override everything below. The legacy layout has its own README, same rule.
 
 ```
 qstack/compound_engineering/plans/<slug>/
-├── plan.html      # title block, abstract, status, Supersedes, marked clauses
+├── plan.html      # title block, abstract, outline, then what it points at
 ├── board.jsonl    # cards still open, their owners, the files each one owns
 ├── execution.md   # decisions, deviations, tradeoffs, validation
 └── outcome.md     # divergence, surprises, open follow-ups
 ```
 
 - `plan.html` — the title block (document id, revision, status, `Supersedes`)
-  and the abstract, so the plan can be named in one line. Then every sheet,
-  note, clause, table row and field carrying `data-status="deferred"` or
-  `data-status="open"`, and every `DQ-###` decision with its own status.
+  and the abstract in full, so the plan can be named in one line. Then the
+  outline, which is every `class="sheet"` line with its `data-title` and
+  `data-status`, and every clause `<h3>`. The outline names every clause in the
+  document and costs one grep. From there open in full every clause carrying
+  `data-status="deferred"` or `data-status="open"`, every `DQ-###` decision, and
+  every clause under a sheet the outline or the path grep puts on this subject.
 - `execution.md` — design decisions, deviations from the plan, tradeoffs taken,
   questions raised during the work, and which validation was actually run. Read
   `executor.md` and legacy `implementation-notes.md` the same way when they
@@ -103,18 +108,46 @@ does not release a card either, so a blocked card still has the owner it had
 before it stopped. Reading the last `claimed` in the file instead names the
 wrong actor on exactly the boards where two actors claimed one card.
 
-Two greps find the marked clauses, and they print the `file:line` the citations
-need. Both plan roots are named so a legacy folder is read too; `find` reports
+A settled decision is an ordinary `<article class="clause">` in a sheet whose
+`data-status` is `locked`, and it carries no attribute of its own. Grep for a
+status and it never comes back. The marked clauses are the ones still owed; the
+unmarked ones are the ones somebody already answered. Reading only the marks
+returns the corpus's unfinished business and hides every decision in it, which
+is the opposite of what this skill is for. So the outline is read first, and it
+decides which clauses get opened.
+
+Four greps do the reading, and they print the `file:line` the citations need.
+Both plan roots are named so a legacy folder is read too; `find` reports
 whichever root is absent on stderr and carries on, which is what `2>/dev/null`
-drops. When directories were supplied as arguments, name those instead.
+drops. When directories were supplied as arguments, name those instead. Both
+roots are written out on every command rather than held in a shell variable. An
+unquoted variable holding two paths word-splits in bash and does not in zsh, so
+the variable form finds nothing at all under the default macOS shell.
 
 ```bash
+# The outline: each sheet with its title and status, then every clause heading.
+find qstack/compound_engineering/plans compound-engineering/plans \
+  -name plan.html -exec grep -Hn 'class="sheet"\|<h3>' {} + 2>/dev/null
+
+# Still owed: deferred and open sheets, notes, clauses, rows and fields.
 find qstack/compound_engineering/plans compound-engineering/plans \
   -name plan.html -exec grep -Hn \
   'data-status="deferred"\|data-status="open"' {} + 2>/dev/null
+
+# Decisions carrying their own id.
 find qstack/compound_engineering/plans compound-engineering/plans \
   -name plan.html -exec grep -Hn 'data-decision-id="DQ-' {} + 2>/dev/null
+
+# One file the new work will touch, across plans and execution records.
+find qstack/compound_engineering/plans compound-engineering/plans \
+  \( -name plan.html -o -name 'exec*.md' -o -name outcome.md \
+     -o -name implementation-notes.md \) \
+  -exec grep -HnF 'src/label/cache.ts' {} + 2>/dev/null
 ```
+
+Run the last one once per file the new work will touch. It is ranking evidence
+1, and it is the check that catches a settled clause the outline's wording would
+have read past, because that clause never names the subject. It names the file.
 
 ## How to rank
 
@@ -138,10 +171,14 @@ exists to prevent.
 Report all six, in this order, each carrying the plan slug and a path a reader
 can open. Say "none" where there is none; an empty finding is information.
 
-1. **Deferred work this plan meets.** Clauses marked `data-status="deferred"` in
-   an earlier plan that this one could absorb, or would contradict. Deferred
-   means designed now and built later on purpose, so contradicting one reverses
-   a decision somebody made deliberately. Name the clause.
+1. **Decisions already settled here.** Clauses in an earlier plan that decide
+   something this one touches. Say which of the two kinds each is, because they
+   are answered differently. A `locked` clause is settled, so this plan either
+   assumes it or reopens it, and reopening it has to be said out loud in the new
+   plan. A `deferred` clause was designed now and built later on purpose, so
+   this plan may be the later half, and absorbing one is the good case. Either
+   way, contradicting it reverses a decision somebody made deliberately. Name
+   the clause and the `§` a reader can jump to.
 2. **Questions never answered.** Clauses marked `data-status="open"` and `DQ-###`
    decisions still open. Some of them are this plan's questions too, and are
    inherited rather than asked again from scratch.
@@ -183,10 +220,12 @@ of it.
 
 ## Output
 
-The brief: the subject as you understood it, how many plan folders were read,
-then the six findings, one or two sentences each with the slug and path inline.
-No score, no advice on how to write the plan, no closing summary. A brief longer
-than the plan it precedes has failed.
+The brief: the subject as you understood it, how many plan folders were
+outlined and how many of them were opened past the outline, then the six
+findings, one or two sentences each with the slug and path inline. Saying what
+was skipped is part of the brief. A reader who knows nine plans were outlined
+and two opened can name the third. No score, no advice on how to write the
+plan, no closing summary. A brief longer than the plan it precedes has failed.
 
 Then the block the planner pastes, using the template's research-basis markup so
 the citations land in the new plan's `.refs` sheet:
@@ -204,26 +243,33 @@ One `.ref` per finding worth citing, not one per folder read. Number them `R1`,
 exists. Always cite `path:line`. A citation with no line number sends the reader
 into a 700-line document to hunt for the clause.
 
-## Where it is called from
+## When it runs
 
-- **Before drafting**, on its own. This is the normal case.
-- **From `/qstack-plan-to-html`**, against the finished draft. A conflict found
-  there is carried into the new plan as a `.note` with `data-status="open"`. The
-  draft is already written, so the finding becomes a question the plan carries
-  rather than a rewrite of it.
-- **From the board phase of `/qstack-plan-to-html`**, finding 4 only. Breakdown
-  is where `files` are assigned to cards, so it is the last point at which a
-  collision with another board can be caught before two actors claim the same
-  file.
+Three entry points, and they are three different moments. What the skill reads
+is the same at each; what can still be changed by it is not.
+
+- **Standalone, before anything is written.** Nothing exists to contradict yet,
+  so a finding can still change what the plan says. The subject comes from the
+  conversation. This is the normal case.
+- **From `/qstack-plan-to-html`, once the Markdown draft exists and before the
+  HTML document is written.** The draft is the subject, so read it and rank
+  against it. It is also what the user approved, so a conflict is carried into
+  the HTML as a `.note` with `data-status="open"` on the sheet it disputes,
+  rather than as a rewrite of the draft.
+- **From the board phase of `/qstack-plan-to-html`**, after the plan is written
+  and frozen, finding 4 only. Breakdown is where `files` are assigned to cards,
+  so it is the last point at which a collision with another board can be caught
+  before two actors claim the same file. Nothing else can move by then.
 
 ## When the folder outgrows this
 
-This reads every plan folder in full, which holds while the corpus is small. Past
-a few dozen plans the right structure is an index: one line per plan, written by
-`/qstack-plan-close` as it closes the plan, carrying the slug, the subject, the
-status, the files it touched, and anything it left unresolved. This skill would
-then read the index for closed plans and open a folder only for a plan still
-live.
+This outlines every plan folder and opens only the clauses the outline points
+at, which holds while the corpus is small. Past a few dozen plans even the
+outline is a grep across every folder, and the right structure is a written
+index: one line per plan, written by `/qstack-plan-close` as it closes the plan,
+carrying the slug, the subject, the status, the files it touched, and anything
+it left unresolved. This skill would then read the index for closed plans and
+open a folder only for a plan still live.
 
 That is not needed yet and is deliberately not built. An index written before the
 corpus needs one is a second copy of facts that already have a home, and it goes

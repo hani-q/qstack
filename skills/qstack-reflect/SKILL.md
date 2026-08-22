@@ -298,13 +298,18 @@ find <plan-dirs> -name board.jsonl -exec awk '
   match($0, /"ts":"[^"]*"/)   { ts = substr($0, RSTART+6, RLENGTH-7) }
   /"event":"moved"/ && /"to":"blocked"/   { held[c] = secs(ts) }
   /"from":"blocked"/ || /"event":"split"/ || /"to":"done"/ {
-                                if (held[c]) {
+                                if (c in held) {
                                   print FILENAME, id,
                                         (secs(ts) - held[c]) / 3600 " h"
                                   delete held[c] } }
   END { for (c in held) n++; print n+0 " never left blocked" }
 ' {} +
 ```
+
+The leave rule tests `c in held`, not `held[c]`. Reading `held[c]` on a card
+that never blocked creates the entry, and the END count then reports every card
+that reached `done` or `split` as one that never left `blocked`. On a fixture
+holding a single blocked card, that reported four.
 
 Splits, and the parent's points against the sum of its children's. Points are
 set once at breakdown and never edited, so that gap is the only record of how
@@ -329,19 +334,23 @@ find <plan-dirs> -name board.jsonl -exec awk '
 ' {} +
 ```
 
-Bad writes, the three the board flags: a second `claimed` with no `released`
-between, a `moved` whose `from` is not the card's status at that point, and a
-`released` from an actor that is neither the owner nor the loser of a race.
+Bad writes, the four the board flags: a `created` whose `points` are not one of
+`1`, `2`, `3`, `5`, `8`, a second `claimed` with no `released` between, a
+`moved` whose `from` is not the card's status at that point, and a `released`
+from an actor that is neither the owner nor the loser of a race.
 
 ```bash
 find <plan-dirs> -name board.jsonl -exec awk '
-  { c = ""; id = ""; a = ""; f = ""; t = "" }
+  { c = ""; id = ""; a = ""; f = ""; t = ""; p = "" }
   match($0, /"card":"[^"]*"/)  { id = substr($0, RSTART+8, RLENGTH-9)
                                  c = FILENAME SUBSEP id }
   match($0, /"actor":"[^"]*"/) { a = substr($0, RSTART+9, RLENGTH-10) }
   match($0, /"from":"[^"]*"/)  { f = substr($0, RSTART+8, RLENGTH-9) }
   match($0, /"to":"[^"]*"/)    { t = substr($0, RSTART+6, RLENGTH-7) }
-  /"event":"created"/  { st[c] = "backlog"; own[c] = "" }
+  /"event":"created"/  { st[c] = "backlog"; own[c] = ""
+                         if (match($0, /"points":[0-9]+/))
+                           p = substr($0, RSTART+9, RLENGTH-9)
+                         if (p !~ /^[12358]$/) size++ }
   !(c in st)           { next }
   /"event":"claimed"/  { if (own[c] != "") { races++; lost[c] = a }
                          else own[c] = a
@@ -350,10 +359,18 @@ find <plan-dirs> -name board.jsonl -exec awk '
                          else if (a == lost[c]) delete lost[c]
                          else stray++ }
   /"event":"moved"/    { if (st[c] != f) bad++; st[c] = t }
-  END { print races+0 " claim races, " bad+0 " from-mismatches, " \
-              stray+0 " stray releases" }
+  END { print size+0 " cards with points off the scale, " races+0 \
+              " claim races, " bad+0 " from-mismatches, " stray+0 \
+              " stray releases" }
 ' {} +
 ```
+
+`points` is a closed set of `1`, `2`, `3`, `5`, `8`, so `/^[12358]$/` is the
+whole rule and a missing field fails it too. A card carrying anything else never
+enters the ready set, so it sits in the backlog until somebody re-cuts it. A
+`13` is not a large card, it is a card whose size nobody thought about. It is
+counted here rather than in the point totals above, because it is a fault in the
+write and not a quantity of work.
 
 The loser of a claim race releases without owning the card, so only the holder's
 `released` moves it. The loser's is the one release from a non-owner that is
