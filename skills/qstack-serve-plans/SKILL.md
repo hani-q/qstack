@@ -45,5 +45,5 @@ Verify the server responds at `http://<bind-address>:<port>/`. When binding to
 `0.0.0.0`, verify through `127.0.0.1` and report that it is listening on all
 interfaces. Report the root URL and, when there is exactly one plan, its direct
 `/plans/<slug>/plan.html` URL, plus `/plans/<slug>/plan.html#board` when that
-plan directory holds a `board.jsonl`. Keep the final response to one or two
+plan directory holds a `board-events.js`. Keep the final response to one or two
 lines.

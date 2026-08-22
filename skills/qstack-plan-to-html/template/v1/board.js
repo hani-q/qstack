@@ -1,8 +1,8 @@
 /* ============================================================================
    Execution board — v1
    ----------------------------------------------------------------------------
-   A second view of the plan document. It renders ./board.jsonl, the
-   append-only log that agents append to while they execute the plan.
+   A second view of the plan document. It renders ./board-events.js, the
+   append-only event stream that agents append to while they execute the plan.
 
    Read-only, on purpose. No drag-and-drop, no POST, no write path of any kind:
    a card moves when an agent appends a line, never when a reader drags one.
@@ -19,8 +19,8 @@
      · draws one lane per epic and six columns per lane
      · flags a second coordinator, a claim race, a `moved` whose `from` missed,
        and points outside 1, 2, 3, 5, 8
-     · re-fetches every 3 s while the board view is on screen
-     · over file:// the fetch fails, so it names the serve command instead
+     · reloads the event script every 3 s while the board view is on screen
+     · loads the same event script over http:// and file://
 
    Authoring contract — see README.md
      <section class="board" id="board"> holding [data-board-lanes]
@@ -52,10 +52,12 @@
   const POINTS = new Set([1, 2, 3, 5, 8]);
   const RELATED_SHOWN = 3;
   const POLL_MS = 3000;
+  const FORMAT = 1;
 
   const NO_BOARD =
     'No board yet. Run /qstack-plan-to-html to break this plan into cards.';
-  const NOT_SERVED = 'Serve the plan to see the board: ./qstack/scripts/serve.sh';
+  const BROKEN_BOARD =
+    'Board event stream missing or invalid. Check its format header and run node --check board-events.js.';
 
   const list = (value) => (Array.isArray(value) ? value : []);
   const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -63,15 +65,11 @@
   // whose size nobody set, and adding it would report work nobody weighed.
   const sum = (cards) =>
     cards.reduce((total, card) => total + (card.sized ? card.points : 0), 0);
-  const parse = (line) => {
-    try { return JSON.parse(line); } catch { return null; }
-  };
-
   /* -- The fold ---------------------------------------------------------- */
 
-  /* Lines in file order, later events win. A line that will not parse, and an
-     event naming a card no `created` declared, are counted and dropped. */
-  const fold = (text) => {
+  /* Events in file order, later events win. A call whose value is not usable,
+     and an event naming a card no `created` declared, are counted and dropped. */
+  const fold = (events) => {
     const epics = new Map();
     const cards = new Map();
     const actors = new Set();
@@ -152,6 +150,7 @@
 
     // False for an event the board cannot use, which the caller then counts.
     const apply = (event) => {
+      if (event?.event === 'board' && event.format === FORMAT) return true;
       if (!event?.ts || !event.event) return false;
 
       /* One actor holds the whole board for the length of a run, and who holds
@@ -206,9 +205,7 @@
       return true;
     };
 
-    for (const line of text.split('\n')) {
-      if (!line.trim()) continue;
-      const event = parse(line);
+    for (const event of events) {
       if (!apply(event)) {
         unreadable += 1;
         continue;
@@ -493,13 +490,22 @@
 
   /* -- The file ---------------------------------------------------------- */
 
-  let lastText = null;
+  let lastSignature = null;
   let timer = 0;
-  /* Switching views twice while a fetch is in flight would leave two request
-     chains running: each schedules its own timeout, one handle overwrites the
-     other, and the older response can repaint over the newer one. Every load
-     carries the generation it started in, and a stale one does nothing. */
+  /* Switching views twice while a script is loading would leave two request
+     chains running. Every load carries the generation it started in, and the
+     old script is removed before another one can collect events. */
   let generation = 0;
+  let collecting = null;
+  let active = null;
+
+  /* board-events.js is data expressed as calls to this receiver. A classic
+     script is a declared page resource, so browsers load it beside plan.html
+     over file:// as well as HTTP. Keep the receiver fixed: every writer and
+     every existing event line names it. */
+  globalThis.qstackBoardEvent = (event) => {
+    if (collecting) collecting.push(event);
+  };
 
   const boardVisible = () =>
     root.dataset.view === 'board' && doc.visibilityState === 'visible';
@@ -508,34 +514,65 @@
     clearTimeout(timer);
     timer = 0;
     generation += 1;
+    if (active) {
+      removeEventListener('error', active.runtimeError);
+      active.script.remove();
+      active = null;
+      collecting = null;
+    }
   };
 
-  /* Poll only while the board is on screen, and skip the redraw when the file
-     comes back byte for byte the same: no change is the common case, and a
-     rebuilt lane loses its scroll position. */
+  /* Poll only while the board is on screen, and skip the redraw when the event
+     values are unchanged: no change is the common case, and a rebuilt lane
+     loses its scroll position. A new script element gives HTTP a cache-busting
+     URL and gives file:// the same load path without fetch or CORS. */
   const load = () => {
     stopPolling();
     const mine = generation;
-    fetch('./board.jsonl', { cache: 'no-store' })
-      .then((response) => (response.ok ? response.text() : ''))
-      .then((text) => {
-        if (mine !== generation) return;
-        // A 404 folds to no cards, and no cards already says "No board yet".
-        if (text === lastText) return;
-        lastText = text;
-        render(fold(text));
-      })
-      .catch(() => {
-        if (mine !== generation) return;
-        // file:// rejects the fetch outright, and so does a dead connection.
-        lastText = null;
-        show(NOT_SERVED, 'warn');
-      })
-      .finally(() => {
-        if (mine === generation && boardVisible()) {
-          timer = setTimeout(load, POLL_MS);
+    const events = [];
+    const script = doc.createElement('script');
+    let failed = false;
+
+    const runtimeError = (error) => {
+      if (String(error.filename || '').includes('board-events.js')) failed = true;
+    };
+    const finish = () => {
+      if (active?.script !== script) return;
+      removeEventListener('error', runtimeError);
+      script.remove();
+      active = null;
+      collecting = null;
+      if (mine !== generation) return;
+
+      if (events[0]?.event !== 'board' || events[0]?.format !== FORMAT) {
+        failed = true;
+      }
+      if (failed) {
+        lastSignature = null;
+        show(BROKEN_BOARD, 'error');
+      } else {
+        const signature = JSON.stringify(events);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          render(fold(events));
         }
-      });
+      }
+      if (boardVisible()) timer = setTimeout(load, POLL_MS);
+    };
+
+    collecting = events;
+    addEventListener('error', runtimeError);
+    active = { script, runtimeError };
+    script.async = true;
+    script.src = `./board-events.js?qstack=${Date.now()}`;
+    // Runtime syntax errors are reported to window around the script's load
+    // event. Finish on the next task so the error handler can mark the stream.
+    script.addEventListener('load', () => setTimeout(finish, 0), { once: true });
+    script.addEventListener('error', () => {
+      failed = true;
+      finish();
+    }, { once: true });
+    doc.head.append(script);
   };
 
   /* -- Views ------------------------------------------------------------- */

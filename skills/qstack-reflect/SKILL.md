@@ -144,7 +144,7 @@ That is the limit of the guess and must be stated in the report, alongside the
 argument that overrides it.
 
 For plans in a recognised layout, count how many carry an execution record, an
-outcome record, and a `board.jsonl`. Do not apply that completeness check
+outcome record, and a `board-events.js`. Do not apply that completeness check
 elsewhere; those plans were never promised those files.
 
 An execution record is `execution.md`, `executor.md`, or the legacy
@@ -153,12 +153,18 @@ Any one of them counts, and the report names which was found. Counting only
 `execution.md` reports an executed plan as never executed, which is the same
 false-negative as missing its directory.
 
-`board.jsonl` is the execution board, append-only card events at one JSON
-object per line. Count the plans holding one and the events in each, over the
-same directories this section resolved:
+`board-events.js` is the execution board, append-only card events at one exact
+`qstackBoardEvent({...});` call per line. Run `node --check` on every board
+before counting it. Count the plans holding one and the events in each, over
+the same directories this section resolved:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec wc -l {} +
+find <plan-dirs> -name board-events.js -exec node --check {} \;
+find <plan-dirs> -name board-events.js -exec awk '
+  FNR == 1 { if (seen) print n, name; name = FILENAME; n = 0; seen = 1 }
+  /"ts":"/ { n++ }
+  END { if (seen) print n, name }
+' {} +
 ```
 
 A board with no events is its own finding, and not the same as a plan with no
@@ -177,19 +183,19 @@ Do not attempt to detect rules restated in different words. It was tested
 against a 507-line instruction file and returned one match, which was a false
 positive. Reinstate it only with evidence that it works.
 
-**F. Board flow.** Counts from the `board.jsonl` files under the plan
-directories E resolved, discovered or supplied. Each line is one JSON object,
-so `grep` and `awk` read the fields directly and nothing here needs a JSON
-parser.
+**F. Board flow.** Counts from the `board-events.js` files under the plan
+directories E resolved, discovered or supplied. Each line is one
+`qstackBoardEvent({...});` call with its JSON object kept on that line, so
+`grep` and `awk` read the fields directly and nothing here needs a JSON parser.
 
 Cards created, and the points on them. A split parent's points leave the total
 once it splits, since the children carry that work now and counting both counts
 it twice:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec grep -h '"event":"created"' {} + |
+find <plan-dirs> -name board-events.js -exec grep -h '"event":"created"' {} + |
   wc -l
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { c = ""; id = "" }
   match($0, /"card":"[^"]*"/) { id = substr($0, RSTART+8, RLENGTH-9)
                                 c = FILENAME SUBSEP id }
@@ -216,7 +222,7 @@ reaches `done`, or when a `split` closes it into children, which closes it at
 zero points so closed and open still add up to the total above:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { c = ""; id = "" }
   match($0, /"card":"[^"]*"/) { id = substr($0, RSTART+8, RLENGTH-9)
                                 c = FILENAME SUBSEP id }
@@ -245,7 +251,7 @@ breakdown declared every card on the board and worked none of them — counting
 Report the count as cards touched after breakdown, which is what it is:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { c = ""; id = ""; a = "" }
   match($0, /"actor":"[^"]*"/) { a = substr($0, RSTART+9, RLENGTH-10) }
   match($0, /"card":"[^"]*"/)  { id = substr($0, RSTART+8, RLENGTH-9)
@@ -261,7 +267,7 @@ is rework. That count is the reason this category exists. `blocked` and `split`
 are outside the sequence, so moves touching them are not counted here.
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   BEGIN { split("backlog claimed in-progress review done", seq, " ")
           for (i in seq) rank[seq[i]] = i }
   { c = ""; id = ""; f = ""; t = "" }
@@ -283,7 +289,7 @@ since two boards both carry a `T-01`. `secs` converts the ISO 8601 `ts` to
 seconds, since awk has no portable date function.
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   function secs(t,   d, y, m, n) {
     gsub(/[-T:Z]/, " ", t); split(t, d, " ")
     y = d[1]; m = d[2] + 0; if (m < 3) { y--; m += 12 }
@@ -317,7 +323,7 @@ far the estimate was off. Each line names its board file first, for the same
 reason the blocked lines do:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { c = ""; id = "" }
   match($0, /"card":"[^"]*"/)       { id = substr($0, RSTART+8, RLENGTH-9)
                                       c = FILENAME SUBSEP id }
@@ -340,7 +346,7 @@ Bad writes, the four the board flags: a `created` whose `points` are not one of
 from an actor that is neither the owner nor the loser of a race.
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { c = ""; id = ""; a = ""; f = ""; t = ""; p = "" }
   match($0, /"card":"[^"]*"/)  { id = substr($0, RSTART+8, RLENGTH-9)
                                  c = FILENAME SUBSEP id }
@@ -396,7 +402,7 @@ and never clears anyone else's hold, so this tracks every live holder as
 counts the open ones, and an overlap is live while that count is above one:
 
 ```bash
-find <plan-dirs> -name board.jsonl -exec awk '
+find <plan-dirs> -name board-events.js -exec awk '
   { a = "" }
   match($0, /"actor":"[^"]*"/) { a = substr($0, RSTART+9, RLENGTH-10) }
   /"event":"coordinator"/ { claims++

@@ -5,7 +5,7 @@ claim. Read this file in full before writing a card; the checks near the end
 cannot be applied retroactively, because the board file is append-only.
 
 The board is the execution record of the plan: one card per unit of work, moved
-by the agent doing the work, never by a reader. It is `board.jsonl` in the
+by the agent doing the work, never by a reader. It is `board-events.js` in the
 plan's own directory, beside `plan.html`. There is one board per plan and it is
 written nowhere else.
 
@@ -25,16 +25,16 @@ card. A breakdown made from a skim cites the wrong clauses.
 
 ## Never overwrite an existing board
 
-When `board.jsonl` is already there, fold it and look for the breakdown marker:
+When `board-events.js` is already there, fold it and look for the breakdown marker:
 a `note` from `planner` whose text starts `breakdown complete:`. It is the last
 line a finished breakdown writes, and it is how a later run tells a board that
 was written whole from one whose write died half way through.
 
 With the marker, the board is the live record of work other agents may be doing
 this minute. Report the card count and how many are closed, and stop. Without
-it, a breakdown was interrupted, and what is on disk is part of a board: some
-lanes, some cards, the rest never written. Finish the write, following the
-recovery steps near the end.
+it, the stream is either the header-only pre-board placeholder or a breakdown
+interrupted after some lanes or cards were written. Finish the write, following
+the recovery steps near the end.
 
 The one exception to stopping on a whole board is a user who asks for more cards
 on it. Append `created` events only, with ids continuing past the largest id
@@ -136,8 +136,8 @@ append-only, so a bad card cannot be taken back, only noted and split.
 
 ## Check the other boards
 
-Fold every other `board.jsonl` under the same plan root
-(`qstack/compound_engineering/plans/*/board.jsonl`). Report any card here whose
+Fold every other `board-events.js` under the same plan root
+(`qstack/compound_engineering/plans/*/board-events.js`). Report any card here whose
 `files` are already owned by a card that is `claimed`, `in-progress`, or
 `review` on another board. That work is live in another agent's hands, and
 planning over it produces a conflict a human resolves by hand.
@@ -149,10 +149,11 @@ not after it was frozen.
 
 ## Write the file
 
-One `printf` per line. Never read-modify-write, never a JSON array, one JSON
-object per line with no newlines inside it, and the file always ends with a
-newline. Write every `epic` event first, then the `created` events in card-id
-order, so an interrupted write still folds into lanes that exist.
+One `printf` per line. Never read-modify-write, never a JSON array, one exact
+`qstackBoardEvent({...});` call per line with no newlines inside the object, and
+the file always ends with a newline. Write every `epic` event first, then the
+`created` events in card-id order, so an interrupted write still folds into
+lanes that exist.
 
 `ts` is `date -u +%FT%TZ`. The actor for the breakdown pass is `planner`,
 because no agent owns a card yet; later events carry the actor slug the
@@ -163,12 +164,15 @@ step compares it against the line count afterwards, and on an append or a
 recovery there is no other way to know how many lines this pass wrote.
 
 ```bash
-board=qstack/compound_engineering/plans/<slug>/board.jsonl
-before=$(cat "$board" 2>/dev/null | wc -l)   # 0 when there is no file yet
-printf '%s\n' '{"ts":"2026-08-22T09:41:00Z","event":"epic","actor":"planner","epic":"board-file","title":"The board file"}' >> "$board"
-printf '%s\n' '{"ts":"2026-08-22T09:41:00Z","event":"created","actor":"planner","card":"T-01","epic":"board-file","title":"Fold board.jsonl into cards","points":3,"refs":["4.2"],"files":["skills/qstack-plan-to-html/template/v1/board.js"],"depends_on":[]}' >> "$board"
-printf '%s\n' '{"ts":"2026-08-22T09:41:01Z","event":"created","actor":"planner","card":"T-02","epic":"board-file","title":"Draw lanes and columns","points":5,"refs":["4.3","4.4"],"files":["skills/qstack-plan-to-html/template/v1/board.js","skills/qstack-plan-to-html/template/v1/plan.css"],"depends_on":["T-01"]}' >> "$board"
-printf '%s\n' '{"ts":"2026-08-22T09:41:02Z","event":"note","actor":"planner","card":"T-02","note":"breakdown complete: 2 cards, 8 points"}' >> "$board"
+board=qstack/compound_engineering/plans/<slug>/board-events.js
+if [ ! -e "$board" ]; then
+  printf '%s\n' 'qstackBoardEvent({"event":"board","format":1});' > "$board"
+fi
+before=$(wc -l < "$board" | tr -d ' ')       # 1 for a new, header-only board
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"epic","actor":"planner","epic":"board-file","title":"The board file"});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"created","actor":"planner","card":"T-01","epic":"board-file","title":"Fold board-events.js into cards","points":3,"refs":["4.2"],"files":["skills/qstack-plan-to-html/template/v1/board.js"],"depends_on":[]});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:01Z","event":"created","actor":"planner","card":"T-02","epic":"board-file","title":"Draw lanes and columns","points":5,"refs":["4.3","4.4"],"files":["skills/qstack-plan-to-html/template/v1/board.js","skills/qstack-plan-to-html/template/v1/plan.css"],"depends_on":["T-01"]});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:02Z","event":"note","actor":"planner","card":"T-02","note":"breakdown complete: 2 cards, 8 points"});' >> "$board"
 ```
 
 Card ids run `T-01` upward in creation order, zero-padded to two digits, and are
@@ -199,23 +203,15 @@ writes a second marker, and the last one in file order is the board's.
 
 ## Finish an interrupted board
 
-A board with no marker was interrupted part way through its write. Finishing it
-is safe even if an agent has claimed one of the cards that did get written,
-because recovery only appends cards the fold does not know.
+A board with no marker is empty or was interrupted part way through its write.
+Finishing it is safe even if an agent has claimed one of the cards that did get
+written, because recovery only appends cards the fold does not know.
 
-1. Repair the last line if it needs it. A `printf` killed mid-write leaves a
-   partial line with no newline after it, and the next append runs onto the end
-   of that line, so one good event is lost inside it. Append the newline first
-   and the damage stays where it is: one line the fold skips and counts as
-   unreadable.
-
-   ```bash
-   [ -n "$(tail -c 1 "$board")" ] && printf '\n' >> "$board"
-   ```
-
-2. Take the line count now, after the repair. Repairing the newline adds a line,
-   and counting ahead of it would put that line in the delta the verify step
-   checks.
+1. Run `node --check "$board"`. If it fails, stop. A partial JavaScript call
+   prevents the browser from executing every earlier event too, and repairing
+   it requires changing the file while another actor may be appending. Name the
+   syntax error and leave recovery to a human who has stopped all board writers.
+2. Take the line count now.
 3. Break the plan down again from the same `plan.html`, by the same rules. Same
    input, same obligations, so the two breakdowns should agree.
 4. Match what you rebuilt against what the fold knows, by `refs` and title.
@@ -234,17 +230,18 @@ cards `planner` created matches its `N`.
 
 ## Verify
 
-1. Re-read `board.jsonl` and fold it. Confirm the fold gives the card count and
-   point total you meant to write, and that `wc -l` minus the `before` count
-   equals the number of `printf` calls you made. Only the delta holds in all
-   three cases, since `before` is 0 on a first write and is not on an append or
-   a recovery.
+1. Run `node --check board-events.js`, confirm its first call is the format
+   header, then re-read and fold the remaining calls. Confirm the fold
+   gives the card count and point total you meant to write, and that `wc -l`
+   minus the `before` count equals the number of `printf` calls you made. Only
+   the delta holds in all three cases, since `before` includes the format header
+   on a first write and all earlier calls on an append or recovery.
 2. Confirm the marker is the last line and its `N` matches the cards `planner`
    created.
 3. Confirm every id in a `depends_on` names a card the fold knows.
-4. Serve the plan with `qstack/scripts/serve.sh` or `/qstack-serve-plans`, open
-   `plan.html#board`, and confirm the lanes are your epics, the column counts
-   match the fold, and no card is flagged.
+4. Open `plan.html#board` directly from disk and confirm the lanes are your
+   epics, the column counts match the fold, and no card is flagged. Repeat over
+   HTTP with `qstack/scripts/serve.sh` or `/qstack-serve-plans`.
 
 Say which of these you checked.
 

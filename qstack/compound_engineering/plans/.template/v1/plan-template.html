@@ -7,7 +7,7 @@
   does NOT render correctly where it sits.
 
   Keep the structure: title block, spine, numbered sheets, board, colophon.
-  The board is a second view of the same file and renders ./board.jsonl, which
+  The board is a second view of the same file and renders ./board-events.js, which
   agents append to during execution.
   Component reference: qstack/compound_engineering/plans/.template/v1/README.md
 -->
@@ -193,7 +193,7 @@
     </main>
   </div>
 
-  <!-- Execution board: rendered from ./board.jsonl by board.js. Agents write
+  <!-- Execution board: rendered from ./board-events.js by board.js. Agents write
        that file; nobody edits this markup. See the template README. -->
   <section class="board" id="board" aria-label="Execution board">
     <div class="board-head">

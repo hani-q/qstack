@@ -70,8 +70,24 @@ picked.
 | On disk | Do |
 | --- | --- |
 | No `plan.html` | The full conversion: render, ask the open questions, write the board. |
-| `plan.html`, no `board.jsonl` | **Board only.** Read the existing HTML, resolve what it leaves open, then go to *Break the plan into cards*. |
-| `plan.html` and `board.jsonl` | Nothing. Report both and stop. |
+| `plan.html`, no `board-events.js` | **Board only.** Read the existing HTML, resolve what it leaves open, then go to *Break the plan into cards*. |
+| `plan.html` and `board-events.js`, no complete breakdown marker | **Board only.** Finish the interrupted or empty board. |
+| `plan.html` and `board-events.js`, complete breakdown marker | Nothing. Report both and stop. |
+
+If the directory has the retired `board.jsonl` and no `board-events.js`, migrate
+it before choosing a mode:
+
+```bash
+SKILL_DIR=$(cd "$(dirname <path-of-this-SKILL.md>)" && pwd -P)
+"$SKILL_DIR/template/migrate-board-log" \
+  qstack/compound_engineering/plans/<slug>
+```
+
+The migration writes `board-events.js` atomically, preserves an unreadable
+legacy line as an unreadable event, and removes `board.jsonl` only after the new
+file is fully written. Then use the marker to choose one of the last two rows.
+If both formats exist, stop: two board logs are two sources of truth, and a
+human must choose one.
 
 Board-only mode exists because every plan rendered before the board did has an
 HTML document and no cards, and those plans still need to be executable. It
@@ -90,20 +106,43 @@ first, exactly as the full conversion does. If none are, say the document has no
 unresolved decisions and go straight to the cards.
 
 Nothing blocks that check. `/qstack-ask-plan-open-questions` treats a plan as
-frozen once `board.jsonl`, `execution.md`, or `outcome.md` sits beside it, and
-board-only mode runs before any of the three is written.
+frozen once the event stream contains a call after its format header, or an
+execution or outcome record sits beside it. A header-only stream is still
+pre-execution.
 
-In board-only mode, skip the template setup, the two-part contract, and the
-diagrams. Read the whole `plan.html`, take the `§` clause numbers from the
-document as rendered, and run only the question pass and the board phase. Report
-it as a board added to an existing plan, not as a conversion.
+### Upgrade an older HTML plan
+
+In board-only mode, inspect the HTML before asking questions. A plan rendered
+before boards existed lacks three pieces: `[data-view-switch]`, the `#board`
+section with `[data-board-lanes]`, and the final `board.js` script. Add only
+those exact blocks from `template/v1/plan-template.html`; preserve every title
+field, sheet, clause, status, plan-specific asset, and colophon byte for byte.
+This is a shell upgrade, not a re-render.
+
+Run the additive asset setup below without copying `plan-template.html` over the
+plan. The plan's shared `plan.css` must contain the execution-board section and
+its `.doc-bar-views` rules. If the installed template differs from the repo's
+copy, show the diff and ask before replacing it, as the setup rules require. A
+missing `board.js` is additive and can be copied directly. Create the required
+header-only stream when it is absent:
+
+```bash
+printf '%s\n' 'qstackBoardEvent({"event":"board","format":1});' \
+  > qstack/compound_engineering/plans/<slug>/board-events.js
+```
+
+Then read the whole `plan.html`, take the `§` clause numbers from the document
+as rendered, and run only the question pass and the board phase. Skip the
+two-part contract and diagrams. Report it as a board added to an existing plan,
+not as a conversion.
 
 ## Setup — copy the template, don't reference this skill
 
-The template lives at `template/v1/` **next to this SKILL.md**, and the serving
-script lives at `template/serve.sh`. Resolve both relative to wherever you just
-read this file from — never a hardcoded path, since this skill installs into any
-of ~70 agent directories and may be a symlink.
+The template lives at `template/v1/` **next to this SKILL.md**. The serving and
+migration scripts live in `template/serve.sh` and `template/migrate-board-log`.
+Resolve all three relative to wherever you just read this file from — never a
+hardcoded path, since this skill installs into any of ~70 agent directories and
+may be a symlink.
 
 **Copy them into the target repo's `qstack/` directory**, so the plan survives
 without the skill installed:
@@ -134,19 +173,31 @@ if [ -n "$STALE" ]; then echo "template differs from this skill's copy:$STALE"; 
 if [ ! -e "$REPO_ROOT/qstack/scripts/serve.sh" ]; then
   cp "$SKILL_DIR/template/serve.sh" "$REPO_ROOT/qstack/scripts/serve.sh"
 fi
+if [ ! -e "$REPO_ROOT/qstack/scripts/migrate-board-log" ]; then
+  cp "$SKILL_DIR/template/migrate-board-log" \
+    "$REPO_ROOT/qstack/scripts/migrate-board-log"
+fi
 chmod +x "$REPO_ROOT/qstack/scripts/serve.sh"
-cp "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1/plan-template.html" \
-  "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html"
+chmod +x "$REPO_ROOT/qstack/scripts/migrate-board-log"
+# Full conversion only. Board-only mode upgrades the existing HTML in place.
+if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html" ]; then
+  cp "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1/plan-template.html" \
+    "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html"
+fi
+if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/board-events.js" ]; then
+  printf '%s\n' 'qstackBoardEvent({"event":"board","format":1});' \
+    > "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/board-events.js"
+fi
 ```
 
 macOS `readlink` has no `-f` before coreutils 12 — if it fails, fall back to
 `cd "$(dirname <path>)" && pwd -P`.
 
-If `qstack/compound_engineering/plans/.template/v1` or
-`qstack/scripts/serve.sh` already exists, **do not overwrite it** — the repo may
-have a newer revision. Diff and report instead. The loop above adds only files
-the template does not have; without it a repo that predates `board.js` renders a
-stencil whose script tag 404s and the board fails silently.
+If `qstack/compound_engineering/plans/.template/v1`,
+`qstack/scripts/serve.sh`, or `qstack/scripts/migrate-board-log` already exists,
+**do not overwrite it** — the repo may have a newer revision. Diff and report
+instead. The loop above adds only files the template does not have; without it a
+repo that predates `board.js` renders a stencil whose board script is missing.
 
 A file the loop reports as stale is a decision for the user, not for you. Say
 which files differ and what the difference costs — a `board.js` from before the
@@ -160,9 +211,11 @@ The stencil's asset paths (`../.template/v1/plan.css`) are correct for
 served tree, so no symlink or custom HTTP routing is needed. Do not put plan
 documents at another depth.
 
-The stencil ships with the `Plan | Board` switch in the document bar and an
-empty board that reads `./board.jsonl`, so every plan converted this way can be
-executed as cards without further work.
+The stencil ships with the `Plan | Board` switch in the document bar and a
+header-only `board-events.js`. A successful stream with only that format header
+shows "No board yet"; a script that is missing, malformed, or has no header
+shows a board error. Every plan converted this way can be executed as cards
+without further setup.
 
 Read `template/v1/README.md` before writing — it is the component reference and
 its house rules are binding.
@@ -399,13 +452,13 @@ Check, and say which you checked:
 - 720px viewport and print preview both hold (both are in `plan.css`; both break
   if the plan hard-codes widths).
 - `Plan | Board` switches to the board and back, and `#board` in the URL opens
-  the board directly.
+  the board directly over both HTTP and `file://`.
 - A clause deep link such as `#s7-3` still opens the plan view and scrolls to
   that clause.
 - Before the board phase has run, the board reads "No board yet" instead of
   rendering blank columns.
 - Print preview still produces the plan while the board view is selected.
-- No network requests — fonts and assets are all relative.
+- No remote network requests — fonts and assets are all relative.
 
 ## Resolve open questions in the authoritative HTML
 
@@ -452,7 +505,7 @@ The order is fixed. Cards are cut from decisions that are already settled, so
 the board runs after the questions are answered and never before. A card written
 against an open question is rework the moment the answer arrives.
 
-The result is `board.jsonl` beside `plan.html` — one `epic` event per swimlane
+The result is `board-events.js` beside `plan.html` — one `epic` event per swimlane
 and one `created` event per unit of work, each carrying the `§` refs that point
 back into the plan. `plan.html` needs no edit for this: the board view reads the
 file. Reload the board view afterwards and confirm the lanes and cards render.

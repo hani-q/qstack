@@ -4,8 +4,17 @@ How a QStack execution loop works a plan that has a board.
 `/qstack-loop-no-nonsense` and `/qstack-loop-trequartista` both read this file
 and follow it exactly. It is written once so the two cannot drift, which they
 did twice while these rules lived in both skills. Read it in full before you
-fold a board; `board.jsonl` is append-only, so a wrong event can be noted and
+fold a board; `board-events.js` is append-only, so a wrong event can be noted and
 split, never taken back.
+
+Every nonblank line is one exact `qstackBoardEvent({...});` call. The first is
+the required `{"event":"board","format":1}` header; validate it and exclude it
+from card-event counts. Validate the whole file with
+`node --check board-events.js` before folding it. Stop on a syntax error because
+the browser cannot execute any part of a malformed script. For a non-browser
+fold, remove the fixed prefix and suffix, parse the object as JSON, then apply
+the events in file order. A valid call carrying an unusable value is counted
+and skipped; broken JavaScript is a board-level fault.
 
 This file decides how the board moves. It does not decide how strictly the plan
 is followed. Each loop keeps its own strictness rule, its own execution record,
@@ -14,7 +23,11 @@ the rule it sharpens rather than restating it.
 
 ## Resolve the board
 
-Look for `board.jsonl` beside the plan.
+Look for `board-events.js` beside the plan.
+
+If the retired `board.jsonl` exists instead, run the migration script from the
+installed `qstack-plan-to-html/template/` directory, then re-resolve the board.
+If both files exist, stop and ask which log is canonical. Never fold both.
 
 With no board, the loop runs as it runs without one. The whole plan is the unit
 of work, and the `## Progress` checklist in `execution.md` is the progress
@@ -74,8 +87,8 @@ There is no automatic takeover, ever. A board whose coordinator never stood down
 needs a human. Report the holder and the cards it owns, and stop.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"coordinator","actor":"adelaide"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"coordinator","actor":"adelaide"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 ## The ready set
@@ -125,8 +138,8 @@ Feel is allowed. Unrecorded feel is not.
 Claim by appending one line:
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"claimed","card":"T-03","actor":"adelaide","reason":"unblocks four cards"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"claimed","card":"T-03","actor":"adelaide","reason":"unblocks four cards"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 Then re-read the file and fold it again. If another actor claimed the same card
@@ -141,7 +154,7 @@ read later.
 
 ## Subagents never write
 
-A subagent never appends to `board.jsonl`. The orchestrator owns the card, reads
+A subagent never appends to `board-events.js`. The orchestrator owns the card, reads
 the subagent's result, and writes every event on its behalf, including what the
 subagent reports back.
 
@@ -156,11 +169,12 @@ subagent reports back.
 Each transition is one appended line:
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-03","from":"claimed","to":"in-progress","actor":"adelaide"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-03","from":"claimed","to":"in-progress","actor":"adelaide"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
-Never read-modify-write the file. Never use a JSON array.
+Never read-modify-write the file. Never use a JSON array. Keep the exact call
+wrapper: raw JSON is not executable and makes both `file://` and HTTP views fail.
 
 ## Park and continue
 
@@ -170,8 +184,8 @@ run. Which questions park is the loop's own rule; parking changes when a
 question is asked, never whether.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"in-progress","to":"blocked","actor":"adelaide","note":"§4.2 gives retries to the writer, but the client already retries. Which one keeps them?"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"in-progress","to":"blocked","actor":"adelaide","note":"§4.2 gives retries to the writer, but the client already retries. Which one keeps them?"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 Ask when the ready set is empty, and ask every parked question in one round. If
@@ -204,8 +218,8 @@ board shows a card waiting on a human, `/qstack-plan-close` refuses to write
 `outcome.md`, and `/qstack-reflect` counts a card that never left `blocked`.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"note","card":"T-05","actor":"adelaide","note":"answered: the client keeps the retries. Waiting on T-09, which holds src/writer.ts."}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"note","card":"T-05","actor":"adelaide","note":"answered: the client keeps the retries. Waiting on T-09, which holds src/writer.ts."});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 Record the answer in `execution.md` before the move, under the loop's own rule
@@ -213,8 +227,8 @@ for an approved answer. The plan stays frozen either way. Then append the move
 back to `claimed` and continue the card.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"blocked","to":"claimed","actor":"adelaide","note":"answered: the client keeps the retries, the writer does not add them"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"blocked","to":"claimed","actor":"adelaide","note":"answered: the client keeps the retries, the writer does not add them"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 ## Splitting
@@ -230,12 +244,12 @@ suffixed, so on a board whose last card is `T-11` the parent `T-05` splits into
 `T-12` and `T-13`. Two loops that pick ids differently collide on one board.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"created","card":"T-12","epic":"board-file","title":"Retry policy on the writer","points":2,"refs":["4.2"],"files":["src/writer.ts"],"depends_on":[],"split_from":"T-05","actor":"adelaide"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"created","card":"T-13","epic":"board-file","title":"Backfill the rows written before it","points":3,"refs":["4.2"],"files":["src/backfill.ts"],"depends_on":["T-12"],"split_from":"T-05","actor":"adelaide"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"split","card":"T-05","into":["T-12","T-13"],"actor":"adelaide","reason":"the writer change and the backfill need separate reviews"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"created","card":"T-12","epic":"board-file","title":"Retry policy on the writer","points":2,"refs":["4.2"],"files":["src/writer.ts"],"depends_on":[],"split_from":"T-05","actor":"adelaide"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"created","card":"T-13","epic":"board-file","title":"Backfill the rows written before it","points":3,"refs":["4.2"],"files":["src/backfill.ts"],"depends_on":["T-12"],"split_from":"T-05","actor":"adelaide"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"split","card":"T-05","into":["T-12","T-13"],"actor":"adelaide","reason":"the writer change and the backfill need separate reviews"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 Children inherit the parent's own `depends_on` unless the `note` divides them:
@@ -269,8 +283,8 @@ Append `stood-down` when the run ends, on every exit path: the completion gate
 passed, the run was abandoned, or it stopped on a question.
 
 ```bash
-printf '%s\n' '{"ts":"'"$(date -u +%FT%TZ)"'","event":"stood-down","actor":"adelaide"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"stood-down","actor":"adelaide"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 Never release a card another actor holds to close your own run out. Report the

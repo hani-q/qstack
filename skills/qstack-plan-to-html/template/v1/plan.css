@@ -1037,7 +1037,7 @@ button { cursor: pointer; }
 /* -- 9 · Execution board ------------------------------------------------- */
 
 /* A plan freezes when execution starts, and the board is the record of running
-   it. board.js folds ./board.jsonl into the markup below. Nothing in it is a
+   it. board.js folds ./board-events.js into the markup below. Nothing in it is a
    control: no card moves in the browser and there is no write path back.
 
      .board-lane  > .board-lane-head + .board-scroll > .board-cols
@@ -1129,9 +1129,8 @@ button { cursor: pointer; }
 .board-meter[hidden],
 .board-state[hidden] { display: none; }
 
-/* one line for every state that is not a board: loading, no board.jsonl yet,
-   opened over file:// with the serve command to fix it, and the count of
-   unreadable lines */
+/* one line for every state that is not a board: loading, a header-only stream,
+   a broken stream, and the count of unreadable events */
 .board-state {
   padding-block: 26px;
   font-family: var(--mono);

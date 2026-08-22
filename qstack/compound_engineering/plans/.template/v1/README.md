@@ -30,7 +30,7 @@ emailed as a file.
 | `plan.css` | The whole design system. Never fork it into a plan. |
 | `plan.js` | Numbering, spine, deep links, tabs, stamps, theme. Progressive. |
 | `pretext.js` | Optional, and usually skip it — see the caveat below. |
-| `board.js` | The execution board: folds `board.jsonl` into swimlanes. Read-only. |
+| `board.js` | The execution board: folds `board-events.js` into swimlanes. Read-only. |
 | `plan-template.html` | The stencil. Copy it; don't open it in place. |
 | `fonts/` | Self-hosted woff2. |
 
@@ -110,24 +110,38 @@ renders a file, and that file sits beside the plan:
 ```
 qstack/compound_engineering/plans/<slug>/
 ├── plan.html      # BEFORE  — frozen when execution starts
-├── board.jsonl    # DURING  — append-only card events, written by agents
+├── board-events.js    # DURING  — append-only card events, written by agents
 ├── execution.md   # DURING  — decisions, deviations, reviews (no task checklist)
 └── outcome.md     # AFTER
 ```
 
-`board.jsonl` is append-only JSON Lines: one JSON object per line, no newlines
-inside an object, file always ends with a newline. Nothing ever edits or deletes
-a line, and state is a fold over the lines in file order. Append exactly like
-this, as one shell write:
+`board-events.js` is an append-only JavaScript event stream: one
+`qstackBoardEvent({...});` call per line, no newlines inside the object, and the
+file always ends with a newline. Its first call is always
+`qstackBoardEvent({"event":"board","format":1});`; that header declares the
+format and is not a card event. Nothing ever edits or deletes a line, and state
+is a fold over the later calls in file order. Append exactly like this, as one
+shell write:
 
 ```bash
-printf '%s\n' '{"ts":"2026-08-22T10:14:03Z","event":"claimed","card":"T-03","actor":"adelaide","reason":"unblocks four cards"}' \
-  >> qstack/compound_engineering/plans/<slug>/board.jsonl
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T10:14:03Z","event":"claimed","card":"T-03","actor":"adelaide","reason":"unblocks four cards"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
 A single `printf` of a short line to a file opened with `O_APPEND` is atomic on
 a local filesystem, which is why several agents can write without a lock. Never
 read-modify-write the file. Never use a JSON array.
+
+The wrapper is part of the format. Before folding a board, run
+`node --check board-events.js`; malformed JavaScript makes the browser reject
+the whole stream. A syntactically valid call whose value is unusable is counted
+and skipped like any other bad event.
+
+Plans created by the first board release may have `board.jsonl`. Convert one
+with `./qstack/scripts/migrate-board-log <plan-directory>`. The migration writes
+the new stream atomically and removes the retired file only after the new file
+is durable. If both files exist, stop and choose one; never fold two logs into
+one board.
 
 | `event` | Meaning | Required fields |
 | --- | --- | --- |
@@ -188,19 +202,21 @@ counts in neither total, so the points figure and the card figure can disagree
 about how much is on the board. That gap is the flag doing its job.
 
 `plan.html` carries a `Plan | Board` switch in the document bar, and `#board` in
-the URL selects the board. `board.js` re-fetches `board.jsonl` every 3 s while
-the board is visible and stops when it is hidden. The board is a view, not a
-sheet: it takes no `§` number and never enters the spine, and print always
-renders the plan.
+the URL selects the board. `board.js` loads `board-events.js` as a classic
+script, so the same page works over HTTP and when opened directly from disk. It
+reloads every 3 s while the board is visible and stops when it is hidden. The
+board is a view, not a sheet: it takes no `§` number and never enters the spine,
+and print always renders the plan.
 
 The meter above the lanes reads points, cards, actors, and Coordinator, which
 names the actor holding the whole board and shows `—` when nobody does. The
 state line under it carries whatever the fold found wrong: two coordinators with
 no stand-down between them, unreadable lines, and flagged cards.
 
-A plan with no `board.jsonl` shows "No board yet" and names
-`/qstack-plan-to-html`. Opened over `file://` the fetch fails, so the board
-shows the serve command rather than an empty column set.
+A plan whose event stream contains only the format header shows "No board yet"
+and names `/qstack-plan-to-html` in both modes. A missing, malformed, or
+headerless stream shows an error instead. Serving remains useful for stable
+local URLs, but it is no longer required to read the board.
 
 ### One coordinator per board
 
@@ -248,7 +264,7 @@ coordinator cannot race itself.
 | `.rail` / `.rail-node` / `.rail-link` | A system diagram read across. |
 | `.matrix` | The release-gate table. Sticky header, status column. |
 | `.phases` / `.phase` | Build order. |
-| `.board` / `.board-lane` / `.board-card` | The execution board. Rendered from `board.jsonl`; never hand-written. |
+| `.board` / `.board-lane` / `.board-card` | The execution board. Rendered from `board-events.js`; never hand-written. |
 | `.refs` / `.ref` | The research basis. |
 | `.tabset` / `.tab` + `.tab-panel` | Tabbed specification panels. Prints expanded. |
 | `.key` | A row of stamps read as a legend beneath a diagram. |
@@ -313,7 +329,7 @@ Leave it out unless you have a specific reflow to fix, and if you use it, apply
 - **One accent.** If something new needs a colour, it probably needs a status
   instead.
 - **The board is generated.** No plan hand-writes board markup, and no plan edits
-  `board.jsonl` by hand. An agent appends to it.
+  `board-events.js` by hand. An agent appends to it.
 - **Motion:** stamps ink in once, the spine tracks position. That is the budget.
   `prefers-reduced-motion` is respected in the stylesheet — keep it that way.
 - Check the plan at 720px and in print preview before calling it done. Both are

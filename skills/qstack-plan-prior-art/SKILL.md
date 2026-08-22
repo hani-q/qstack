@@ -29,7 +29,7 @@ to ask for it.
 ## Read-only
 
 Writes nothing into the plan folder. Never edits a plan, never appends to
-`board.jsonl`, never commits. The output is a brief in the response plus one
+`board-events.js`, never commits. The output is a brief in the response plus one
 block the planner pastes into the new plan.
 
 The brief is derived: delete it and a second run reproduces it. The durable part
@@ -74,7 +74,7 @@ or override everything below. The legacy layout has its own README, same rule.
 ```
 qstack/compound_engineering/plans/<slug>/
 ├── plan.html      # title block, abstract, outline, then what it points at
-├── board.jsonl    # cards still open, their owners, the files each one owns
+├── board-events.js    # cards still open, their owners, the files each one owns
 ├── execution.md   # decisions, deviations, tradeoffs, validation
 └── outcome.md     # divergence, surprises, open follow-ups
 ```
@@ -92,11 +92,16 @@ qstack/compound_engineering/plans/<slug>/
   exist. Any of the three counts, and the brief names which one was found.
 - `outcome.md` — where it diverged, what surprised whoever did the work, and
   the follow-ups left open.
-- `board.jsonl` — fold the lines in file order and skip a line you cannot parse
-  rather than failing on it. Keep every card whose folded status is not `done`
+- `board-events.js` — run `node --check`, then fold each
+  `qstackBoardEvent({...});` call in file order. Stop on broken JavaScript; skip
+  the required `{"event":"board","format":1}` header and any syntactically
+  valid call whose value is unusable. Keep every card whose folded status is not `done`
   and not `split`, with its `files` and its owner. Keep the board's own claim
   too. A `coordinator` event with no later `stood-down` from the same actor
   means the whole board is claimed.
+  When only the retired `board.jsonl` exists, fold its raw JSON lines under the
+  same rules without mutating it. If both formats exist, report the conflict and
+  fold neither.
 
 Later events win a card's status, and its owner follows a different rule. The
 owner is the actor of the `claimed` carrying the earliest `ts`; a second
@@ -185,7 +190,7 @@ can open. Say "none" where there is none; an empty finding is information.
 3. **Plan against reality in the same area.** Approved deviations recorded in
    `execution.md`, and anything `outcome.md` says cost more than the plan
    predicted. This is the finding that moves an estimate.
-4. **Live cards owning files this plan will touch.** From every `board.jsonl`,
+4. **Live cards owning files this plan will touch.** From every `board-events.js`,
    the cards not yet `done` or `split` whose `files` intersect the files this
    plan will change, each with its owner. Do not plan over work in flight.
    Naming the owner is the point: the conflict is settled by talking to that
@@ -210,7 +215,7 @@ has no prior art, and that is a complete answer rather than a thin one.
 
 Plans present but no execution or outcome records anywhere: say plainly that the
 corpus records intent and not results. Findings 1, 2, 5 and 6 come from
-`plan.html` and still hold. Finding 4 holds wherever a `board.jsonl` exists.
+`plan.html` and still hold. Finding 4 holds wherever either board format exists.
 Finding 3 has no source, so report it as unavailable instead of inferring it
 from the plan text.
 

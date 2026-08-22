@@ -32,10 +32,14 @@ otherwise report in the final response.
 4. In the plan directory, prefer `execution.md`. Also read `executor.md` and
    legacy `implementation-notes.md` when present; do not discard history merely
    because a newer filename exists.
-5. Read `board.jsonl` beside them when it exists, folding the lines in file
-   order for each card's final status, owner, `refs`, and `files`. Agents write
+5. Read `board-events.js` beside them when it exists. Run `node --check`, then
+   skip its required format header and fold the remaining
+   `qstackBoardEvent({...});` calls in file order for each card's final status,
+   owner, `refs`, and `files`. Stop on broken JavaScript. Agents write
    the board while they work, so it has the standing `execution.md` already has
    here: evidence to be checked against the code, never trusted on its own.
+   When only the retired `board.jsonl` exists, fold its raw JSON lines without
+   editing it. If both board files exist, report the conflict and trust neither.
 
 Read repository instruction files and the whole authoritative plan. Record the
 plan status. A draft or proposed plan may be reviewed, but state that it lacked

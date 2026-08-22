@@ -24,7 +24,7 @@ this area will read it.
 ```
 qstack/compound_engineering/plans/<feature-slug>/
 ├── plan.html                  # BEFORE  — what we predicted. Frozen once work starts.
-├── board.jsonl                # DURING  — append-only card events, written by agents.
+├── board-events.js                # DURING  — append-only card events, written by agents.
 ├── execution.md               # DURING  — decisions, deviations, validation, and reviews.
 └── outcome.md                 # AFTER   — this skill writes it.
 ```
@@ -67,11 +67,15 @@ Then verify the shipped surface exists — `ls` the scripts, `grep` for the key
 symbols the plan promised. A plan that says it shipped `foo_bar()` and a tree
 with no `foo_bar()` is the single most valuable finding this skill can produce.
 
-Read `board.jsonl` when the plan has one. It is the record of what was actually
-scheduled and what actually closed. Fold the lines in file order, later events
-win, and take every count from that fold rather than from a summary written by
-hand. A plan with no board leaves only the execution record; say which one you
-used.
+Read `board-events.js` when the plan has one. Run `node --check`, then fold the
+`qstackBoardEvent({...});` calls after the required format header in file order;
+later events win. Stop on broken JavaScript, and take every count from that fold
+rather than from a summary written by hand. A plan with no board leaves only the
+execution record; say which one you used.
+
+When only the retired `board.jsonl` exists, fold its raw JSON lines under the
+same state rules and name the legacy source in `outcome.md`. If both board files
+exist, stop because the execution record has two sources of truth.
 
 Check whether the plan's artifacts were ever committed at all. Work done in a
 gitignored directory leaves no recoverable design record — worth stating plainly
@@ -113,7 +117,7 @@ never decides that a holder is gone.
 
 The user can override by saying so. Record the override in `outcome.md` along
 with the cards that were open and any coordinator still holding the board when
-it was given. A plan with no `board.jsonl` skips this step.
+it was given. A plan with neither board format skips this step.
 
 ### 5. Write `outcome.md`
 

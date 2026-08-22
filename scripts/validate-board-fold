@@ -16,7 +16,7 @@ from pathlib import Path
 # reflect awk broke it on file order — and nothing in a JavaScript file, an awk
 # program and a Markdown instruction can share code to stop it happening again.
 #
-# They can share a fixture. scripts/fixtures/board-fold.jsonl exercises every
+# They can share a fixture. scripts/fixtures/board-fold-events.js exercises every
 # rule in the contract, and scripts/fixtures/board-fold.expected is the fold all
 # six have to agree on. This script folds the fixture with the one implementation
 # that can be executed, board.js, and diffs it against that file. An
@@ -51,7 +51,7 @@ from pathlib import Path
 # answer — without it the IIFE returns early and takes `fold` with it. Every
 # other selector may answer null, which board.js already reads as "not on this
 # page". `location.hash` is empty, so the last line picks the plan view and
-# calls stopPolling(): nothing fetches, and no timer is left running.
+# calls stopPolling(): no event script loads, and no timer is left running.
 HARNESS = r"""
 const fs = require('node:fs');
 
@@ -61,7 +61,7 @@ const fail = (message) => {
 };
 
 const [boardPath, fixturePath] = process.argv.slice(2);
-if (!boardPath || !fixturePath) fail('usage: board-fold.js <board.js> <fixture.jsonl>');
+if (!boardPath || !fixturePath) fail('usage: board-fold.js <board.js> <fixture.js>');
 
 const source = fs.readFileSync(boardPath, 'utf8');
 const head = /^\(\(\) => \{\r?\n/m.exec(source);
@@ -81,7 +81,8 @@ const stub = () => ({
 const lanes = stub();
 
 const exported = new Function(
-  'document', 'location', 'history', 'addEventListener', 'fetch',
+  'document', 'location', 'history', 'addEventListener', 'removeEventListener',
+  'globalThis',
   `${body}\n;return { fold };`,
 )(
   {
@@ -96,14 +97,25 @@ const exported = new Function(
   { hash: '' },
   { pushState() {} },
   () => {},
-  () => Promise.reject(new Error('the fixture is read from disk, never fetched')),
+  () => {},
+  {},
 );
 
 if (!exported || typeof exported.fold !== 'function') {
   fail('the IIFE returned before fold was reachable');
 }
 
-const board = exported.fold(fs.readFileSync(fixturePath, 'utf8'));
+const events = [];
+const fixture = fs.readFileSync(fixturePath, 'utf8');
+try {
+  new Function('qstackBoardEvent', fixture)((event) => events.push(event));
+} catch (error) {
+  fail(`${fixturePath}: ${error.message}`);
+}
+if (events[0]?.event !== 'board' || events[0]?.format !== 1) {
+  fail(`${fixturePath}: first call is not the board format 1 header`);
+}
+const board = exported.fold(events);
 
 // A list the fold never computed reads as (none), which lands in the diff as a
 // missing rule rather than as a crash.
@@ -204,7 +216,11 @@ def main() -> int:
         type=Path,
         default=repo / "skills" / "qstack-plan-to-html" / "template" / "v1" / "board.js",
     )
-    parser.add_argument("--fixture", type=Path, default=repo / "scripts" / "fixtures" / "board-fold.jsonl")
+    parser.add_argument(
+        "--fixture",
+        type=Path,
+        default=repo / "scripts" / "fixtures" / "board-fold-events.js",
+    )
     parser.add_argument("--expected", type=Path, default=repo / "scripts" / "fixtures" / "board-fold.expected")
     parser.add_argument("--node", default=os.environ.get("QSTACK_NODE_BIN", "node"))
     args = parser.parse_args()

@@ -51,11 +51,14 @@ Ask rather than guessing between plausible files.
 
 ### Frozen plans
 
-Before editing an HTML plan, check its directory for `board.jsonl`,
-`execution.md`, legacy `implementation-notes.md`, or `outcome.md`. If any
-exists, stop: execution has started and the plan is frozen. Decisions made
-after that point belong in the execution record through an execution-loop
-skill, not in historical plan text.
+Before editing an HTML plan, check its directory for `execution.md`, legacy
+`implementation-notes.md`, `outcome.md`, the retired `board.jsonl`, or a
+`board-events.js` containing any call after its required
+`{"event":"board","format":1}` header. If any exists, stop: execution has
+started and the plan is frozen. A header-only event stream is the pre-board
+placeholder and does not freeze the plan. Decisions made after that point
+belong in the execution record through an execution-loop skill, not in
+historical plan text.
 
 ## Find real questions
 
@@ -162,7 +165,7 @@ Use the plan's existing component markup when it differs from the example.
 Never use `§n.m` as a decision ID. Preserve valid nesting, relative assets,
 inline SVG, ELI10 markup, playground behavior, and status vocabulary. The board
 section and its markup are generated, so never edit them and never write an
-answer into `board.jsonl`; a decision made after the board exists belongs to
+answer into `board-events.js`; a decision made after the board exists belongs to
 the execution loop.
 
 Propagate the answer into every affected HTML section: options, design, phases,

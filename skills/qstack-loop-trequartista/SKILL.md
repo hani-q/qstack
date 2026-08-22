@@ -30,7 +30,9 @@ blocking gate. If approval is absent or contradictory, stop and ask.
 
 ## Resolve the board
 
-Look for `board.jsonl` beside the plan.
+Look for `board-events.js` beside the plan. If only the retired `board.jsonl`
+exists, resolve the shared protocol below and follow its migration branch before
+deciding the plan has no board. Stop if both exist.
 
 With no board, run exactly as this skill does without one. The whole plan is the
 unit of work and `execution.md` keeps its `## Progress` checklist. Existing plans
@@ -85,7 +87,7 @@ every blocking item is resolved. Record either status transition. Use this shape
 - Started: YYYY-MM-DD
 - Updated: YYYY-MM-DD
 
-## Progress  <!-- omit when board.jsonl exists; the board is the progress record -->
+## Progress  <!-- omit when board-events.js exists; the board is the progress record -->
 - [ ] <plan task or acceptance condition>
 
 ## Design decisions
@@ -192,7 +194,7 @@ a material deviation dressed as a board change.
 ## Execute and orchestrate
 
 Break the plan into trackable tasks and keep their status current. With a board,
-the cards are those tasks and `board.jsonl` is where their status lives. Delegate
+the cards are those tasks and `board-events.js` is where their status lives. Delegate
 bounded independent work when agent tools are available, but inspect and
 integrate every result yourself. Preserve unrelated user changes.
 

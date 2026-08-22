@@ -281,7 +281,7 @@ each `agents/openai.yaml`, and sends a temporary portable projection through
 `qstack/compound_engineering/plans/<feature>/plan.html`, then asks and records
 open decisions directly in that authoritative HTML. The Markdown input is not
 maintained. The HTML freezes once work starts, and the same command writes
-`board.jsonl` beside it. An execution loop maintains that board and
+`board-events.js` beside it. An execution loop maintains that board and
 `execution.md` during the work, and `/qstack-plan-close` adds `outcome.md`
 afterward.
 
@@ -302,9 +302,14 @@ qstack/compound_engineering/plans/
 └── <feature>/plan.html
 ```
 
-The renderer also installs `qstack/scripts/serve.sh`. During execution and
-close-out, `board.jsonl`, `execution.md`, and `outcome.md` join `plan.html` in
-the feature folder.
+The renderer also installs `qstack/scripts/serve.sh` and
+`qstack/scripts/migrate-board-log`. During execution and close-out,
+`board-events.js`, `execution.md`, and `outcome.md` join `plan.html` in the
+feature folder.
+
+The board event stream is a classic script, so `plan.html#board` works when
+opened directly from disk as well as over HTTP. Serving adds a stable localhost
+URL; it is not required to read the board.
 
 Run `./qstack/scripts/serve.sh [port] [bind-address]` or
 `/qstack-serve-plans [address] [port]` to serve
