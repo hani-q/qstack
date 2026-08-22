@@ -6,7 +6,9 @@
   content. The asset paths below are written for that destination, so this file
   does NOT render correctly where it sits.
 
-  Keep the structure: title block, spine, numbered sheets, colophon.
+  Keep the structure: title block, spine, numbered sheets, board, colophon.
+  The board is a second view of the same file and renders ./board.jsonl, which
+  agents append to during execution.
   Component reference: qstack/compound_engineering/plans/.template/v1/README.md
 -->
 <html lang="en" data-theme="print">
@@ -33,6 +35,10 @@
         <a href="#contract">Contract</a>
         <a href="#build">Build order</a>
         <a href="#gate">Gate</a>
+      </nav>
+      <nav class="doc-bar-views" data-view-switch aria-label="View">
+        <a href="#doc" aria-current="true">Plan</a>
+        <a href="#board" aria-current="false">Board</a>
       </nav>
       <button class="doc-tool" type="button" data-theme-toggle aria-label="Switch between print and vellum">◐</button>
       <button class="doc-tool wide" type="button" data-print aria-label="Print this plan">PRINT</button>
@@ -187,6 +193,25 @@
     </main>
   </div>
 
+  <!-- Execution board: rendered from ./board.jsonl by board.js. Agents write
+       that file; nobody edits this markup. See the template README. -->
+  <section class="board" id="board" aria-label="Execution board">
+    <div class="board-head">
+      <div>
+        <p class="label">Execution board</p>
+        <h2>Cards move when an agent moves them.</h2>
+      </div>
+      <dl class="board-meter" data-board-meter hidden>
+        <div><dt>Points</dt><dd><span data-board-points-done>0</span> / <span data-board-points-total>0</span></dd></div>
+        <div><dt>Cards</dt><dd><span data-board-cards-done>0</span> / <span data-board-cards-total>0</span></dd></div>
+        <div><dt>Actors</dt><dd><span data-board-actors>0</span></dd></div>
+        <div><dt>Coordinator</dt><dd><span data-board-coordinator>—</span></dd></div>
+      </dl>
+    </div>
+    <p class="board-state" data-board-state>Loading the board…</p>
+    <div class="board-lanes" data-board-lanes></div>
+  </section>
+
   <!-- Colophon ---------------------------------------------------------- -->
   <footer class="colophon">
     <div class="colophon-inner">
@@ -200,5 +225,6 @@
 
   <!-- pretext.js is optional and usually skipped — see README, "About pretext" -->
   <script src="../.template/v1/plan.js"></script>
+  <script src="../.template/v1/board.js"></script>
 </body>
 </html>

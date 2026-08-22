@@ -1,6 +1,6 @@
 interface:
   display_name: "QStack Plan Close"
-  short_description: "Capture outcomes and promote durable lessons"
-  default_prompt: "Use $qstack-plan-close to close out the shipped plan and preserve its durable lessons."
+  short_description: "Record what a shipped plan actually did"
+  default_prompt: "Use $qstack-plan-close to close out the shipped plan and record its outcome."
 policy:
   allow_implicit_invocation: false

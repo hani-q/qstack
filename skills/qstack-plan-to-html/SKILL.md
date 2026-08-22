@@ -1,8 +1,9 @@
 ---
 name: qstack-plan-to-html
 description: >
-  Render a Markdown plan as a reviewable QStack HLD/LLD HTML document and resolve
-  its material open questions.
+  Render a Markdown plan as a reviewable QStack HLD/LLD HTML document, resolve
+  its material open questions, and break it into the cards of its execution
+  board. Also adds a board to a plan that already has HTML and no board.
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -61,6 +62,42 @@ sentence they have to read twice.
   `qstack/compound_engineering/plans/<slug>/plan.html`. Do not copy the markdown
   source into that folder: the rendered plan is its canonical plan document.
 
+## Two modes, chosen from what is already on disk
+
+Look in the target plan directory before doing anything, and say which mode you
+picked.
+
+| On disk | Do |
+| --- | --- |
+| No `plan.html` | The full conversion: render, ask the open questions, write the board. |
+| `plan.html`, no `board.jsonl` | **Board only.** Read the existing HTML, resolve what it leaves open, then go to *Break the plan into cards*. |
+| `plan.html` and `board.jsonl` | Nothing. Report both and stop. |
+
+Board-only mode exists because every plan rendered before the board did has an
+HTML document and no cards, and those plans still need to be executable. It
+never re-renders: an authoritative `plan.html` is frozen, and regenerating it
+from stale Markdown would throw away every decision recorded in it.
+
+The questions are a separate matter. Asking destroys nothing, and a plan that
+has HTML has not necessarily been through the question pass. It may have been
+rendered with `--no-open-questions`, predate the phase, or be hand-written. A
+card cut against an open question is rework the moment the answer arrives, in
+board-only mode as much as in a full conversion. So check rather than assume.
+Before writing any card, read the rendered HTML for unresolved decisions:
+clauses, notes, rows, or fields at `data-status="open"` that state an undecided
+choice and carry no `data-decision-id`. If any are there, run the question pass
+first, exactly as the full conversion does. If none are, say the document has no
+unresolved decisions and go straight to the cards.
+
+Nothing blocks that check. `/qstack-ask-plan-open-questions` treats a plan as
+frozen once `board.jsonl`, `execution.md`, or `outcome.md` sits beside it, and
+board-only mode runs before any of the three is written.
+
+In board-only mode, skip the template setup, the two-part contract, and the
+diagrams. Read the whole `plan.html`, take the `§` clause numbers from the
+document as rendered, and run only the question pass and the board phase. Report
+it as a board added to an existing plan, not as a conversion.
+
 ## Setup — copy the template, don't reference this skill
 
 The template lives at `template/v1/` **next to this SKILL.md**, and the serving
@@ -79,10 +116,21 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/<slug>"
 mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/.template"
 mkdir -p "$REPO_ROOT/qstack/scripts"
-if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1" ]; then
-  cp -R "$SKILL_DIR/template/v1" \
-    "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1"
+TEMPLATE="$REPO_ROOT/qstack/compound_engineering/plans/.template/v1"
+if [ ! -e "$TEMPLATE" ]; then
+  cp -R "$SKILL_DIR/template/v1" "$TEMPLATE"
 fi
+# A repo that already used this skill has an older template. Add what is
+# missing, and name what is stale rather than overwriting it.
+STALE=
+for asset in board.js plan.js plan.css plan-template.html pretext.js README.md; do
+  if [ ! -e "$TEMPLATE/$asset" ]; then
+    cp "$SKILL_DIR/template/v1/$asset" "$TEMPLATE/$asset"
+  elif ! cmp -s "$SKILL_DIR/template/v1/$asset" "$TEMPLATE/$asset"; then
+    STALE="$STALE $asset"
+  fi
+done
+if [ -n "$STALE" ]; then echo "template differs from this skill's copy:$STALE"; fi
 if [ ! -e "$REPO_ROOT/qstack/scripts/serve.sh" ]; then
   cp "$SKILL_DIR/template/serve.sh" "$REPO_ROOT/qstack/scripts/serve.sh"
 fi
@@ -96,15 +144,50 @@ macOS `readlink` has no `-f` before coreutils 12 — if it fails, fall back to
 
 If `qstack/compound_engineering/plans/.template/v1` or
 `qstack/scripts/serve.sh` already exists, **do not overwrite it** — the repo may
-have a newer revision. Diff and report instead.
+have a newer revision. Diff and report instead. The loop above adds only files
+the template does not have; without it a repo that predates `board.js` renders a
+stencil whose script tag 404s and the board fails silently.
+
+A file the loop reports as stale is a decision for the user, not for you. Say
+which files differ and what the difference costs — a `board.js` from before the
+`coordinator` event counts every coordinator line as unreadable, so the board
+shows a red fault on a healthy plan. Then ask before replacing anything. This
+repository keeps its own two copies byte-identical and checks it in CI with
+`scripts/validate-template-sync`; a target repo has made no such promise.
 
 The stencil's asset paths (`../.template/v1/plan.css`) are correct for
 `qstack/compound_engineering/plans/<slug>/plan.html`. The template is inside the
 served tree, so no symlink or custom HTTP routing is needed. Do not put plan
 documents at another depth.
 
+The stencil ships with the `Plan | Board` switch in the document bar and an
+empty board that reads `./board.jsonl`, so every plan converted this way can be
+executed as cards without further work.
+
 Read `template/v1/README.md` before writing — it is the component reference and
 its house rules are binding.
+
+## Read the prior art
+
+Run this before writing a line of the document. A plan that contradicts a plan
+already in the repo is worse than no plan, and the contradiction costs least to
+find now.
+
+Resolve `qstack-plan-prior-art` relative to this skill's installed directory —
+never a hardcoded path, for the same reason the template is resolved that way —
+read its complete `SKILL.md`, and run it against the subject of the markdown
+plan. If it is unavailable, do not silently skip the phase: report that the
+conversion ran with no prior-art pass and the workflow is incomplete.
+
+What it returns lands in the document in three places:
+
+- Every conflict becomes a `.note` with `data-status="open"`, sitting on the
+  sheet whose clauses it disputes, naming the earlier plan and what it says
+  instead. Do not settle it here — that is the question pass below.
+- Every relevant earlier plan becomes a `.ref` in the research-basis sheet,
+  linked to its own `plan.html`, with one line on what it settled.
+- The title block's `Supersedes` field is filled from finding 5, not left as the
+  stencil's `—`. If this plan supersedes nothing, say so in the field.
 
 ## The two-part contract
 
@@ -315,6 +398,13 @@ Check, and say which you checked:
 - Playground behaves, and its static fallback is present.
 - 720px viewport and print preview both hold (both are in `plan.css`; both break
   if the plan hard-codes widths).
+- `Plan | Board` switches to the board and back, and `#board` in the URL opens
+  the board directly.
+- A clause deep link such as `#s7-3` still opens the plan view and scrolls to
+  that clause.
+- Before the board phase has run, the board reads "No board yet" instead of
+  rendering blank columns.
+- Print preview still produces the plan while the board view is selected.
 - No network requests — fonts and assets are all relative.
 
 ## Resolve open questions in the authoritative HTML
@@ -344,6 +434,28 @@ Once the question skill returns, repeat the complete HTML verification above.
 Its edits can affect clauses, diagrams, phases, the release matrix, print
 layout, and sheet status. The post-question verification is the one reported to
 the user.
+
+## Break the plan into cards
+
+Once the question pass has returned and the document verifies again, write the
+plan's execution board. This is a mandatory post-render phase. Skip it only when
+the user's current request directly says `skip the board`, `no board`, or
+includes `--no-board`. Requests such as `just convert the plan` or `do it
+quickly` do not opt out.
+
+Read [board breakdown](references/board-breakdown.md) in full and follow it. It
+is the complete rule set: where epics and cards come from, the points scale, the
+`depends_on` and `files` contract the execution loops depend on, five checks that
+run before the first line is written, and the append protocol.
+
+The order is fixed. Cards are cut from decisions that are already settled, so
+the board runs after the questions are answered and never before. A card written
+against an open question is rework the moment the answer arrives.
+
+The result is `board.jsonl` beside `plan.html` — one `epic` event per swimlane
+and one `created` event per unit of work, each carrying the `§` refs that point
+back into the plan. `plan.html` needs no edit for this: the board view reads the
+file. Reload the board view afterwards and confirm the lanes and cards render.
 
 ## After conversion — the accretion pass
 
@@ -378,7 +490,11 @@ Lead with the conversion: the path, local URL, serving command, sheet count,
 which sheets are HLD vs LLD, what diagrams were drawn, whether a playground was
 built (and if not, why not), which concepts got ELI10 asides, and anything from
 the markdown you could not verify. Include how many open questions were
-resolved and how many remain. Say the plan has been converted.
+resolved and how many remain. When a board was written, give its epic count,
+card count, total points, and its URL — the same page with `#board`; when the
+user opted out, say the board was skipped at their request and that running
+`/qstack-plan-to-html` on the same plan adds one later. Say the plan has been
+converted.
 
 Then, under a clear break — *"For your consideration"* — give the one addition
 from the accretion pass. Keep the two apart: the user asked for a conversion and

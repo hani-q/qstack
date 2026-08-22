@@ -1,7 +1,10 @@
 ---
 name: qstack-model-the-domain
-description: Replace scattered domain assumptions with the smallest structure that removes invalid states and branching.
-disable-model-invocation: true
+description: >
+  Replace scattered domain assumptions with the smallest structure that removes
+  invalid states and branching. Use when booleans have to be kept in sync, the
+  same rule is validated at several call sites, a branch grows with every new
+  case, or an invalid state can be represented at all.
 license: MIT
 ---
 

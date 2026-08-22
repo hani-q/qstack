@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Plan Prior Art"
+  short_description: "Brief a new plan from the plans already written"
+  default_prompt: "Use $qstack-plan-prior-art to brief this plan on what earlier plans decided, deferred, and learned."
+policy:
+  allow_implicit_invocation: true
