@@ -351,13 +351,33 @@
     return node;
   };
 
-  /* Related runs long on a busy file, and a card has to stay one glance. Three
-     names, then the count of the ones that did not fit. */
-  const capped = (ids) => {
-    const rest = ids.length - RELATED_SHOWN;
-    return rest > 0
-      ? `${ids.slice(0, RELATED_SHOWN).join(', ')} +${rest} more`
-      : ids.join(', ');
+  const cardJump = (id, state = '') => {
+    const button = el('button', 'board-card-link', id);
+    button.type = 'button';
+    button.dataset.boardCardJump = id;
+    button.setAttribute('aria-label', `Show card ${id}`);
+    if (state) button.dataset.state = state;
+    return button;
+  };
+
+  /* Relationships are the part of a card that determines work order, so they
+     get rows and targets instead of sharing one metadata sentence. Related is
+     still capped: it is useful context, but never as important as ordering. */
+  const relation = (label, ids, kind, states = new Map()) => {
+    if (!ids.length) return '';
+    const shown = kind === 'related' ? ids.slice(0, RELATED_SHOWN) : ids;
+    const rest = ids.length - shown.length;
+    const row = el(
+      'div', 'board-card-relation',
+      el('span', 'board-card-relation-label', label),
+      el(
+        'span', 'board-card-links',
+        ...shown.map((id) => cardJump(id, states.get(id))),
+        rest > 0 && el('span', 'board-card-link-more', `+${rest}`),
+      ),
+    );
+    row.dataset.relation = kind;
+    return row;
   };
 
   const drawCard = (card) => {
@@ -368,23 +388,31 @@
       !card.sized && `Points ${card.points}, not 1, 2, 3, 5 or 8. Not ready.`,
       ...card.drift,
     ].filter(Boolean);
-    // Related sits with the other facts rather than on a row of its own: it is
-    // one more thing the card knows, not a second subject.
     const facts = [];
     if (card.files.length) facts.push(count(card.files.length, 'file'));
-    if (card.splitFrom) facts.push(`from ${card.splitFrom}`);
-    if (card.blocks.length) facts.push(`blocks ${card.blocks.join(', ')}`);
-    if (card.related.length) facts.push(`related ${capped(card.related)}`);
-    const notes = [
-      card.waiting.length && `Waiting on ${card.waiting.join(', ')}`,
-      card.notes[card.notes.length - 1],
-    ].filter(Boolean);
+    const notes = [card.notes[card.notes.length - 1]].filter(Boolean);
+    const dependencyState = new Map(
+      card.needs.map((id) => [id, card.waiting.includes(id) ? 'waiting' : 'done']),
+    );
+    const readiness =
+      card.status === 'blocked'
+        ? ['blocked', 'Blocked']
+        : card.status === 'backlog' && card.waiting.length
+          ? ['waiting', 'Waiting']
+          : card.status === 'backlog' && card.sized && !flags.length
+            ? ['ready', 'Ready']
+            : null;
 
     const node = el(
       'article', 'board-card',
       el(
         'p', 'board-card-head',
         el('span', 'board-card-id', card.id),
+        readiness && (() => {
+          const badge = el('span', 'board-card-readiness', readiness[1]);
+          badge.dataset.state = readiness[0];
+          return badge;
+        })(),
         card.points && points(card.points),
       ),
       el('p', 'board-card-title', card.title),
@@ -397,11 +425,30 @@
         ),
       ...flags.map((text) => el('p', 'board-card-flag', text)),
       ...notes.map((note) => el('p', 'board-card-note', note)),
+      card.splitFrom && relation('From', [card.splitFrom], 'from'),
+      relation('Needs', card.needs, 'needs', dependencyState),
+      relation('Unlocks', card.blocks, 'unlocks'),
+      relation('Related', card.related, 'related'),
     );
+    node.id = `board-card-${card.id}`;
+    node.tabIndex = -1;
     node.dataset.status = card.status;
     if (flags.length) node.dataset.flagged = 'true';
     return node;
   };
+
+  lanesHost.addEventListener('click', (event) => {
+    const jump = event.target.closest('[data-board-card-jump]');
+    if (!jump) return;
+    const target = doc.getElementById(`board-card-${jump.dataset.boardCardJump}`);
+    if (!target) return;
+    const previous = lanesHost.querySelector('[data-focused]');
+    if (previous) delete previous.dataset.focused;
+    target.dataset.focused = 'true';
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    setTimeout(() => delete target.dataset.focused, 1800);
+  });
 
   // A split parent is closed, so it sits in the done column under its own status.
   const inColumn = (card, status) =>

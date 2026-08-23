@@ -183,6 +183,12 @@ There is no `linked_to` and no `blocked_by`, because `depends_on` is planned
 ordering, `blocked` is an unplanned stall, and "related" is computed from shared
 `refs` or shared `files` rather than stored.
 
+The card keeps those meanings visually separate. `Ready` and `Waiting` sit by
+the card id. `Needs` names its prerequisites, `Unlocks` names cards downstream,
+and `Related` stays quieter because it does not control work order. Every card
+id in those rows is a button: selecting one scrolls its card into view and
+marks it briefly without changing the board URL.
+
 Points are Fibonacci, capped, and set once at breakdown:
 
 - `1` — one file, no review round expected.

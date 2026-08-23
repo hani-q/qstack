@@ -1043,7 +1043,7 @@ button { cursor: pointer; }
      .board-lane  > .board-lane-head + .board-scroll > .board-cols
      .board-cols  > six .board-col, one per status
      .board-col   > .board-col-head + one .board-card per card
-     .board-card  > .board-card-head + -title + -refs + -meta + -flag + -note */
+     .board-card  > head + title + refs + meta + flags + relationship rows */
 
 /* The view switch -------------------------------------------------------- */
 
@@ -1227,20 +1227,20 @@ button { cursor: pointer; }
 
 .board-card {
   display: grid;
-  gap: 6px;
-  padding: 10px;
+  gap: 8px;
+  padding: 11px;
   background: var(--ground-raise);
   border: 1px solid var(--rule);
-  /* the column a card sits in already names its status, so the edge stays
-     faint unless something upstream set --sig */
-  border-inline-start: 2px solid var(--sig, var(--ink-faint));
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: border-color 140ms ease, outline-color 140ms ease;
 }
 
 /* the id reads on the left, its size on the right */
 .board-card-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
 }
 
@@ -1254,9 +1254,9 @@ button { cursor: pointer; }
 
 .board-card-title {
   font-family: var(--gothic);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.35;
   color: var(--ink);
 }
 
@@ -1286,6 +1286,18 @@ button { cursor: pointer; }
 .board-card-points[data-points="5"],
 .board-card-points[data-points="8"] { font-weight: 500; }
 
+.board-card-readiness {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.board-card-readiness[data-state="ready"] { color: var(--sig-locked); }
+.board-card-readiness[data-state="waiting"] { color: var(--sig-open); }
+.board-card-readiness[data-state="blocked"] { color: var(--redline); }
+
 .board-card-owner {
   font-family: var(--mono);
   font-size: 10px;
@@ -1310,9 +1322,8 @@ button { cursor: pointer; }
 .board-card-refs a:hover { color: var(--redline); }
 
 /* A bad write has to be visible: a moved event whose from did not match, or a
-   second claim with no released between. The board spends the redline here and
-   nowhere else. */
-.board-card[data-flagged] { border-inline-start-color: var(--redline); }
+   second claim with no released between. */
+.board-card[data-flagged] { border-color: var(--redline); }
 
 .board-card-flag {
   font-family: var(--mono);
@@ -1327,6 +1338,80 @@ button { cursor: pointer; }
   font-size: 10px;
   line-height: 1.45;
   color: var(--ink-faint);
+}
+
+.board-card-relation {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  padding-block-start: 7px;
+  border-block-start: 1px solid var(--rule-soft);
+}
+
+.board-card-relation-label {
+  padding-block-start: 3px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.board-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.board-card-link {
+  appearance: none;
+  min-inline-size: 0;
+  padding: 2px 5px;
+  border: 1px solid var(--rule);
+  background: var(--ground-sink);
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1.25;
+  color: var(--ink-mute);
+  cursor: pointer;
+}
+
+.board-card-link:hover,
+.board-card-link:focus-visible {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+  outline: 0;
+}
+
+.board-card-relation[data-relation="needs"] .board-card-link[data-state="waiting"] {
+  border-color: color-mix(in srgb, var(--sig-open), transparent 45%);
+  background: color-mix(in srgb, var(--sig-open), transparent 90%);
+  color: var(--sig-open);
+}
+
+.board-card-relation[data-relation="needs"] .board-card-link[data-state="done"] {
+  color: var(--sig-locked);
+}
+
+.board-card-relation[data-relation="unlocks"] .board-card-relation-label,
+.board-card-relation[data-relation="unlocks"] .board-card-link {
+  color: var(--ink-soft);
+}
+
+.board-card-relation[data-relation="related"] { opacity: .76; }
+
+.board-card-link-more {
+  padding-block: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+}
+
+.board-card[data-focused] {
+  border-color: var(--redline);
+  outline-color: var(--redline-wash);
 }
 
 /* done is closed, not deleted: dim the title, never strike it */
