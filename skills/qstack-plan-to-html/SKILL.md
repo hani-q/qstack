@@ -269,7 +269,12 @@ investigation.
 Sheets, in order:
 
 6. **Current-system architecture** — with `file:line` citations. Verified, not assumed.
-7. **The design** — interfaces, data shapes, syntax, wire formats.
+7. **The design** — interfaces, data shapes, syntax, wire formats. Every new
+   component, dependency, or abstraction names the requirement that needs it
+   and says why a helper already in the repository, the standard library, a
+   native platform feature, or an installed dependency does not cover it. No
+   requirement, no entry. Do not prescribe a build where one of those would do;
+   the execution loop builds what this sheet says.
 8. **Build order** — `.phases`, each phase leaving the tree coherent.
 9. **Release gate** — `.matrix` of scenario → acceptance → blocker/required.
 10. **Open questions** — numbered, each with what it blocks.

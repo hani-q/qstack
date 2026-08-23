@@ -35,9 +35,12 @@ clobber my own work.
 
 The ten engineering-practice skills above and the writing guidance in
 [`GENERAL_INSTRUCTIONS.md`](GENERAL_INSTRUCTIONS.md) are adapted from Lauren
-Tan's PStack at a pinned source commit. See
-[Third-party notices](THIRD_PARTY_NOTICES.md) for the source map and complete
-MIT license.
+Tan's PStack at a pinned source commit. The implementation ladder both
+execution loops apply per card or task, the design-sheet rule in
+`plan-to-html`, and the reviewer's unrequested-code check adapt Dietrich
+Gebert's Ponytail at a pinned commit. See
+[Third-party notices](THIRD_PARTY_NOTICES.md) for the source maps and complete
+MIT licenses.
 
 The plan lifecycle starts with `prior-art`, which reads the existing plans
 before a new one is drafted. `plan-to-html` then does the whole conversion in

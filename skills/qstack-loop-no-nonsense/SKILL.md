@@ -185,6 +185,18 @@ current. Either way, delegate bounded independent work when agent tools are
 available, but inspect and integrate every result yourself. Preserve unrelated
 user changes.
 
+Build what the plan prescribes. Where it leaves the implementation open, write
+the least code that meets the acceptance criteria of the card, or of the task
+when there is no board. Before writing anything new, take the highest of these
+that fully meets the requirement, edge cases included: a helper, component, or
+pattern already in this repository; the standard library; a native platform
+feature; a dependency already installed; then the minimum new code. Add no
+abstraction, configuration, wrapper, or file that neither implementing nor
+verifying it requires. Before editing a function, grep its callers and fix the
+shared path once. Never cut validation at a trust boundary, error handling that
+prevents data loss, security, accessibility, or anything the plan names. When
+you take a higher rung than the obvious build, record it as a design decision.
+
 Implement the full plan, update `execution.md` continuously, and validate in
 proportion to risk. Run the repository's relevant tests, linters, type checks,
 builds, and focused behavioral checks. Do not commit or push unless the user
@@ -212,10 +224,12 @@ Give the reviewer raw evidence rather than your conclusions:
 
 Ask the reviewer to read the plan and inspect the actual implementation without
 editing files. It must look for missing requirements, unapproved deviations,
-incorrect behavior, regressions, unsafe assumptions, weak tests, and inaccurate
-or incomplete execution notes. Require findings to include severity, evidence,
-and a concrete remedy; require an explicit statement when no blocking findings
-remain.
+incorrect behavior, regressions, unsafe assumptions, weak tests, unrequested
+code (an abstraction, configuration, dependency, wrapper, or file that no plan
+requirement or its verification calls for), and inaccurate or incomplete
+execution notes. Require
+findings to include severity, evidence, and a concrete remedy; require an
+explicit statement when no blocking findings remain.
 
 Before each review, record a content fingerprint for the reviewed state in
 `execution.md`. Include tracked changes, hashes of untracked files, and every
