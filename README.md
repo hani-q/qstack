@@ -11,6 +11,8 @@ clobber my own work.
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
+| [`qstack`](skills/qstack/) | Explicit only | List every installed QStack skill and the optional collections QStack installs as a one-line table, read from disk on each run, then recommend the next skill. |
+| [`qstack-next`](skills/qstack-next/) | Automatic | Recommend the one installed skill to run next from the conversation so far and the plan folder on disk. |
 | [`qstack-plan-prior-art`](skills/qstack-plan-prior-art/) | Automatic | Read the existing compound-engineering plans before a new plan is drafted and report what was already decided, deferred, and learned. |
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent — then break it into the cards of its execution board. Adds a board to a plan that already has HTML and none. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
@@ -101,8 +103,8 @@ and neither surprises the other.
 
 The plan execution loops require an agent host that can launch a fresh,
 independent review agent. They stop before claiming completion when the host
-does not provide that capability. The plan renderer and local plan server also
-require Bash and Python 3.
+does not provide that capability. The plan renderer, local plan server, and `/qstack`
+listing also require Bash and Python 3.
 
 | Flag | Effect |
 | --- | --- |
@@ -193,6 +195,8 @@ qstack/                              ← this repo, anywhere on disk
 ├── scripts/
 │   └── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
 └── skills/                          ← the layout skills.sh discovers
+    ├── qstack/SKILL.md
+    ├── qstack-next/SKILL.md
     ├── qstack-plan-prior-art/SKILL.md
     ├── qstack-ask-plan-open-questions/SKILL.md
     ├── qstack-plan-close/SKILL.md

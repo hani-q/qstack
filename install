@@ -63,6 +63,8 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 
 ## qstack
 
+- Use `/qstack` to list every installed QStack skill and optional collection, then get the next skill to run.
+- Use `/qstack-next` to recommend which installed skill to run next.
 - Use `/qstack-plan-prior-art` to read the existing plans before drafting a new one.
 - Use `/qstack-plan-to-html` to turn a plan into reviewable HTML and its execution board.
 - Use `/qstack-ask-plan-open-questions [plan-path]` to resolve open decisions in a Markdown draft or authoritative HTML plan.
