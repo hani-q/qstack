@@ -197,10 +197,10 @@ by every other open pull request. Protect `main` with the `Version gate` check
 required and "Require branches to be up to date before merging" enabled. The
 up-to-date rule makes a lower claim recheck after a higher version lands.
 
-After each push to `main`, the Skills workflow publishes every current skill to
-skills.sh and verifies that each remote `SKILL.md` matches the repository. To
-republish without a new commit, run that workflow manually from `main` in
-GitHub Actions.
+After each push to `main`, the Skills workflow requests fresh skills.sh snapshots
+for every current skill and verifies that each remote `SKILL.md` matches the
+repository. The workflow fails if skills.sh stays stale. To retry without a new
+commit, run that workflow manually from `main` in GitHub Actions.
 
 ## Layout
 
