@@ -4,7 +4,7 @@
 
 ### Changed
 
-* Request a skills.sh snapshot after every validated release and fail the workflow unless every published skill matches it. Manual republishing is available from `main`.
+* Every validated release now refreshes all QStack skills on skills.sh and fails CI if any published snapshot is stale. Maintainers can also republish manually from `main`.
 
 ## [2.0.0.0] - 2026-08-24
 
