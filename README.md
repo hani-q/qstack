@@ -197,10 +197,11 @@ by every other open pull request. Protect `main` with the `Version gate` check
 required and "Require branches to be up to date before merging" enabled. The
 up-to-date rule makes a lower claim recheck after a higher version lands.
 
-After each push to `main`, the Skills workflow requests fresh skills.sh snapshots
-for every current skill and verifies that each remote `SKILL.md` matches the
-repository. The workflow fails if skills.sh stays stale. To retry without a new
-commit, run that workflow manually from `main` in GitHub Actions.
+The Skills workflow verifies that the official skills.sh CLI discovers all
+current skills. skills.sh owns its catalog index and cached snapshots; its CLI
+does not provide a publish or re-index command. GitHub releases remain the
+release history, while skills.sh shows whichever current snapshot its service
+has indexed.
 
 ## Layout
 
