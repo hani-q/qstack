@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -41,4 +42,82 @@ jobs:
         run: scripts/validate-skill-invocation
 
       - name: Verify skills.sh CLI discovery
-        run: npx --yes skills@1.5.21 add . --list --agent codex
+        run: npx --yes skills@1.5.23 add . --list --agent codex
+
+  publish:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: validate
+    runs-on: ubuntu-latest
+    concurrency:
+      group: skills-sh-publish
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.20.0
+
+      - name: Publish current release to skills.sh
+        env:
+          NPM_CONFIG_IGNORE_SCRIPTS: "true"
+        run: |
+          release=$(tr -d '[:space:]' < version.txt)
+          publish_dir="$RUNNER_TEMP/skills-sh-publish"
+          mkdir -p "$publish_dir"
+          cd "$publish_dir"
+
+          npm exec --yes --package=skills@1.5.23 -- skills add \
+            "$GITHUB_REPOSITORY" \
+            --skill '*' \
+            --agent codex \
+            --copy \
+            --yes \
+            --metadata "{\"origin\":\"github-actions\",\"release\":\"$release\",\"commit\":\"$GITHUB_SHA\"}"
+
+      - name: Verify published skills.sh snapshots
+        run: |
+          snapshot_dir="$RUNNER_TEMP/skills-sh-snapshots"
+          mkdir -p "$snapshot_dir"
+
+          for attempt in $(seq 1 15); do
+            unmatched=()
+
+            for skill_file in skills/*/SKILL.md; do
+              slug=$(basename "$(dirname "$skill_file")")
+              response="$snapshot_dir/$slug.json"
+              published="$snapshot_dir/$slug.SKILL.md"
+
+              if ! curl --fail --silent \
+                "https://skills.sh/api/download/$GITHUB_REPOSITORY/$slug" \
+                --output "$response"; then
+                unmatched+=("$slug")
+                continue
+              fi
+
+              if ! jq --exit-status '.files | type == "array"' "$response" >/dev/null; then
+                unmatched+=("$slug")
+                continue
+              fi
+
+              jq --join-output \
+                '.files[] | select(.path == "SKILL.md") | .contents' \
+                "$response" > "$published"
+              cmp --silent "$skill_file" "$published" || unmatched+=("$slug")
+            done
+
+            if [ "${#unmatched[@]}" -eq 0 ]; then
+              echo "skills.sh matches all published skill snapshots."
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 15 ]; then
+              echo "Waiting for skills.sh to publish ${#unmatched[@]} skill snapshots."
+              sleep 20
+            fi
+          done
+
+          echo "skills.sh did not publish the current snapshots: ${unmatched[*]}" >&2
+          exit 1

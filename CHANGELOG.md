@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.0.1] - 2026-08-24
+
+### Changed
+
+* Every validated release now requests fresh QStack snapshots from skills.sh and fails CI if any published skill stays stale. Maintainers can also retry publication manually from `main`.
+
 ## [2.0.0.0] - 2026-08-24
 
 ### Breaking changes
