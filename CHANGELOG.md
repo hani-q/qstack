@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.0.2] - 2026-08-24
+
+### Fixed
+
+* The Skills workflow now validates CLI discovery without treating a skills.sh install as a publishing API or failing `main` when the external catalog has not indexed the repository.
+
 ## [2.0.0.1] - 2026-08-24
 
 ### Changed
