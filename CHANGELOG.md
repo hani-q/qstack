@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.0.1] - 2026-08-24
+
+### Changed
+
+* Request a skills.sh snapshot after every validated release and fail the workflow unless every published skill matches it. Manual republishing is available from `main`.
+
 ## [2.0.0.0] - 2026-08-24
 
 ### Breaking changes
