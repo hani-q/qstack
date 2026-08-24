@@ -29,7 +29,7 @@ plus its location. If a category lacks evidence, say so and move on.
 Every argument is a directory holding plan documents, relative to the
 repository root or absolute. Supplied paths are authoritative: use exactly
 those and skip plan discovery entirely. This is the escape hatch for any
-project whose plans live somewhere this skill would not think to look — a
+project whose plans live somewhere this skill would not think to look: a
 `docs/` tree, an `rfcs/` directory, a path outside the repository.
 
 With no arguments, fall back to discovery (category E). Discovery is a
@@ -49,8 +49,8 @@ name this argument, rather than concluding the project has no plans.
 
 Do not enumerate directories looking for sibling checkouts, and do not compare
 remote URLs to decide which belong. An earlier version did both. It missed
-checkouts living outside the directory convention it knew — nine against five
-on the first project it ran against — while the URL comparison it needed to
+checkouts living outside the directory convention it knew: nine against five
+on the first project it ran against: while the URL comparison it needed to
 screen out strangers had to reason about protocols, ports and absent remotes,
 none of which it got right. Git already knows where its worktrees are.
 
@@ -83,11 +83,11 @@ git -C "$path" status --porcelain | wc -l
 
 Report: how many checkouts exist, how many carry no unmerged commits, how many
 Git marks prunable, and idle time. A prunable entry is a checkout Git still
-tracks whose directory is gone — worth listing, since it is work that was
+tracks whose directory is gone: worth listing, since it is work that was
 started and abandoned without being cleaned up.
 
 Two worktrees cannot share a branch; Git refuses. So there is no duplication to
-detect here, and no aliasing either — `git worktree list` reports canonical
+detect here, and no aliasing either: `git worktree list` reports canonical
 paths, so a symlinked shortcut to a checkout never appears as a second entry.
 
 **B. Momentum.** Commits per month across the span, plus weekday distribution.
@@ -118,7 +118,7 @@ done
 ```
 
 Report large single-commit deletions (a pruning event), regrowth after one, and
-staleness — the file untouched while commits continued is a finding, stated as
+staleness: the file untouched while commits continued is a finding, stated as
 the two counts side by side.
 
 **E. Plan records.** When plan directories were given as arguments, use those
@@ -132,9 +132,9 @@ find . \( -name plan.html -o -name plan.md \) \
 
 Classify each hit by the directory holding it:
 
-- `qstack/compound_engineering/plans/` — current layout
-- `compound-engineering/plans/` — legacy layout, equally valid
-- anything else — unrecognised, which means unrecognised by this skill and
+- `qstack/compound_engineering/plans/`: current layout
+- `compound-engineering/plans/`: legacy layout, equally valid
+- anything else: unrecognised, which means unrecognised by this skill and
   says nothing about whether the project considers it managed
 
 Plan documents may be named anything. `plan.html` and `plan.md` are the two
@@ -148,7 +148,7 @@ outcome record, and a `board-events.js`. Do not apply that completeness check
 elsewhere; those plans were never promised those files.
 
 An execution record is `execution.md`, `executor.md`, or the legacy
-`implementation-notes.md` — the three names the other qstack skills read.
+`implementation-notes.md`: the three names the other qstack skills read.
 Any one of them counts, and the report names which was found. Counting only
 `execution.md` reports an executed plan as never executed, which is the same
 false-negative as missing its directory.
@@ -176,7 +176,7 @@ recognised layouts. A project with plan documents but no execution or outcome
 records is a finding in itself, and a different finding from having no plans.
 
 Count `execution.md` and `outcome.md` wherever they sit, and say where. Never
-report zero outcomes while outcome files exist elsewhere in the tree —
+report zero outcomes while outcome files exist elsewhere in the tree,
 completeness records are routinely left behind when a plan moves.
 
 Do not attempt to detect rules restated in different words. It was tested
@@ -246,7 +246,7 @@ a `created` event is the declaration.
 
 Cards per actor: the distinct cards each actor moved, claimed, released, split,
 or noted. `created` events are excluded, because the actor that ran the
-breakdown declared every card on the board and worked none of them — counting
+breakdown declared every card on the board and worked none of them: counting
 `created` puts that actor at the top of a list meant to show who did the work.
 Report the count as cards touched after breakdown, which is what it is:
 
@@ -443,12 +443,12 @@ and a 5.
 State the corpus size for a category before its finding. Below these, write
 "not enough evidence" and give the count instead of a finding:
 
-- fewer than 3 checkouts — no topology findings
-- fewer than 3 months of commits — no momentum trajectory
-- fewer than 20 commits — no rework rate
-- fewer than 5 plans in a recognised layout — no findings about plan-record
+- fewer than 3 checkouts: no topology findings
+- fewer than 3 months of commits: no momentum trajectory
+- fewer than 20 commits: no rework rate
+- fewer than 5 plans in a recognised layout: no findings about plan-record
   completeness
-- fewer than 3 plans carrying a board, or fewer than 20 board events in total —
+- fewer than 3 plans carrying a board, or fewer than 20 board events in total:
   no board-flow findings; print both counts anyway
 
 A board still held by a coordinator is reported below that threshold too. One
@@ -466,7 +466,7 @@ findings.
 A refusal withholds the finding, never the count. Always print what was found
 and where it was looked for before saying the evidence is too thin. A reader
 must never be able to mistake "not enough evidence for a trend" for "you have
-no plans" — that misreading is the exact failure this skill exists to avoid.
+no plans": that misreading is the exact failure this skill exists to avoid.
 
 When plan discovery returns nothing, that is a statement about this skill's
 guesses, not about the project. Say which directories and filenames were
@@ -479,15 +479,15 @@ date from `date +%F`. On first run also write
 `qstack/compound_engineering/reflections/.gitignore` containing `*`, so reports
 stay local without touching the repository's own ignore rules.
 
-Structure: scope, then one section per category — topology, momentum, rework,
-instruction churn, plan records, board flow — then refusals. Every finding
+Structure: scope, then one section each for topology, momentum, rework,
+instruction churn, plan records, and board flow, followed by refusals. Every finding
 carries its numbers inline. No summary paragraph, no advice, no score.
 
 End every report with this line verbatim, so credit travels with the artifact
 rather than only with the source:
 
 ```
-Method adapted from Reflection Engine by Kevin Rose (@kevinrose) —
+Method adapted from Reflection Engine by Kevin Rose (@kevinrose):
 https://github.com/kropdx/reflection-engine
 ```
 
@@ -499,14 +499,14 @@ Session transcripts are not read. They are the larger corpus and the closer
 match to how the work actually went, but they need an extraction pass first;
 until that exists, this skill stays with what can be counted directly.
 
-There is no reflective layer here — no questions answered, no confidence
+There is no reflective layer here: no questions answered, no confidence
 scores, no advice. Add it only over this evidence, never over the raw corpus,
 so every claim stays traceable to a count.
 
 ## Prior art
 
-The method — declare the corpus boundary first, ground every claim in cited
-evidence, refuse rather than pad — is adapted from
+The method: declare the corpus boundary first, ground every claim in cited
+evidence, refuse rather than pad: is adapted from
 [Reflection Engine](https://github.com/kropdx/reflection-engine) by Kevin Rose
 ([@kevinrose](https://x.com/kevinrose)), v1.3, commit `1a3301c`, retrieved
 2026-08-07. That prompt reads personal conversation history in a chat

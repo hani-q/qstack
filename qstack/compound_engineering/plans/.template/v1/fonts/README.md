@@ -3,7 +3,7 @@
 Self-hosted so a plan renders identically offline, on a plane, or as a file
 someone emailed themselves. All three families are under the **SIL Open Font
 License 1.1**, which permits redistribution in a repository provided the license
-travels with them — the `OFL-*.txt` files here are that copy. Don't delete them.
+travels with them: the `OFL-*.txt` files here are that copy. Don't delete them.
 
 | File | Family | Role | License |
 | --- | --- | --- | --- |
@@ -15,7 +15,7 @@ travels with them — the `OFL-*.txt` files here are that copy. Don't delete the
 
 These are the **latin subsets** from Google Fonts (`U+0000-00FF` and friends),
 around 300KB in total. A plan that needs Arabic or Urdu display type should not
-extend these files — add a separate face alongside them and scope it to the
+extend these files: add a separate face alongside them and scope it to the
 element that needs it, so every other plan keeps loading 300KB.
 
 To refresh a face, pull the latin `@font-face` block Google Fonts serves for the

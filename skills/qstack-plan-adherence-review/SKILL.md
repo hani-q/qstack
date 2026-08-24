@@ -76,15 +76,15 @@ independently.
 
 For every obligation, inspect the implementation and assign exactly one status:
 
-- **Met** — direct code or test evidence satisfies it.
-- **Approved deviation** — the implementation differs materially, and the
+- **Met**: direct code or test evidence satisfies it.
+- **Approved deviation**: the implementation differs materially, and the
   record contains concrete evidence that the user approved the change.
-- **Partial** — some required behavior exists, but a material part is absent or
+- **Partial**: some required behavior exists, but a material part is absent or
   unproven.
-- **Missing** — no implementation evidence exists.
-- **Unapproved deviation** — reality materially differs without evidenced
+- **Missing**: no implementation evidence exists.
+- **Unapproved deviation**: reality materially differs without evidenced
   approval.
-- **Not verifiable** — available evidence cannot establish the result.
+- **Not verifiable**: available evidence cannot establish the result.
 
 An execution-record claim is not implementation evidence. Verify paths,
 symbols, behavior, migrations, generated artifacts, and tests against the
@@ -123,12 +123,12 @@ evidence; do not average away a serious miss.
 
 | Score | Meaning | Required evidence |
 | --- | --- | --- |
-| **5 — Faithful** | The approved plan was fully executed. | Every material obligation is met or covered by an evidenced approved deviation; validation passes; the execution record is accurate; no blocker remains. |
-| **4 — Substantially faithful** | The intended result is complete, with only minor gaps. | All critical and user-visible obligations are met; remaining issues are non-material documentation, test, or record-quality gaps. |
-| **3 — Partially faithful** | The core result exists, but execution departed materially. | At least one material obligation is partial, unverified, or changed without evidenced approval, while the central outcome still works. |
-| **2 — Weak adherence** | Important parts of the contract were not delivered. | Multiple material obligations are missing or contradicted, or a release/acceptance gate fails. |
-| **1 — Nominal adherence** | Only isolated pieces resemble the plan. | The central behavior or design is absent despite some related changes. |
-| **0 — Not executed** | There is no credible implementation of the plan. | No relevant change exists, or the implementation directly abandons the plan's central outcome. |
+| **5: Faithful** | The approved plan was fully executed. | Every material obligation is met or covered by an evidenced approved deviation; validation passes; the execution record is accurate; no blocker remains. |
+| **4: Substantially faithful** | The intended result is complete, with only minor gaps. | All critical and user-visible obligations are met; remaining issues are non-material documentation, test, or record-quality gaps. |
+| **3: Partially faithful** | The core result exists, but execution departed materially. | At least one material obligation is partial, unverified, or changed without evidenced approval, while the central outcome still works. |
+| **2: Weak adherence** | Important parts of the contract were not delivered. | Multiple material obligations are missing or contradicted, or a release/acceptance gate fails. |
+| **1: Nominal adherence** | Only isolated pieces resemble the plan. | The central behavior or design is absent despite some related changes. |
+| **0: Not executed** | There is no credible implementation of the plan. | No relevant change exists, or the implementation directly abandons the plan's central outcome. |
 
 Apply these score caps:
 
@@ -151,16 +151,16 @@ applied.
 
 Lead with the verdict and score. Then provide:
 
-1. **Evidence reviewed** — plan, execution records, base/range, working-tree
+1. **Evidence reviewed**: plan, execution records, base/range, working-tree
    state, and validation run.
-2. **Findings** — ordered by severity, with plan clause, code or test evidence,
+2. **Findings**: ordered by severity, with plan clause, code or test evidence,
    impact, and concrete remedy. State explicitly when there are no findings.
-3. **Traceability matrix** — one row per obligation: clause, concise promise,
+3. **Traceability matrix**: one row per obligation: clause, concise promise,
    status, implementation evidence, execution-record evidence, and the cards
    citing that clause with their final status.
-4. **Record accuracy** — contradictions and omissions in the execution record.
-5. **Score rationale** — status counts, material failures, and any score caps.
-6. **Next actions** — the smallest steps needed to reach a 5.
+4. **Record accuracy**: contradictions and omissions in the execution record.
+5. **Score rationale**: status counts, material failures, and any score caps.
+6. **Next actions**: the smallest steps needed to reach a 5.
 
 Use repository-relative `file:line` citations and commit identifiers. Never
 claim a behavior from filenames or comments alone. Separate verified facts from

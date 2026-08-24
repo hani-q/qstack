@@ -12,8 +12,8 @@ from pathlib import Path
 # The board fold is written out six times over: once in board.js, once as
 # instructions in each execution loop, once in prior-art, plan-close and
 # adherence-review, and several times as awk in qstack-reflect. They have
-# already been caught disagreeing — board.js broke a claim race on `ts`, the
-# reflect awk broke it on file order — and nothing in a JavaScript file, an awk
+# already been caught disagreeing: board.js broke a claim race on `ts`, the
+# reflect awk broke it on file order: and nothing in a JavaScript file, an awk
 # program and a Markdown instruction can share code to stop it happening again.
 #
 # They can share a fixture. scripts/fixtures/board-fold-events.js exercises every
@@ -37,7 +37,7 @@ from pathlib import Path
 # Extracting the fold from board.js, which exports nothing and expects a DOM.
 #
 # board.js is one arrow IIFE. `fold` is a const inside that closure, so loading
-# the file — as a script, as a module, in a vm — reaches nothing. Rather than
+# loading the file as a script, module, or in a vm reaches nothing. Rather than
 # edit board.js to suit its test, this harness takes the IIFE's body as text and
 # rebuilds it as a function whose last statement is `return { fold };`.
 #
@@ -48,7 +48,7 @@ from pathlib import Path
 #
 # The rebuilt body still runs top to bottom before it renders anything, so it
 # gets a DOM stub big enough to reach the end. Only `[data-board-lanes]` has to
-# answer — without it the IIFE returns early and takes `fold` with it. Every
+# answer: without it the IIFE returns early and takes `fold` with it. Every
 # other selector may answer null, which board.js already reads as "not on this
 # page". `location.hash` is empty, so the last line picks the plan view and
 # calls stopPolling(): no event script loads, and no timer is left running.

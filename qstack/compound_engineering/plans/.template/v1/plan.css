@@ -1,11 +1,11 @@
 /* ============================================================================
-   Plan document system — v1  ·  "cyanotype & redline"
+   Plan document system: v1  ·  "cyanotype & redline"
    ----------------------------------------------------------------------------
    A plan is a controlled document, not a landing page. It opens with a title
    block, not a hero. Every clause is numbered so it can be cited. Every section
    carries a status stamp so a reader knows what is settled and what is not.
 
-   The print is blue and white — a cyanotype. The only warm colour on the page
+   The print is blue and white: a cyanotype. The only warm colour on the page
    is the redline: the reviewer's pencil. It marks position, attention, and
    anything that blocks a ship. Spend it nowhere else.
 
@@ -102,7 +102,7 @@
   --shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
 }
 
-/* Two modes: "print" is the cyanotype above and needs no overrides — it is the
+/* Two modes: "print" is the cyanotype above and needs no overrides: it is the
    base :root. "vellum" is the same document on pale mineral paper. */
 :root[data-theme="vellum"] {
   color-scheme: light;
@@ -296,7 +296,7 @@ button { cursor: pointer; }
 }
 .doc-tool:hover { color: var(--ink); border-color: var(--ink-faint); }
 
-/* a word beats a glyph here — the printer symbol has patchy font coverage */
+/* a word beats a glyph here: the printer symbol has patchy font coverage */
 .doc-tool.wide {
   width: auto;
   padding: 0 11px;
@@ -345,7 +345,7 @@ button { cursor: pointer; }
   line-height: 1.5;
 }
 
-/* the field grid — a drawing sheet's title block */
+/* the field grid: a drawing sheet's title block */
 .fields {
   grid-column: 1 / -1;
   margin-top: 40px;
@@ -522,7 +522,7 @@ button { cursor: pointer; }
 .stamp {
   display: inline-flex;
   align-items: center;
-  /* never let a grid parent stretch a stamp — it is a mark, not a bar */
+  /* never let a grid parent stretch a stamp: it is a mark, not a bar */
   justify-self: start;
   align-self: start;
   gap: 7px;
@@ -543,7 +543,7 @@ button { cursor: pointer; }
   background: currentColor;
 }
 
-/* status carrier — set on any element to colour stamps, ticks, rules */
+/* status carrier: set on any element to colour stamps, ticks, rules */
 [data-status="locked"] { --sig: var(--sig-locked); }
 [data-status="open"] { --sig: var(--sig-open); }
 [data-status="deferred"] { --sig: var(--sig-deferred); }
@@ -564,7 +564,7 @@ button { cursor: pointer; }
   to   { opacity: 1; transform: scale(1) rotate(-1.4deg); }
 }
 
-/* Clauses — numbered, citable, addressable ------------------------------- */
+/* Clauses: numbered, citable, addressable ------------------------------- */
 
 .clauses {
   border-top: 1px solid var(--rule);
@@ -660,7 +660,7 @@ button { cursor: pointer; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
 
-/* Note — a margin annotation in the reviewer's hand ---------------------- */
+/* Note: a margin annotation in the reviewer's hand ---------------------- */
 
 .note {
   max-width: var(--measure);
@@ -673,7 +673,7 @@ button { cursor: pointer; }
 .note .label { color: var(--sig, var(--redline)); padding-bottom: 5px; display: block; }
 .note p { color: var(--ink-soft); font-size: 15.5px; }
 
-/* Eli — an aside for a reader who does not have the background ----------- */
+/* Eli: an aside for a reader who does not have the background ----------- */
 
 /* A term stays exact in the prose; the plain-English reading of it sits one
    gesture away behind a mark. Opens on hover, on keyboard focus, and on tap,
@@ -741,10 +741,10 @@ button { cursor: pointer; }
 .eli:focus-within .eli-body,
 .eli[data-open] .eli-body { opacity: 1; visibility: visible; }
 
-/* Near the end of a line the box would run off the page — flip it. */
+/* Near the end of a line the box would run off the page: flip it. */
 .eli[data-align="end"] .eli-body { inset-inline-start: auto; inset-inline-end: 0; }
 
-/* Ledger — table-name / description pairs -------------------------------- */
+/* Ledger: table-name / description pairs -------------------------------- */
 
 .ledger { border-top: 1px solid var(--rule); }
 
@@ -780,7 +780,7 @@ button { cursor: pointer; }
 .ledger-row p { color: var(--ink-mute); font-size: 14.5px; line-height: 1.5; }
 .ledger-row em { font-style: normal; color: var(--ink-soft); border-bottom: 1px solid var(--sig, var(--rule)); }
 
-/* Seq — an ordered procedure, where order carries meaning ---------------- */
+/* Seq: an ordered procedure, where order carries meaning ---------------- */
 
 .seq {
   display: grid;
@@ -808,7 +808,7 @@ button { cursor: pointer; }
 
 .seq-step p { color: var(--ink-mute); font-size: 14px; line-height: 1.46; }
 
-/* Rail — a system diagram read left to right ----------------------------- */
+/* Rail: a system diagram read left to right ----------------------------- */
 
 .rail {
   display: grid;
@@ -878,7 +878,7 @@ button { cursor: pointer; }
   padding-top: 24px;
 }
 
-/* Matrix — the release gate --------------------------------------------- */
+/* Matrix: the release gate --------------------------------------------- */
 
 .matrix-scroll { overflow-x: auto; }
 
@@ -931,7 +931,7 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 
-/* Phases — the build order ---------------------------------------------- */
+/* Phases: the build order ---------------------------------------------- */
 
 .phases { border-top: 1px solid var(--rule); }
 
@@ -967,7 +967,7 @@ button { cursor: pointer; }
   color: var(--ink-faint);
 }
 
-/* Refs — the research basis --------------------------------------------- */
+/* Refs: the research basis --------------------------------------------- */
 
 .refs {
   display: grid;
@@ -1117,7 +1117,7 @@ button { cursor: pointer; }
 .board-meter > div:first-child dd { font-size: 20px; }
 
 /* the last field holds the coordinator, and an actor slug is a name rather than
-   a count — a branch-derived one can run 31 characters, and a field is 155px
+   a count: a branch-derived one can run 31 characters, and a field is 155px
    wide at 375px. It wraps; the counts beside it never do. */
 .board-meter > div:last-child dd {
   white-space: normal;
@@ -1142,7 +1142,7 @@ button { cursor: pointer; }
 .board-state[data-tone="warn"] { color: var(--sig-open); }
 .board-state[data-tone="error"] { color: var(--redline); }
 
-/* Lanes and columns — a swimlane per epic -------------------------------- */
+/* Lanes and columns: a swimlane per epic -------------------------------- */
 
 .board-lane { padding-block-start: 30px; }
 
@@ -1281,7 +1281,7 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 
-/* the mono face carries 400 and 500, so weight is the whole scale — enough to
+/* the mono face carries 400 and 500, so weight is the whole scale: enough to
    mark the two sizes that will take a review round, and it costs no colour */
 .board-card-points[data-points="5"],
 .board-card-points[data-points="8"] { font-weight: 500; }
@@ -1489,7 +1489,7 @@ button { cursor: pointer; }
     border-inline-start: 0;
   }
   .board-meter > div { padding-inline: 0 16px; }
-  /* there is no hover here — the mark is tapped, so give the box the width */
+  /* there is no hover here: the mark is tapped, so give the box the width */
   .eli-body { inline-size: min(38ch, calc(100vw - 44px)); }
 }
 
@@ -1527,7 +1527,7 @@ button { cursor: pointer; }
   .doc-bar, .spine, .doc-tool, .skip { display: none; }
   .doc-body { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
 
-  /* paper gets the plan whichever view was on screen — the board is a live
+  /* paper gets the plan whichever view was on screen: the board is a live
      record of a file that keeps changing, so it has no printed form */
   .board, .doc-bar-views { display: none; }
 
@@ -1551,7 +1551,7 @@ button { cursor: pointer; }
 
   /* every panel prints, so each one has to say which tab it came from.
      The entrance animation restarts the moment print un-hides a panel, and a
-     paged snapshot catches it at frame zero — so it has to go. */
+     paged snapshot catches it at frame zero: so it has to go. */
   .tabset { display: none; }
   .tab-panel { animation: none; opacity: 1; }
   .tab-panel[hidden] { display: block; }

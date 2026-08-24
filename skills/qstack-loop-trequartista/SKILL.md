@@ -256,7 +256,7 @@ material deviation, ask first under Adapt without losing the plan.
 
 Launch another fresh reviewer after **any accepted finding changes code, tests,
 configuration, dependencies, migrations, generated artifacts, or any
-fingerprinted execution content**—regardless of why it changed. Merely appending that review's unchanged findings and
+fingerprinted execution content**, regardless of why it changed. Merely appending that review's unchanged findings and
 resolution to `execution.md` does not invalidate it. The last review must match
 the final implementation fingerprint.
 

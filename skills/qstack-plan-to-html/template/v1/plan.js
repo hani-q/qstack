@@ -1,5 +1,5 @@
 /* ============================================================================
-   Plan document behaviour — v1
+   Plan document behaviour: v1
    ----------------------------------------------------------------------------
    Everything here is progressive. With JavaScript disabled the document still
    reads top to bottom; it only loses numbering, the spine, and tab switching
@@ -15,7 +15,7 @@
      · toggles print ⇄ vellum and remembers the choice
      · reserves text height with pretext, when pretext.js is loaded
 
-   Authoring contract — see README.md
+   Authoring contract: see README.md
      <section class="sheet" id="…" data-title="…" data-status="locked">
    ========================================================================= */
 
@@ -144,8 +144,8 @@
 
   /* -- Eli asides -------------------------------------------------------- */
 
-  /* Hover and focus are pure CSS. This adds the tap — a touch reader has no
-     hover — plus Escape to dismiss, and it flips a box that would otherwise
+  /* Hover and focus are pure CSS. This adds the tap: a touch reader has no
+     hover: plus Escape to dismiss, and it flips a box that would otherwise
      run off the end of the line. */
 
   const elis = [...doc.querySelectorAll('.eli')];

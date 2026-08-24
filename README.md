@@ -2,7 +2,7 @@
 
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
-Personal skill stack — skills I maintain myself, kept separate from vendored
+Personal skill stack: skills I maintain myself, kept separate from vendored
 stacks like [gstack](https://github.com/garrytan/gstack) and
 [greptile](https://github.com/greptileai/skills) so upgrades to those never
 clobber my own work.
@@ -14,14 +14,14 @@ clobber my own work.
 | [`qstack`](skills/qstack/) | Explicit only | List every installed QStack skill and the optional collections QStack installs as a one-line table, read from disk on each run, then recommend the next skill. |
 | [`qstack-next`](skills/qstack-next/) | Automatic | Recommend the one installed skill to run next from the conversation so far and the plan folder on disk. |
 | [`qstack-plan-prior-art`](skills/qstack-plan-prior-art/) | Automatic | Read the existing compound-engineering plans before a new plan is drafted and report what was already decided, deferred, and learned. |
-| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document — HLD half for a PM, LLD half for an execution agent — then break it into the cards of its execution board. Adds a board to a plan that already has HTML and none. |
+| [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit only | Render a markdown plan as a controlled HTML document with an HLD half for a PM and an LLD half for an execution agent, then break it into the cards of its execution board. Adds a board to a plan that already has HTML and none. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask material plan questions one at a time in plain language and write each decision into the authoritative plan. |
 | [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit only | Execute a plan exactly, stopping before any deviation and requiring independent adversarial review. |
 | [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit only | Execute a plan with controlled creative freedom, recording adaptations and requiring independent adversarial review. |
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Compare a plan with its execution record and code changes, then assign a guarded 0–5 adherence score. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit only | Close out an executed plan: write `outcome.md` and close the board. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit only | Serve a repository's QStack plan collection on a local HTTP address. |
-| [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked — workspace topology, momentum, rework, instruction churn — using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
+| [`qstack-reflect`](skills/qstack-reflect/) | Automatic | Report how a project is actually being worked across workspace topology, momentum, rework, and instruction churn, using only counts the reader can reproduce. Accepts plan directories, as in `/qstack-reflect docs/rfcs`, for projects whose plans live anywhere. |
 | [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in fewer lines and plain language; accepts an optional line target such as `/qstack-be-concise 4`. |
 | [`qstack-unslop`](skills/qstack-unslop/) | Explicit only | Remove AI writing patterns from the previous answer while preserving its meaning, useful detail, and technical accuracy. |
 | [`qstack-blast-radius`](skills/qstack-blast-radius/) | Automatic | Find the critical safety fact behind a change, prove it with real code, and mark anything weaker as unproven. |
@@ -96,7 +96,7 @@ skips the ones that are not there:
 | --- | --- | --- |
 | Claude Code | `~/.claude/skills/` | `~/.claude/CLAUDE.md` |
 | Codex | `~/.codex/skills/` | `~/.codex/AGENTS.md` |
-| generic `agents` (Cline, Warp, Zed, …) | `~/.agents/skills/` | — |
+| generic `agents` (Cline, Warp, Zed, …) | `~/.agents/skills/` | N/A |
 
 Those paths match the ones the skills.sh CLI uses, so the two installers agree
 and neither surprises the other.
@@ -141,14 +141,14 @@ git dependency by commit SHA, so QStack clones that repository itself, checks
 out the reviewed commit, verifies `HEAD` matches, and runs the installer from
 that checkout. What runs is bound to the commit rather than to a tag that could
 be moved between being checked and being used. Note that its installer writes into `~/.claude`, `~/.codex` and
-`~/.agents` whether or not those harnesses already exist — unlike QStack's own
-install, which only touches directories that are already there — and that the
+`~/.agents` whether or not those harnesses already exist. QStack's own install
+only touches directories that are already there. Also, the
 skill it writes tells agents to run `npx -y human-review`, which resolves to
 that project's published npm release at the time of use.
 
 In the default ask mode, a non-interactive invocation installs neither, so a
 piped or scripted install never pulls third-party code on a silent default. Pass
-`--with-…` to opt into one, or `--yes` to take them all — that flag is the whole
+`--with-…` to opt into one, or `--yes` to take them all: that flag is the whole
 answer for an unattended install, and it keeps working as collections are
 added. Dry-run and uninstall invocations never prompt.
 If one optional install fails, the other is still attempted and the installer
@@ -160,7 +160,7 @@ linked worktree (including a disposable Conductor workspace) and prints the
 primary worktree path to use instead. `--copy` remains available from linked
 worktrees because its installed files do not depend on that worktree surviving.
 
-It is safe to re-run, and it never deletes an entry it did not create — a
+It is safe to re-run, and it never deletes an entry it did not create: a
 `qstack-<name>` directory that qstack did not install is reported and left alone.
 Symlink installs carry a hidden marker recording the exact target QStack linked,
 so uninstall can still identify them if that checkout later moves or disappears
@@ -232,17 +232,17 @@ qstack/                              ← this repo, anywhere on disk
 ~/.agents/skills/qstack-<name> ┘
 ```
 
-**A skill's directory name is its name** — it matches the `name:` in its
+**A skill's directory name is its name**: it matches the `name:` in its
 frontmatter, which is what the agent invokes. Nothing derives or appends a
 prefix, so there is one place to rename a skill.
 
 The `qstack-` prefix is deliberate. The ecosystem convention is to namespace by
 `owner/repo` and leave names bare (Anthropic ships `frontend-design`, not
 `anthropic-frontend-design`), but these directories are shared with vendored
-stacks — the prefix is what stops a `gstack-upgrade` from clobbering them. A
+stacks: the prefix is what stops a `gstack-upgrade` from clobbering them. A
 worthwhile deviation.
 
-`template/v1` is vendored, not authored here — its component reference and house
+`template/v1` is vendored, not authored here: its component reference and house
 rules are in
 [`skills/qstack-plan-to-html/template/v1/README.md`](skills/qstack-plan-to-html/template/v1/README.md).
 The skill copies it into the target repo rather than linking to it, so a rendered
@@ -254,7 +254,7 @@ Tracked here so the drift from upstream stays visible:
 
 | Change | Files |
 | --- | --- |
-| **`.eli` asides** — plain-English explanation behind an ⓘ, revealed on hover, focus and tap; prints inline as a footnote | `plan.css` §8, `plan.js`, `plan-template.html`, `README.md` |
+| **`.eli` asides**: plain-English explanation behind an ⓘ, revealed on hover, focus and tap; prints inline as a footnote | `plan.css` §8, `plan.js`, `plan-template.html`, `README.md` |
 
 Upstream is `<repo>/plans/template/v1` in the workspace this was taken from; it
 does not have these. Port them across before treating either copy as canonical.
@@ -267,7 +267,7 @@ $EDITOR skills/qstack-<name>/SKILL.md    # frontmatter: name: qstack-<name>
 ./install                                # picks it up automatically
 ```
 
-Any directory under `skills/` holding a `SKILL.md` is a skill — the installer
+Any directory under `skills/` holding a `SKILL.md` is a skill: the installer
 finds it with no list to maintain. Keep the directory name and the frontmatter
 `name:` identical; skills.sh requires `name` and `description`, lowercase with
 hyphens.

@@ -15,7 +15,7 @@ metadata:
 Turns a finished piece of work into compounding knowledge.
 
 The plan is not the lesson. **The lesson is the delta between the plan and
-reality** — what diverged, what surprised you, what cost hours that nothing
+reality**: what diverged, what surprised you, what cost hours that nothing
 predicted. This skill captures that delta and writes it where the next plan in
 this area will read it.
 
@@ -23,13 +23,13 @@ this area will read it.
 
 ```
 qstack/compound_engineering/plans/<feature-slug>/
-├── plan.html                  # BEFORE  — what we predicted. Frozen once work starts.
-├── board-events.js                # DURING  — append-only card events, written by agents.
-├── execution.md               # DURING  — decisions, deviations, validation, and reviews.
-└── outcome.md                 # AFTER   — this skill writes it.
+├── plan.html                  # BEFORE: what we predicted. Frozen once work starts.
+├── board-events.js                # DURING: append-only card events, written by agents.
+├── execution.md               # DURING: decisions, deviations, validation, and reviews.
+└── outcome.md                 # AFTER: this skill writes it.
 ```
 
-If the repo has `qstack/compound_engineering/README.md`, read it first — it may
+If the repo has `qstack/compound_engineering/README.md`, read it first: it may
 extend or override what follows. Also support the legacy
 `compound-engineering/plans/<feature-slug>/` layout and its README. Prefer the
 QStack layout when both contain the requested feature. If neither plan root
@@ -63,7 +63,7 @@ git log --oneline --format='%h %ad %s' --date=short -20 -- <paths the plan touch
 git log --all --oneline --diff-filter=A -- '<resolved-plan-folder>/*'
 ```
 
-Then verify the shipped surface exists — `ls` the scripts, `grep` for the key
+Then verify the shipped surface exists: `ls` the scripts, `grep` for the key
 symbols the plan promised. A plan that says it shipped `foo_bar()` and a tree
 with no `foo_bar()` is the single most valuable finding this skill can produce.
 
@@ -78,7 +78,7 @@ same state rules and name the legacy source in `outcome.md`. If both board files
 exist, stop because the execution record has two sources of truth.
 
 Check whether the plan's artifacts were ever committed at all. Work done in a
-gitignored directory leaves no recoverable design record — worth stating plainly
+gitignored directory leaves no recoverable design record: worth stating plainly
 in the outcome when it happened.
 
 ### 3. Extract the delta
@@ -89,13 +89,13 @@ prefer `execution.md`, but also read `implementation-notes.md` because it may
 contain earlier history. State legacy sources in the outcome. Compare all of
 them against the tree. Produce:
 
-- **Where it diverged** — decisions the implementation reversed or refined, and
+- **Where it diverged**: decisions the implementation reversed or refined, and
   why. Include names that changed (a plan calling a file `CONTRACT.json` when the
   tree has `.fs-contract.json` will mislead every future reader).
-- **What surprised us** — anything that cost real time and no plan revision
+- **What surprised us**: anything that cost real time and no plan revision
   predicted. This is the highest-value section; mine the notes' validation log
   and audit findings for it.
-- **Contradictions** — where the plan and `CLAUDE.md` now disagree. Flag as
+- **Contradictions**: where the plan and `CLAUDE.md` now disagree. Flag as
   unverified rather than guessing which is right.
 
 If both execution-record files are missing, or the available records are thin,
@@ -166,8 +166,8 @@ remain open. State clearly that nothing was committed.
 
 Once the plan folder holds a few dozen plans, opening every folder to find prior
 art costs more than it returns. At that point this skill should append one line
-per closed plan to `plans/INDEX.md` — slug, start and close dates, the outcome in
-one sentence, and the files touched — so `/qstack-plan-prior-art` reads the index
+per closed plan to `plans/INDEX.md`: slug, start and close dates, the outcome in
+one sentence, and the files touched: so `/qstack-plan-prior-art` reads the index
 for closed plans and opens folders only for the live ones.
 
 It is deliberately not built yet. Below about 30 plans, reading the folders is

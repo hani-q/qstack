@@ -128,7 +128,7 @@ template's runtime `§n.m` clause numbering.
 Turn the original open item into a resolved entry or add it under `## Decisions`:
 
 ```markdown
-### DQ-003 — Configuration ownership
+### DQ-003: Configuration ownership
 
 - Status: resolved
 - Decision: Keep configuration in the repository.

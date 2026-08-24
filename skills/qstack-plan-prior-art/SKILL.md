@@ -66,7 +66,7 @@ With no arguments, read `qstack/compound_engineering/plans/`, then the legacy
 `compound-engineering/plans/` layout. Both are equally valid; when a slug appears
 in both, read both and say so. Never read `.template/`.
 
-Read `qstack/compound_engineering/README.md` first when it exists — it may extend
+Read `qstack/compound_engineering/README.md` first when it exists: it may extend
 or override everything below. The legacy layout has its own README, same rule.
 
 ## What to read in each plan folder
@@ -79,20 +79,20 @@ qstack/compound_engineering/plans/<slug>/
 └── outcome.md     # divergence, surprises, open follow-ups
 ```
 
-- `plan.html` — the title block (document id, revision, status, `Supersedes`)
+- `plan.html`: the title block (document id, revision, status, `Supersedes`)
   and the abstract in full, so the plan can be named in one line. Then the
   outline, which is every `class="sheet"` line with its `data-title` and
   `data-status`, and every clause `<h3>`. The outline names every clause in the
   document and costs one grep. From there open in full every clause carrying
   `data-status="deferred"` or `data-status="open"`, every `DQ-###` decision, and
   every clause under a sheet the outline or the path grep puts on this subject.
-- `execution.md` — design decisions, deviations from the plan, tradeoffs taken,
+- `execution.md`: design decisions, deviations from the plan, tradeoffs taken,
   questions raised during the work, and which validation was actually run. Read
   `executor.md` and legacy `implementation-notes.md` the same way when they
   exist. Any of the three counts, and the brief names which one was found.
-- `outcome.md` — where it diverged, what surprised whoever did the work, and
+- `outcome.md`: where it diverged, what surprised whoever did the work, and
   the follow-ups left open.
-- `board-events.js` — run `node --check`, then fold each
+- `board-events.js`: run `node --check`, then fold each
   `qstackBoardEvent({...});` call in file order. Stop on broken JavaScript; skip
   the required `{"event":"board","format":1}` header and any syntactically
   valid call whose value is unusable. Keep every card whose folded status is not `done`
@@ -107,7 +107,7 @@ Later events win a card's status, and its owner follows a different rule. The
 owner is the actor of the `claimed` carrying the earliest `ts`; a second
 `claimed` from another actor loses the race rather than taking the card, and
 equal timestamps are a tie the incumbent keeps. Ownership ends when the owner
-appends `released` — a `released` from the actor named as the race loser clears
+appends `released`: a `released` from the actor named as the race loser clears
 the flag and nothing else, and one from anybody else changes nothing. `blocked`
 does not release a card either, so a blocked card still has the owner it had
 before it stopped. Reading the last `claimed` in the file instead names the
@@ -200,7 +200,7 @@ can open. Say "none" where there is none; an empty finding is information.
    be claimed while this brief is being read. Whether that run is live or ended
    without standing down is a question for the same actor.
 5. **What this plan supersedes.** The earlier plan whose scope this one takes
-   over, so the new title block's `Supersedes` field is honest instead of `—`.
+   over, so the new title block's `Supersedes` field is honest instead of `None`.
    Overlap is not supersession. Say it only when the new plan assumes the
    earlier one's outcome.
 6. **Rules already binding.** Rules in `AGENTS.md`, `CLAUDE.md`, and the

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# qstack installer — links every skill in this repo into each agent harness
+# qstack installer: links every skill in this repo into each agent harness
 # that is present on this machine.
 #
 #   ./install              link skills into every harness found
@@ -35,7 +35,7 @@ QSTACK_BUILD="$QSTACK_VERSION"
 [ -n "$QSTACK_REVISION" ] && QSTACK_BUILD="$QSTACK_BUILD+$QSTACK_REVISION"
 
 # Harness skill directories. A harness is installed to only if its parent
-# directory already exists — we never create a config dir for a tool that is
+# directory already exists: we never create a config dir for a tool that is
 # not on this machine.
 HARNESSES=(
   "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/skills:Claude Code"
@@ -148,7 +148,7 @@ require_durable_link_source
 # layout skills.sh discovers (skills/<name>/SKILL.md), so the same tree works
 # for `./install` and for `npx skills add hani-q/qstack`.
 #
-# A skill's directory name IS its name — it matches the SKILL.md frontmatter
+# A skill's directory name IS its name: it matches the SKILL.md frontmatter
 # `name:`, which is what the agent invokes. The qstack- prefix lives in both,
 # so nothing here derives or appends it.
 skills=()
@@ -568,8 +568,8 @@ install_optional_collections() {
   # a Claude Code skill, while Codex and ~/.agents support exists in the tagged
   # source and has never been published.
   #
-  # npx cannot install a git dependency by commit SHA — it fails with "GitFetcher
-  # requires an Arborist constructor" — so the checkout is done here instead,
+  # npx cannot install a git dependency by commit SHA: it fails with "GitFetcher
+  # requires an Arborist constructor": so the checkout is done here instead,
   # binding what runs to the reviewed commit.
   install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
     install_human_review || failed=1
@@ -579,7 +579,7 @@ install_optional_collections() {
 
 echo "qstack  $QSTACK_BUILD  $REPO"
 echo "skills  ${skills[*]}"
-[ "$DRY" -eq 1 ] && echo "        (dry run — nothing will change)"
+[ "$DRY" -eq 1 ] && echo "        (dry run: nothing will change)"
 echo
 
 installed=0
@@ -587,7 +587,7 @@ for entry in "${HARNESSES[@]}"; do
   IFS=: read -r home dest label <<<"$entry"
 
   if [ ! -d "$home" ]; then
-    printf '  —  %-18s not installed, skipping\n' "$label"
+    printf '     %-18s not installed, skipping\n' "$label"
     continue
   fi
 
@@ -603,7 +603,7 @@ for entry in "${HARNESSES[@]}"; do
         run rm -f "$retired_target" "$retired_marker"
         echo "      removed retired $retired_skill"
       else
-        echo "      skip retired $retired_skill — symlink was not installed by qstack"
+        echo "      skip retired $retired_skill: symlink was not installed by qstack"
       fi
     elif [ -e "$retired_target" ]; then
       if [ -f "$retired_target/.qstack-installed" ]; then
@@ -611,7 +611,7 @@ for entry in "${HARNESSES[@]}"; do
         run rm -f "$retired_marker"
         echo "      removed retired $retired_skill"
       else
-        echo "      skip retired $retired_skill — exists and was not installed by qstack"
+        echo "      skip retired $retired_skill: exists and was not installed by qstack"
       fi
     else
       [ ! -e "$retired_marker" ] || run rm -f "$retired_marker"
@@ -628,14 +628,14 @@ for entry in "${HARNESSES[@]}"; do
       if is_qstack_owned_skill_link "$target" "$skill"; then
         run rm -f "$target"
       else
-        echo "      skip $skill — symlink was not installed by qstack"
+        echo "      skip $skill: symlink was not installed by qstack"
         continue
       fi
     elif [ -e "$target" ]; then
       if [ -f "$target/.qstack-installed" ]; then
         run rm -rf "$target"
       else
-        echo "      skip $skill — exists and was not installed by qstack"
+        echo "      skip $skill: exists and was not installed by qstack"
         continue
       fi
     fi
@@ -665,7 +665,7 @@ echo "instructions"
 for entry in "${INSTRUCTION_FILES[@]}"; do
   IFS=: read -r home file label <<<"$entry"
   if [ ! -d "$home" ]; then
-    printf '  —  %-18s not installed, skipping\n' "$label"
+    printf '     %-18s not installed, skipping\n' "$label"
     continue
   fi
 

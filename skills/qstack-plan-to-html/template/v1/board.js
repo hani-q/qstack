@@ -1,5 +1,5 @@
 /* ============================================================================
-   Execution board — v1
+   Execution board: v1
    ----------------------------------------------------------------------------
    A second view of the plan document. It renders ./board-events.js, the
    append-only event stream that agents append to while they execute the plan.
@@ -22,7 +22,7 @@
      · reloads the event script every 3 s while the board view is on screen
      · loads the same event script over http:// and file://
 
-   Authoring contract — see README.md
+   Authoring contract: see README.md
      <section class="board" id="board"> holding [data-board-lanes]
    ========================================================================= */
 
@@ -105,7 +105,7 @@
         case 'moved':
           if (!STATUSES.has(event.to)) return false;
           /* A `from` that missed still applies: a bad write has to stay visible.
-             An absent `from` is one of those writes — the loops require it. */
+             An absent `from` is one of those writes: the loops require it. */
           if (event.from !== card.status) {
             card.drift.push(
               `Moved from ${card.status}, not ${event.from || '(none)'}`,
@@ -343,7 +343,7 @@
     return link;
   };
 
-  /* The size a card was given, which the stylesheet weights at 5 and 8 — the
+  /* The size a card was given, which the stylesheet weights at 5 and 8: the
      two that will cost a review round. */
   const points = (value) => {
     const node = el('span', 'board-card-points', String(value));
@@ -519,7 +519,7 @@
     fill('cards-total', all.length);
     fill('actors', board.actors.size);
     // Nobody holding the board is the state between runs, not a fault.
-    fill('coordinator', board.coordinator || '—');
+    fill('coordinator', board.coordinator || 'None');
     // A board claimed but not yet broken down still has a coordinator to show.
     if (meter) meter.hidden = !all.length && !board.coordinator;
 

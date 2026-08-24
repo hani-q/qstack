@@ -56,11 +56,11 @@ options, or examples into cards.
 
 Every card carries `epic`, `title`, `points`, `refs`, `files`, and `depends_on`.
 
-- `refs` — the clause numbers the card is built from, written without the sign
+- `refs`: the clause numbers the card is built from, written without the sign
   (`"4.2"`); the board renders `§4.2` and deep-links it. A card with no `refs`
   is not a card, it is scope nobody asked for. Drop it and name it in the
   report.
-- `files` — repository-relative paths the card will write. A card whose files
+- `files`: repository-relative paths the card will write. A card whose files
   cannot be named from the plan is under-specified. Create it at `8` points with
   a `note` saying what it splits into, so nobody can claim it until it is split.
   An `8` is never ready, and it is not fatal to the board. The loop reports it,
