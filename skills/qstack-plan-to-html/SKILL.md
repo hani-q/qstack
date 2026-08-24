@@ -1,9 +1,10 @@
 ---
 name: qstack-plan-to-html
 description: >
-  Render a Markdown plan as a reviewable QStack HLD/LLD HTML document, resolve
-  its material open questions, and break it into the cards of its execution
-  board. Also adds a board to a plan that already has HTML and no board.
+  Render a plan as a reviewable QStack HLD/LLD HTML document, resolve its
+  material open questions, and break it into the cards of its execution board.
+  Takes a Markdown draft or the working agreement reached in the conversation.
+  Also adds a board to a plan that already has HTML and no board.
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -13,8 +14,9 @@ metadata:
 
 # /qstack-plan-to-html
 
-Takes a markdown plan and produces a controlled document: numbered, citable,
-offline-safe, and readable by two audiences at once.
+Takes a plan, from a Markdown draft or from the conversation that worked it out,
+and produces a controlled document: numbered, citable, offline-safe, and
+readable by two audiences at once.
 
 A plan is **not a landing page**. It opens with a title block, every clause is
 numbered so a reviewer can say "§4.2 is wrong", and every section carries a
@@ -56,12 +58,48 @@ sentence they have to read twice.
 
 ## Inputs
 
-- **A markdown plan.** If the user names a file, use it. Otherwise look for the
-  most recent plan-mode output or a markdown plan already present in the repo,
-  and confirm before converting.
-- **Destination.** Always write
-  `qstack/compound_engineering/plans/<slug>/plan.html`. Do not copy the markdown
-  source into that folder: the rendered plan is its canonical plan document.
+The plan comes from a written draft or from the conversation that worked it out.
+Both are normal. Resolve the source in this order and say which one you took:
+
+1. **A file the user names.** Use it.
+2. **The most recent plan-mode output**, when the session has one.
+3. **The conversation itself.** No file, no plan mode: the user talked the shape
+   of the work through with you and then invoked this skill. See below.
+4. **A markdown plan already in the repo**, when nothing above applies. Confirm
+   before converting: an old draft lying in the tree is the weakest signal here.
+
+**Destination.** Always write
+`qstack/compound_engineering/plans/<slug>/plan.html`. Do not copy a Markdown
+source into that folder, and do not write one when the source was the
+conversation: the rendered plan is the canonical plan document, and a second
+copy is a second source of truth that goes stale on the first decision.
+
+### When the source is the conversation
+
+A draft on disk is something the user wrote and can see. A conversation is
+something you have to reconstruct, and the user has never read your
+reconstruction. So write it down and get it agreed before rendering anything.
+
+1. **Extract the plan into a short summary in the response**, not into a file.
+   Cover the goal, the scope, what is explicitly out of scope, the approach that
+   was agreed, the constraints stated, and the slug you propose for the folder.
+   A conversation has no filename, so the slug is a decision, not a derivation.
+2. **Separate what was decided from what was merely discussed.** A chat is full
+   of options raised and dropped, ideas nobody ruled on, and thinking aloud.
+   Something the user settled becomes a `locked` clause. Something floated and
+   never resolved becomes `open`, and it is a candidate for the question pass
+   rather than a decision you make on their behalf. Guessing which side of that
+   line a point falls on is the failure mode of this path: when unsure, mark it
+   `open` and let the question pass settle it.
+3. **Say what you are dropping.** Rejected options and abandoned directions are
+   worth one line each in the options table with `data-status="deferred"`,
+   because the next reader will otherwise propose them again.
+4. **Get explicit confirmation of that summary before rendering.** One round is
+   enough. The user corrects it or says go.
+
+Everything after this point is the same for both sources. The document is
+authoritative once written, and the conversation is not a source you can return
+to and re-read reliably, which is precisely why the plan gets written down.
 
 ## Two modes, chosen from what is already on disk
 
@@ -93,7 +131,8 @@ human must choose one.
 Board-only mode exists because every plan rendered before the board did has an
 HTML document and no cards, and those plans still need to be executable. It
 never re-renders: an authoritative `plan.html` is frozen, and regenerating it
-from stale Markdown would throw away every decision recorded in it.
+from a stale draft or a later conversation would throw away every decision
+recorded in it.
 
 The questions are a separate matter. Asking destroys nothing, and a plan that
 has HTML has not necessarily been through the question pass. It may have been
@@ -229,8 +268,8 @@ find now.
 
 Resolve `qstack-plan-prior-art` relative to this skill's installed directory,
 never a hardcoded path, for the same reason the template is resolved that way;
-read its complete `SKILL.md`, and run it against the subject of the markdown
-plan. If it is unavailable, do not silently skip the phase: report that the
+read its complete `SKILL.md`, and run it against the subject of the plan being
+converted. If it is unavailable, do not silently skip the phase: report that the
 conversion ran with no prior-art pass and the workflow is incomplete.
 
 What it returns lands in the document in three places:
@@ -427,10 +466,15 @@ Rules:
   where everything is `locked` teaches a reader nothing. An unapproved design is
   `open`, and its title block says `Draft`.
 - **Do not invent.** Every `file:line`, metric and benchmark in the output must
-  come from the source markdown. If the markdown asserts something unverified,
-  carry it across as a `.note` marked `open`: do not launder it into a fact.
+  come from the source, whether that is the draft or the conversation. If the
+  source asserts something unverified, carry it across as a `.note` marked
+  `open`: do not launder it into a fact. This rule bites hardest on a
+  conversation, where a number you produced earlier in the session reads exactly
+  like a number the user gave you. Check which it was.
 - **Do not summarize away the detail.** The LLD half exists so an execution agent
-  does not have to re-read the markdown. Losing the citations defeats the point.
+  does not have to re-read the source. Losing the citations defeats the point,
+  and when the source was a conversation the document is the only surviving
+  record: detail dropped here is gone.
 - **Fill the title block**: document id, revision, owner, issue date, sheet
   count, and a real "Ships when" condition.
 - **Colophon** states what the document locks.
@@ -476,7 +520,7 @@ post-render phase. Skip it only when the user's current request directly says
 `--no-open-questions`. Requests such as `just convert the plan`, `HTML only`, or
 `do it quickly` do not opt out. The HTML already exists before any question is
 asked and is authoritative from this point forward; do not write the answers
-back to the Markdown source.
+back to a Markdown source, and do not create one.
 
 Resolve the sibling skill relative to this skill's installed directory, read
 its complete `SKILL.md`, and follow it exactly. If it is unavailable, do not
@@ -545,11 +589,12 @@ underneath, clearly marked as your own suggestion, for the user to take or leave
 
 ## Report
 
-Lead with the conversion: the path, local URL, serving command, sheet count,
-which sheets are HLD vs LLD, what diagrams were drawn, whether a playground was
-built (and if not, why not), which concepts got ELI10 asides, and anything from
-the markdown you could not verify. Include how many open questions were
-resolved and how many remain. When a board was written, give its epic count,
+Lead with the conversion: the path, local URL, serving command, which source the
+plan came from, sheet count, which sheets are HLD vs LLD, what diagrams were
+drawn, whether a playground was built (and if not, why not), which concepts got
+ELI10 asides, and anything in the source you could not verify. Include how many
+open questions were resolved and how many remain. When a board was written,
+give its epic count,
 card count, total points, and its URL: the same page with `#board`; when the
 user opted out, say the board was skipped at their request and that running
 `/qstack-plan-to-html` on the same plan adds one later. Say the plan has been

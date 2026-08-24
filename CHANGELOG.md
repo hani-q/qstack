@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.0.0] - 2026-08-24
+
+### Added
+
+* `/qstack-plan-to-html` now converts a plan straight from the conversation, with no Markdown draft on disk. It extracts the plan, shows you what it captured, and renders only after you confirm. Anything discussed but never settled becomes an `open` clause instead of a decision the agent makes for you.
+
+### Changed
+
+* Rewrote `README.md` around what the project helps with, grouped the 23 skills into plan lifecycle, project reflection, engineering practice, and writing, and documented the Node requirement that board-event validation has always had.
+
 ## [2.0.0.2] - 2026-08-24
 
 ### Fixed
