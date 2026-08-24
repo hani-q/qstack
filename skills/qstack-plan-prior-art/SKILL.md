@@ -3,8 +3,8 @@ name: qstack-plan-prior-art
 description: >
   Read the project's existing plan folder as content and brief the planner on
   what was already decided, deferred, and learned. Runs standalone before
-  anything is written, or from /qstack-plan-to-html once a Markdown draft exists
-  and before the HTML document is. Ranks earlier plans by overlap with the
+  anything is written, or from /qstack-plan-to-html once that skill has settled
+  its source and before the HTML document is. Ranks earlier plans by overlap with the
   subject being planned, then reports decisions already settled, questions never
   answered, where plans diverged from reality, live board cards owning the same
   files, what this plan supersedes, and rules already binding in the instruction
@@ -57,8 +57,9 @@ is the escape hatch for a project whose plans live in `docs/`, in `rfcs/`, or
 outside the repository.
 
 The subject comes from the conversation rather than the arguments: it is the
-feature the user is about to plan, or the Markdown draft when
-`/qstack-plan-to-html` is the caller. When it is not clear, state what you took
+feature the user is about to plan, or, when `/qstack-plan-to-html` is the
+caller, whichever source that skill resolved: the Markdown draft, or the plan
+summary the user just confirmed. When it is not clear, state what you took
 it to be in the brief's first line, so a wrong guess is visible before anything
 is read.
 
@@ -256,11 +257,12 @@ is the same at each; what can still be changed by it is not.
 - **Standalone, before anything is written.** Nothing exists to contradict yet,
   so a finding can still change what the plan says. The subject comes from the
   conversation. This is the normal case.
-- **From `/qstack-plan-to-html`, once the Markdown draft exists and before the
-  HTML document is written.** The draft is the subject, so read it and rank
-  against it. It is also what the user approved, so a conflict is carried into
-  the HTML as a `.note` with `data-status="open"` on the sheet it disputes,
-  rather than as a rewrite of the draft.
+- **From `/qstack-plan-to-html`, once its source is settled and before the HTML
+  document is written.** The subject is the Markdown draft when there is one,
+  and otherwise the plan summary the user just confirmed in the conversation.
+  Either way it is what the user approved, so a conflict is carried into the
+  HTML as a `.note` with `data-status="open"` on the sheet it disputes, rather
+  than as a rewrite of what they agreed to.
 - **From the board phase of `/qstack-plan-to-html`**, after the plan is written
   and frozen, finding 4 only. Breakdown is where `files` are assigned to cards,
   so it is the last point at which a collision with another board can be caught
