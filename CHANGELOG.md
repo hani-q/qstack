@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.0.0.0] - 2026-08-24
+
+### Breaking changes
+
+* Execution boards now load from static plan files.
+* `qstack-plan-close` no longer promotes lessons into `CLAUDE.md`. Plan-specific lessons stay in `outcome.md`, while rules that should bind every task belong in `qstack-encode-lessons-in-structure`.
+* `qstack-unyap` has been replaced by `qstack-be-concise`; use `qstack-unslop` for a dedicated human-writing rewrite.
+* Releases now use a four-part `MAJOR.MINOR.PATCH.MICRO` identifier. Each shipping branch claims its version before landing instead of waiting for a generated release PR.
+
+### Added
+
+* Added PStack-inspired engineering skills.
+* Added selective skill invocation policies.
+* Added the execution board to the plan lifecycle, including implementation ladders and visible dependencies.
+* Added `qstack-next` and automatic skill recommendations.
+* Added a queue-aware version allocator that reads open pull requests and existing sibling worktrees before claiming a version.
+* Added CI gates for version advancement, changelog alignment, collision detection, and version-prefixed pull request titles.
+
+### Changed
+
+* Removed Release Please. `version.txt` and `CHANGELOG.md` are now branch-owned release artifacts written before merge.
+* Removed every literal em dash from repository text.
+
 ## 1.0.0 (2026-08-07)
 
 
@@ -18,7 +41,3 @@
 
 * install human-review from its source tag so Codex gets it too ([#14](https://github.com/hani-q/qstack/issues/14)) ([79407d0](https://github.com/hani-q/qstack/commit/79407d0bee83edc90fa7e2bb36a252b52924bdc1))
 * verify the human-review tag instead of pinning a commit npx cannot fetch ([#15](https://github.com/hani-q/qstack/issues/15)) ([a6b872d](https://github.com/hani-q/qstack/commit/a6b872d3c4fb0fc63329c4143edb36830ff20e4a))
-
-## Changelog
-
-Release Please maintains this file from Conventional Commit messages.

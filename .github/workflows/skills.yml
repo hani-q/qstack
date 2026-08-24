@@ -29,6 +29,9 @@ jobs:
       - name: Validate the board fold against its fixture
         run: scripts/validate-board-fold
 
+      - name: Validate branch-scoped versioning
+        run: scripts/test-versioning
+
       - name: Install the Agent Skills reference validator
         run: >-
           python3 -m pip install

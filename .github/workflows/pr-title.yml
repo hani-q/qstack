@@ -1,7 +1,7 @@
 name: PR title
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
@@ -10,19 +10,46 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  title:
-    name: Conventional PR title
+  synchronize:
+    name: Sync PR title to version
     runs-on: ubuntu-latest
     steps:
-      - name: Validate title
+      # This checks out trusted base-branch code. PR-head code is read only as data.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prefix the PR title with its claimed version
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REPOSITORY: ${{ github.repository }}
         run: |
-          pattern='^(feat|fix|docs|chore|refactor|perf|test|ci|build|revert)(\([[:alnum:]_.\/-]+\))?!?: .+'
-          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
-            echo "PR title must use Conventional Commit syntax."
-            echo "Examples: feat: add a skill, fix(installer): repair links, feat!: change a public contract"
-            exit 1
+          set -euo pipefail
+
+          if ! VERSION=$(gh api -H "Accept: application/vnd.github.raw" \
+            "repos/$HEAD_REPOSITORY/contents/version.txt?ref=$HEAD_SHA" 2>/dev/null | tr -d '[:space:]'); then
+            if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+              echo "Could not read version.txt from this PR."
+              exit 1
+            fi
+            echo "Could not read version.txt from the fork; title synchronization skipped."
+            exit 0
           fi
+
+          NEW_TITLE=$(scripts/qstack-version title --version "$VERSION" --title "$PR_TITLE")
+          if [ "$NEW_TITLE" = "$PR_TITLE" ]; then
+            echo "PR title already matches version.txt."
+            exit 0
+          fi
+
+          gh pr edit "$PR_NUMBER" --title "$NEW_TITLE"
+          echo "PR title synchronized with version.txt."

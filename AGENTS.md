@@ -28,11 +28,18 @@
   never overwrites an existing copy, so a change to either directory means the
   same change to both. `scripts/validate-template-sync` checks this in CI.
 
-- Use Conventional Commit prefixes for commits and pull request titles: `fix:`
-  for patches, `feat:` for minor releases, and `!` or a `BREAKING CHANGE:` footer
-  for major releases. QStack squash-merges pull requests, so Release Please reads
-  the pull request title as the resulting commit subject. Use non-releasing
-  prefixes such as `docs:`, `test:`, or `chore:` when no release is warranted.
+- Every branch that lands on `main` owns one version claim and one topmost
+  `CHANGELOG.md` entry. Run `scripts/qstack-version prepare --bump <level>`
+  before shipping, where `<level>` is `major`, `minor`, `patch`, or `micro`.
+  Rerunning the command must converge on the existing claim unless another
+  open pull request or existing sibling worktree already owns it.
 
-- Do not edit `version.txt`, `.release-please-manifest.json`, or generated
-  changelog entries manually. Release Please owns release versioning.
+- `version.txt` uses `MAJOR.MINOR.PATCH.MICRO` and is the release source of
+  truth. Do not hand-edit it after the initial migration. The prepare command
+  writes it atomically. Pull request titles keep Conventional Commit syntax;
+  CI prefixes them with the version from `version.txt`.
+
+- Use `micro` for docs and tiny internal changes, `patch` for fixes and small
+  additions, `minor` for substantial new capability, and `major` for breaking
+  public changes. The identifier is monotonic release ordering, not a strict
+  promise that every patch contains only fixes.

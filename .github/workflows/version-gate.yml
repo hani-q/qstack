@@ -1,0 +1,58 @@
+name: Version gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pull-request:
+    name: Validate branch version
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Fetch the current base
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch origin "$BASE_REF" --quiet
+
+      - name: Validate the version claim
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: >-
+          scripts/qstack-version check
+          --base-ref "origin/$BASE_REF"
+          --base-branch "$BASE_REF"
+          --exclude-pr "$PR_NUMBER"
+          --no-worktrees
+
+  main:
+    name: Confirm main advanced
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Confirm the landed commit advanced the version
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BEFORE^{commit}" 2>/dev/null || git fetch origin "$BEFORE" --depth=1
+          scripts/qstack-version check \
+            --base-ref "$BEFORE" \
+            --no-prs \
+            --no-worktrees

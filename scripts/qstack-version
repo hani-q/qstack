@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+
+"""Allocate and validate branch-scoped QStack versions."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.(\d+)$")
+LEGACY_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+CONVENTIONAL_TITLE_RE = re.compile(
+    r"^(feat|fix|docs|chore|refactor|perf|test|ci|build|revert)"
+    r"(?:\([A-Za-z0-9_.\/-]+\))?!?: .+"
+)
+VERSION_TITLE_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)?\s+")
+CHANGELOG_HEADING_RE = re.compile(
+    r"^## \[(\d+\.\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE
+)
+
+
+@dataclass(frozen=True, order=True)
+class Version:
+    major: int
+    minor: int
+    patch: int
+    micro: int
+
+    @classmethod
+    def parse(cls, raw: str, label: str = "version") -> "Version":
+        match = VERSION_RE.fullmatch(raw.strip())
+        if not match:
+            raise ValueError(f"{label} must use MAJOR.MINOR.PATCH.MICRO, got {raw!r}")
+        return cls(*(int(part) for part in match.groups()))
+
+    @classmethod
+    def parse_compatible(cls, raw: str, label: str = "version") -> "Version":
+        stripped = raw.strip()
+        legacy = LEGACY_VERSION_RE.fullmatch(stripped)
+        if legacy:
+            return cls(*(int(part) for part in legacy.groups()), 0)
+        return cls.parse(stripped, label)
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}.{self.micro}"
+
+    def bump(self, level: str) -> "Version":
+        if level == "major":
+            return Version(self.major + 1, 0, 0, 0)
+        if level == "minor":
+            return Version(self.major, self.minor + 1, 0, 0)
+        if level == "patch":
+            return Version(self.major, self.minor, self.patch + 1, 0)
+        if level == "micro":
+            return Version(self.major, self.minor, self.patch, self.micro + 1)
+        raise ValueError(f"unknown bump level: {level}")
+
+
+def run(
+    args: list[str], cwd: Path, *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        cwd=cwd,
+        check=check,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def repository_root() -> Path:
+    result = run(["git", "rev-parse", "--show-toplevel"], Path.cwd())
+    return Path(result.stdout.strip()).resolve()
+
+
+def read_version_file(path: Path, label: str = "version.txt") -> Version:
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise ValueError(f"cannot read {label}: {error}") from error
+    return Version.parse(raw, label)
+
+
+def version_at_ref(root: Path, ref: str) -> Version:
+    result = run(["git", "show", f"{ref}:version.txt"], root, check=False)
+    if result.returncode != 0:
+        raise ValueError(f"cannot read version.txt from {ref}: {result.stderr.strip()}")
+    return Version.parse_compatible(result.stdout.strip(), f"{ref}:version.txt")
+
+
+def atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def parse_claim(raw: dict[str, Any], base: Version, source: str) -> dict[str, Any] | None:
+    try:
+        version = Version.parse_compatible(str(raw["version"]), f"{source} claim")
+    except (KeyError, ValueError):
+        return None
+    if version <= base:
+        return None
+    claim = dict(raw)
+    claim["version"] = str(version)
+    claim["source"] = source
+    return claim
+
+
+def load_claim_file(path: Path, base: Version) -> tuple[list[dict[str, Any]], list[str]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"cannot read claims file {path}: {error}") from error
+    if not isinstance(data, list):
+        raise ValueError("claims file must contain a JSON array")
+    claims = []
+    warnings = []
+    for index, raw in enumerate(data):
+        if not isinstance(raw, dict):
+            warnings.append(f"ignored non-object claim at index {index}")
+            continue
+        claim = parse_claim(raw, base, str(raw.get("source", "fixture")))
+        if claim:
+            claims.append(claim)
+        else:
+            warnings.append(f"ignored invalid or non-advancing claim at index {index}")
+    return claims, warnings
+
+
+def github_claims(
+    root: Path, base_branch: str, base: Version, exclude_pr: int | None
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    fields = "number,headRefName,headRefOid,headRepository,headRepositoryOwner,url"
+    try:
+        result = run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--base",
+                base_branch,
+                "--limit",
+                "100",
+                "--json",
+                fields,
+            ],
+            root,
+            check=False,
+        )
+    except FileNotFoundError:
+        return [], ["GitHub claims unavailable: gh is not installed"], True
+    if result.returncode != 0:
+        return [], [f"GitHub claims unavailable: {result.stderr.strip()}"], True
+
+    try:
+        pull_requests = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        return [], [f"GitHub claims returned invalid JSON: {error}"], True
+    if not isinstance(pull_requests, list):
+        return [], ["GitHub claims returned a non-list response"], True
+
+    claims: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    incomplete = False
+    for pull_request in pull_requests:
+        number = pull_request.get("number")
+        if exclude_pr is not None and number == exclude_pr:
+            continue
+        repository = pull_request.get("headRepository") or {}
+        owner = (pull_request.get("headRepositoryOwner") or {}).get("login")
+        name = repository.get("name")
+        revision = pull_request.get("headRefOid")
+        if not owner or not name or not revision:
+            warnings.append(f"ignored PR #{number}: incomplete head repository data")
+            incomplete = True
+            continue
+        response = run(
+            [
+                "gh",
+                "api",
+                "-H",
+                "Accept: application/vnd.github.raw",
+                f"repos/{owner}/{name}/contents/version.txt?ref={revision}",
+            ],
+            root,
+            check=False,
+        )
+        if response.returncode != 0:
+            warnings.append(f"ignored PR #{number}: version.txt unavailable")
+            incomplete = True
+            continue
+        raw = {
+            "version": response.stdout.strip(),
+            "pr": number,
+            "branch": pull_request.get("headRefName", ""),
+            "url": pull_request.get("url", ""),
+        }
+        claim = parse_claim(raw, base, "pull_request")
+        if claim:
+            claims.append(claim)
+        else:
+            warnings.append(f"ignored PR #{number}: malformed or non-advancing version")
+    return claims, warnings, incomplete
+
+
+def worktree_claims(
+    root: Path, base_branch: str, base: Version
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    result = run(["git", "worktree", "list", "--porcelain"], root, check=False)
+    if result.returncode != 0:
+        return [], [f"worktree claims unavailable: {result.stderr.strip()}"], True
+
+    records: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    for line in result.stdout.splitlines() + [""]:
+        if not line:
+            if current:
+                records.append(current)
+                current = {}
+            continue
+        key, _, value = line.partition(" ")
+        current[key] = value
+
+    claims: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    incomplete = False
+    for record in records:
+        path_raw = record.get("worktree")
+        if not path_raw:
+            continue
+        path = Path(path_raw).resolve()
+        branch_ref = record.get("branch", "")
+        branch = branch_ref.removeprefix("refs/heads/")
+        if path == root or branch == base_branch or not branch:
+            continue
+        version_path = path / "version.txt"
+        if not version_path.is_file():
+            continue
+        try:
+            raw_version = version_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            warnings.append(f"ignored worktree {path}: cannot read version.txt")
+            incomplete = True
+            continue
+        claim = parse_claim(
+            {"version": raw_version, "branch": branch, "path": str(path)},
+            base,
+            "worktree",
+        )
+        if claim:
+            claims.append(claim)
+        elif raw_version != str(base):
+            warnings.append(f"ignored worktree {path}: malformed or non-advancing version")
+            if not VERSION_RE.fullmatch(raw_version):
+                incomplete = True
+    return claims, warnings, incomplete
+
+
+def collect_claims(
+    args: argparse.Namespace, root: Path, base: Version
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    if args.claims_file:
+        claims, warnings = load_claim_file(Path(args.claims_file), base)
+        return claims, warnings, False
+
+    claims: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    incomplete = False
+    if not args.no_prs:
+        found, notes, unavailable = github_claims(
+            root, args.base_branch, base, args.exclude_pr
+        )
+        claims.extend(found)
+        warnings.extend(notes)
+        incomplete = unavailable
+    if not args.no_worktrees:
+        found, notes, unavailable = worktree_claims(root, args.base_branch, base)
+        claims.extend(found)
+        warnings.extend(notes)
+        incomplete = incomplete or unavailable
+    return claims, warnings, incomplete
+
+
+def next_slot(base: Version, claims: list[dict[str, Any]], bump: str) -> Version:
+    candidate = base.bump(bump)
+    versions = [Version.parse(claim["version"], "claim") for claim in claims]
+    if versions:
+        past_highest = max(versions).bump(bump)
+        if past_highest > candidate:
+            candidate = past_highest
+    return candidate
+
+
+def base_version(args: argparse.Namespace, root: Path) -> Version:
+    if args.current_version:
+        return Version.parse_compatible(args.current_version, "--current-version")
+    return version_at_ref(root, args.base_ref)
+
+
+def command_next(args: argparse.Namespace, root: Path) -> int:
+    base = base_version(args, root)
+    claims, warnings, incomplete = collect_claims(args, root, base)
+    proposed = next_slot(base, claims, args.bump)
+    output = {
+        "version": str(proposed),
+        "base_version": str(base),
+        "bump": args.bump,
+        "claimed": claims,
+        "claims_incomplete": incomplete,
+        "warnings": warnings,
+    }
+    print(json.dumps(output, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def command_prepare(args: argparse.Namespace, root: Path) -> int:
+    base = base_version(args, root)
+    current = read_version_file(root / "version.txt")
+    if current < base:
+        raise ValueError(f"local version {current} is behind base version {base}")
+
+    claims, warnings, incomplete = collect_claims(args, root, base)
+    if incomplete and not args.allow_offline_claims:
+        raise ValueError(
+            "version claims could not be read completely; retry when GitHub is "
+            "available or pass --allow-offline-claims explicitly"
+        )
+    collisions = [claim for claim in claims if claim["version"] == str(current)]
+    changelog_updated = False
+    if current > base and not collisions:
+        proposed = current
+        state = "already_prepared"
+    else:
+        proposed = next_slot(base, claims, args.bump)
+        state = "reallocated" if collisions else "prepared"
+        if not args.dry_run:
+            if collisions:
+                changelog_updated = reconcile_changelog_version(
+                    root / "CHANGELOG.md", base, current, proposed
+                )
+            atomic_write(root / "version.txt", f"{proposed}\n")
+
+    output = {
+        "version": str(proposed),
+        "base_version": str(base),
+        "previous_version": str(current),
+        "bump": args.bump,
+        "state": state,
+        "wrote": state != "already_prepared" and not args.dry_run,
+        "changelog_updated": changelog_updated,
+        "dry_run": args.dry_run,
+        "collisions": collisions,
+        "claims_incomplete": incomplete,
+        "warnings": warnings,
+    }
+    print(json.dumps(output, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def first_changelog_version(path: Path) -> Version:
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ValueError(f"cannot read CHANGELOG.md: {error}") from error
+    headings = re.findall(r"^## .+$", contents, re.MULTILINE)
+    if not headings:
+        raise ValueError("CHANGELOG.md has no release heading")
+    match = CHANGELOG_HEADING_RE.fullmatch(headings[0])
+    if match is None:
+        raise ValueError(
+            "CHANGELOG.md's first release heading must be formatted as "
+            "## [MAJOR.MINOR.PATCH.MICRO] - YYYY-MM-DD"
+        )
+    return Version.parse(match.group(1), "CHANGELOG.md release heading")
+
+
+def reconcile_changelog_version(
+    path: Path, base: Version, current: Version, proposed: Version
+) -> bool:
+    contents = path.read_text(encoding="utf-8")
+    top = first_changelog_version(path)
+    if top in {base, proposed}:
+        return False
+    if top != current:
+        raise ValueError(
+            f"cannot reallocate changelog from {current} to {proposed}: "
+            f"its first release heading contains {top}"
+        )
+    rewritten = contents.replace(
+        f"## [{current}] - ", f"## [{proposed}] - ", 1
+    )
+    atomic_write(path, rewritten)
+    return True
+
+
+def command_check(args: argparse.Namespace, root: Path) -> int:
+    current = read_version_file(root / "version.txt")
+    base = version_at_ref(root, args.base_ref)
+    if current <= base:
+        raise ValueError(f"version.txt must advance past {base}; found {current}")
+    changelog = first_changelog_version(root / "CHANGELOG.md")
+    if changelog != current:
+        raise ValueError(
+            f"CHANGELOG.md starts at {changelog}, but version.txt contains {current}"
+        )
+
+    claims, warnings, incomplete = collect_claims(args, root, base)
+    if incomplete and not args.allow_offline_claims:
+        raise ValueError(
+            "version claims could not be read completely; collision check failed closed"
+        )
+    collisions = [claim for claim in claims if claim["version"] == str(current)]
+    if collisions:
+        details = ", ".join(
+            f"PR #{claim['pr']}" if claim.get("pr") else claim.get("branch", "claim")
+            for claim in collisions
+        )
+        raise ValueError(f"version {current} is already claimed by {details}")
+
+    print(f"qstack: version {current} advances {base}; changelog matches")
+    if incomplete:
+        print("qstack: warning: incomplete claim data accepted by explicit override")
+    for warning in warnings:
+        print(f"qstack: warning: {warning}")
+    return 0
+
+
+def command_title(args: argparse.Namespace, root: Path) -> int:
+    del root
+    version = Version.parse(args.version, "--version")
+    title = VERSION_TITLE_RE.sub("", args.title.strip())
+    if not CONVENTIONAL_TITLE_RE.fullmatch(title):
+        raise ValueError(
+            "PR title after its version prefix must use Conventional Commit syntax"
+        )
+    print(f"v{version} {title}")
+    return 0
+
+
+def add_claim_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--base-branch", default="main")
+    parser.add_argument("--exclude-pr", type=int)
+    parser.add_argument("--claims-file")
+    parser.add_argument("--no-prs", action="store_true")
+    parser.add_argument("--no-worktrees", action="store_true")
+    parser.add_argument("--allow-offline-claims", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    next_parser = subparsers.add_parser("next", help="report the next free version")
+    next_parser.add_argument("--bump", choices=("major", "minor", "patch", "micro"), required=True)
+    next_parser.add_argument("--base-ref", default="origin/main")
+    next_parser.add_argument("--current-version")
+    next_parser.add_argument("--pretty", action="store_true")
+    add_claim_options(next_parser)
+    next_parser.set_defaults(handler=command_next)
+
+    prepare_parser = subparsers.add_parser(
+        "prepare", help="idempotently claim and write a branch version"
+    )
+    prepare_parser.add_argument("--bump", choices=("major", "minor", "patch", "micro"), required=True)
+    prepare_parser.add_argument("--base-ref", default="origin/main")
+    prepare_parser.add_argument("--current-version")
+    prepare_parser.add_argument("--dry-run", action="store_true")
+    prepare_parser.add_argument("--pretty", action="store_true")
+    add_claim_options(prepare_parser)
+    prepare_parser.set_defaults(handler=command_prepare)
+
+    check_parser = subparsers.add_parser(
+        "check", help="validate this branch's version, changelog, and claim"
+    )
+    check_parser.add_argument("--base-ref", default="origin/main")
+    add_claim_options(check_parser)
+    check_parser.set_defaults(handler=command_check)
+
+    title_parser = subparsers.add_parser("title", help="prefix a PR title with its version")
+    title_parser.add_argument("--version", required=True)
+    title_parser.add_argument("--title", required=True)
+    title_parser.set_defaults(handler=command_title)
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    try:
+        return args.handler(args, repository_root())
+    except ValueError as error:
+        print(f"qstack-version: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

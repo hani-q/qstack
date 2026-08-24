@@ -170,18 +170,32 @@ marked block and preserves every other line in the file.
 
 ## Releases
 
-QStack follows Semantic Versioning and uses Release Please on `main`. Write
-Conventional Commit messages so the release level is derived automatically:
+`version.txt` is QStack's release source of truth. It uses
+`MAJOR.MINOR.PATCH.MICRO` as a monotonically increasing release identifier.
+Every branch that ships claims a version and adds its own topmost changelog
+entry before landing on `main`.
 
-- `fix:` creates a patch release.
-- `feat:` creates a minor release.
-- `feat!:` or a `BREAKING CHANGE:` footer creates a major release.
+Prepare a branch with:
 
-Release Please maintains a release pull request containing `version.txt` and
-`CHANGELOG.md`. Merging that pull request creates the matching `vX.Y.Z` tag and
-GitHub Release. Because QStack squash-merges pull requests, the pull request
-title must use Conventional Commit syntax; a GitHub Actions check rejects titles
-that Release Please cannot parse. Do not update release numbers manually.
+```bash
+scripts/qstack-version prepare --bump patch --pretty
+```
+
+Choose `micro` for docs and tiny internal changes, `patch` for fixes and small
+additions, `minor` for substantial new capability, and `major` for breaking
+public changes. The command reads open pull requests and existing sibling Git
+worktrees, then writes the next free version atomically. It is safe to rerun:
+an unclaimed branch version is reused, while a real collision is moved to the
+next free slot.
+
+Add a `CHANGELOG.md` entry headed
+`## [MAJOR.MINOR.PATCH.MICRO] - YYYY-MM-DD` for that branch's user-visible
+change. Pull request titles retain Conventional Commit syntax and are
+automatically prefixed with `vMAJOR.MINOR.PATCH.MICRO`. CI requires the version
+to advance past `main`, match the first changelog entry, and remain unclaimed
+by every other open pull request. Protect `main` with the `Version gate` check
+required and "Require branches to be up to date before merging" enabled. The
+up-to-date rule makes a lower claim recheck after a higher version lands.
 
 ## Layout
 
@@ -193,6 +207,8 @@ qstack/                              ← this repo, anywhere on disk
 ├── GENERAL_INSTRUCTIONS.md          ← shared Claude/Codex behavior and writing source
 ├── install
 ├── scripts/
+│   ├── qstack-version               ← allocate, write, and validate branch versions
+│   ├── test-versioning              ← collision and retry regression tests
 │   └── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
