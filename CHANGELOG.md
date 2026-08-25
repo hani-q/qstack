@@ -6,7 +6,7 @@
 
 * Both execution loops now work a plan board in waves instead of one card at a time. `depends_on` and `files` already said which cards do not need each other, but nothing ever told the loops to use that, so a board of independent cards ran in single file. The loops now claim every ready card whose files nobody else holds, give each one its own subagent, and refill the wave as cards close. `--parallel N` sets the width and `--parallel 1` restores the serial run; the default is four.
 
-* A card's declared `files` are now checked rather than trusted. Each subagent reports the paths it actually wrote, and the orchestrator compares that list against the card's `files` before the card can move to `review`. Running cards side by side rests entirely on that ownership holding, and instructions to a subagent are not concurrency control.
+* A card's declared `files` are now checked rather than trusted. Before a card can move to `review`, the orchestrator derives the paths it actually wrote from the working tree and compares them against the card's `files`. Running cards side by side rests entirely on that ownership holding, and instructions to a subagent are not concurrency control.
 
 ### Changed
 
@@ -16,7 +16,11 @@
 
 ### Fixed
 
-* A card with an empty `files` array is no longer ready. It reserved nothing, collided with nothing, and gave its reviewer no paths to look at. The breakdown now also rejects directory paths in `files`, which the ready set compared as strings and read as disjoint from the files inside them.
+* A blocked card now keeps its `files` instead of releasing them. It parks with unfinished edits still in those paths, and handing them to another card gave that card a file carrying half of somebody else's work, which its own scoped review then read as its own.
+
+* A card with an empty `files` array is no longer ready. It reserved nothing, collided with nothing, and gave its reviewer no paths to look at. The board view agrees: an empty-`files` card is flagged rather than badged Ready, and so is a backlog `8`, which the ready set has always refused.
+
+* `files` paths are now normalised before the ownership check. The ready set compares strings, so `src/user.ts`, `./src/user.ts`, a symlink to it, and `src/User.ts` on a case-insensitive checkout read as four cards on four files when they are one. The breakdown rejects directory paths and unnormalised spellings.
 
 ## [2.1.0.0] - 2026-08-24
 

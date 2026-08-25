@@ -99,7 +99,8 @@ A card is ready when all four hold:
 2. every card in its `depends_on` is `done` or `split`, and where a named card
    is `split`, every child of that split is `done` or `split` too;
 3. its `files` array is non-empty, and none of its `files` appear in the
-   `files` of any card currently `claimed`, `in-progress`, or `review`;
+   `files` of any card currently `claimed`, `in-progress`, `review`, or
+   `blocked`;
 4. its `points` are `1`, `2`, `3`, or `5`.
 
 Condition 2 follows a split through to its children because the parent's work
@@ -115,6 +116,15 @@ card, it is never ready, and there is no `note` to split it from, so report it
 and leave it for a human. A `13` is not a large card, it is a card whose size
 nobody thought about.
 
+Condition 3 compares paths as strings, so normalise before comparing:
+repository-relative, no leading `./`, no `..` segment, no trailing slash, and
+resolved through any symlink. Compare case-insensitively as well, since macOS
+and Windows checkouts treat `src/User.ts` and `src/user.ts` as one file while
+the string check reads two. A card whose path cannot be normalised to a file
+inside the repository is a bad write: report it and leave it for a human.
+Aliases that slip through are the collision this condition exists to prevent,
+wearing a different spelling.
+
 Condition 3 refuses an empty `files` array because such a card reserves
 nothing: it collides with no other card, excludes no other card, and its own
 review has no paths to look at. The breakdown writes one only on an
@@ -127,6 +137,15 @@ runs.
 Condition 1 leaves a `blocked` card out of the ready set, and it never re-enters
 it. Blocking did not release the card, so it comes back to work under Resume a
 blocked card below, with the owner it already has.
+
+Condition 3 keeps a `blocked` card's `files` too, for the same reason. A card
+parked mid-work leaves unfinished edits in those paths, and handing them to
+another card gives it a file carrying half of somebody else's work, which its
+own restricted review then reads as its own. So a blocked card holds its ground
+until it is answered. That does stall every card sharing one of its paths, which
+is the honest cost: the alternative is two cards writing one file and neither
+review able to say which wrote what. Parked questions are asked before the run
+stands down, so the stall has a way out.
 
 ## The pick
 
@@ -243,13 +262,26 @@ ownership is the whole safety argument for running cards side by side, so check
 it rather than trusting it. Instructions to a subagent are not concurrency
 control.
 
-Before a card moves to `review`, compare the paths its subagent reported writing
-against the card's `files`. Any path outside them is a blocking finding on that
-card: the card wrote into ground another card may own, and no restricted diff
-can show you that, because a diff restricted to the card's `files` is exactly
-where the stray path is not. Record the finding, move the card to `blocked`, and
-check whether a live card owns the stray path. If one does, its own work is now
-mixed with this card's and both need a human.
+Before a card moves to `review`, work out which paths it actually wrote and
+compare them against its `files`. Derive that set yourself from the working
+tree, with `git status --porcelain` before dispatch and again after the card
+reports, rather than taking the subagent's word for it. A subagent that writes
+outside its `files` and leaves that path out of its report defeats a check built
+on the report alone, and it is the same subagent either way.
+
+Any path outside the card's `files` is a blocking finding on that card: the card
+wrote into ground another card may own, and no restricted diff can show you
+that, because a diff restricted to the card's `files` is exactly where the stray
+path is not. Record the finding, move the card to `blocked`, and check whether a
+live card owns the stray path. If one does, its own work is now mixed with this
+card's and both need a human.
+
+A wave of subagents writing one tree makes the two `git status` runs ambiguous
+on their own, because a sibling's writes land between them. Attribute a changed
+path to the card whose `files` contain it. A changed path no live card's `files`
+contain belongs to whichever card was running when it appeared, and if more than
+one was, say so and stop: an unattributable write is the failure this check
+exists to catch, not a detail to resolve by guessing.
 
 A card's review sees the diff restricted to that card's `files`, including
 untracked files under those paths, plus the list of paths the subagent reported.
@@ -305,15 +337,16 @@ wrapper: raw JSON is not executable and makes both `file://` and HTTP views fail
 
 A card that stops on something a human must answer moves to `blocked` with the
 question in its `note`, and the run does not stop. The rest of the wave keeps
-going, and blocking releases that card's `files`, so refill the wave from the
-ready set. Which questions park is the loop's own rule; parking changes when a
-question is asked, never whether.
+going and you refill it from the ready set. Which questions park is the loop's
+own rule; parking changes when a question is asked, never whether.
 
-Blocking releases the card's `files` for claiming, but it does not undo the
-edits already in them. Name in the same `note` which of the card's `files` carry
-unfinished work. The next card to claim one of those paths inherits half-written
-code that belongs to nobody, and its reviewer has to be told so, or it reports
-the parked card's leftovers as its own defect.
+A blocked card keeps its `files`, under condition 3 of the ready set, because
+its unfinished edits are still sitting in them. Name in the same `note` which of
+its `files` you actually wrote to, so whoever answers the question knows what
+state the tree is in. Cards sharing those paths wait until this one is answered.
+If that stalls more of the board than the question is worth, revert the card's
+edits and `released` it instead: a card with nothing written owns nothing, and
+the question can be asked without holding the paths hostage.
 
 ```bash
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"in-progress","to":"blocked","actor":"adelaide","note":"§4.2 gives retries to the writer, but the client already retries. Which one keeps them?"});' \
@@ -342,15 +375,16 @@ Blocking never released the card. Its owner did not change, so the actor that
 parked it is the actor that resumes it, with one `moved` from `blocked` back to
 `claimed`.
 
-Re-check file ownership before the move. Time passed while the card sat parked,
-and another card holding one of its `files` may have been claimed since.
-Resuming into a file another agent is editing is the collision the `files` check
-exists to prevent. If one has been claimed, append a `note` on the parked card
-carrying the answer and the id of the card it now waits on, then come back to it
-when that card reaches `done` or `split`. The card stays `blocked` either way,
-and without the note the only thing on it is still the original question: the
-board shows a card waiting on a human, `/qstack-plan-close` refuses to write
-`outcome.md`, and `/qstack-reflect` counts a card that never left `blocked`.
+A card that kept its `files` resumes straight into them, because condition 3 of
+the ready set held them for the whole park and nothing else could claim them.
+Re-check anyway before the move: a card `released` after its edits were reverted
+gave its paths up, and one of them may be claimed now. If it is, append a `note`
+on the parked card carrying the answer and the id of the card it now waits on,
+then come back to it when that card reaches `done` or `split`. The card stays
+`blocked` either way, and without the note the only thing on it is still the
+original question: the board shows a card waiting on a human,
+`/qstack-plan-close` refuses to write `outcome.md`, and `/qstack-reflect` counts
+a card that never left `blocked`.
 
 ```bash
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"note","card":"T-05","actor":"adelaide","note":"answered: the client keeps the retries. Waiting on T-09, which holds src/writer.ts."});' \

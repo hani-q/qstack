@@ -124,6 +124,13 @@ Write exact repository-relative file paths, never a directory. The ready set
 compares `files` as strings, so a card listing `src/api/` and a card listing
 `src/api/user.ts` look disjoint to it and run at the same time on the same file.
 
+Write one spelling per file, normalised: no leading `./`, no `..` segment, no
+trailing slash, and the real path rather than a symlink to it. `src/user.ts`,
+`./src/user.ts` and `src/api/../user.ts` are three strings and one file, and the
+check reads three. Match the case of the file on disk too, because a
+case-insensitive checkout will happily let two cards with different spellings
+write the same file.
+
 `files` must be non-empty on every card the loop can claim. An empty array is
 allowed only on an 8-point card, which is never ready, and splitting that card
 is where its real paths get written.
@@ -139,10 +146,13 @@ and stop, when any of these holds:
 - an 8-point card carries no `note` naming what it splits into;
 - a card under `8` points carries an empty `files` array;
 - any `files` entry is a directory rather than an exact file path;
-- two cards list the same file with no dependency either way;
+- any `files` entry is unnormalised: a leading `./`, a `..` segment, a trailing
+  slash, a symlink, or a case that does not match the file on disk;
+- two cards list the same file with no dependency either way, comparing the
+  normalised paths;
 - an epic has no cards.
 
-Run all eight against the cards in memory, before the first `printf`. The file
+Run all nine against the cards in memory, before the first `printf`. The file
 is append-only, so a bad card cannot be taken back, only noted and split.
 
 ## Check the other boards

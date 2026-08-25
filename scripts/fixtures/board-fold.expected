@@ -105,3 +105,10 @@ card T-15 points 1
 card T-15 related T-04,T-10,T-11,T-12,T-13,T-14
 card T-15 status backlog
 card T-15 waiting -
+card T-16 blocks -
+card T-16 flagged yes
+card T-16 owner -
+card T-16 points 3
+card T-16 related -
+card T-16 status backlog
+card T-16 waiting -

@@ -249,8 +249,8 @@ After implementation and primary validation, launch a **fresh independent
 agent** to review the current work. A self-review does not satisfy this gate.
 
 With a board, this loop runs once per card, while the card sits in `review`,
-scoped under the protocol's What a card owns: that card's `files`, the paths its
-subagent reported writing, and the plan clauses in its `refs`. Reviewing each
+scoped under the protocol's What a card owns: that card's `files`, the paths the
+card actually wrote, and the plan clauses in its `refs`. Reviewing each
 card against its own files is what makes parallel cards safe. The plan-level
 review still runs once, after the last card closes, and it is the one that
 catches integration.
