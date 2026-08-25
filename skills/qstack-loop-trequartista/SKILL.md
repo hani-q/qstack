@@ -40,8 +40,9 @@ keep working and nothing else in this section applies.
 
 With a board, the board is the progress record and
 `qstack-plan-to-html/references/board-protocol.md` is how you work it: folding
-the board, claiming it, the ready set, the pick, the claim race, the
-transitions, parking, resuming a blocked card, splitting, and standing down.
+the board, claiming it, the ready set, the pick, the claim race, the wave,
+dispatch, what a card owns, the transitions, parking, resuming a blocked card,
+splitting, and standing down.
 Both execution loops read that one file, so the protocol cannot say two
 different things.
 
@@ -136,22 +137,23 @@ Record approved changes as approved deviations. Do not rewrite the frozen plan.
 
 ### Arguments
 
-`/qstack-loop-trequartista [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt]`
+`/qstack-loop-trequartista [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N]`
 
 With a board present the default is the whole board, ordered by this
 orchestrator. `--tasks` narrows to the named cards. `--epic` narrows to one
 epic. `--limit N` stops after N cards close, `--limit Npt` after N points close.
-Selection happens here and never on the board. The board renders a file and has
-no controls.
+`--parallel N` sets how many cards this run holds at once, and `--parallel 1`
+runs the board serially; without it the wave is the width the protocol's The
+wave sets. Selection happens here and never on the board. The board renders a
+file and has no controls.
 
 A narrowed or limited run that leaves cards open cannot satisfy the completion
 gate. Leave the status `in-progress` and report which cards remain.
 
 ### The pick
 
-Take cards from the ready set in the protocol, one at a time, and record why you
-took each one in the `claimed` event's `reason` field. Honest reasons read like
-these:
+Take cards from the ready set in the protocol and record why you took each one
+in the `claimed` event's `reason` field. Honest reasons read like these:
 
 - `unblocks four cards`
 - `T-04 is done and touched the same files, so the context is loaded`
@@ -161,11 +163,27 @@ Feel is allowed. Unrecorded feel is not. The ready set itself is not one of this
 skill's adaptations: a card it excludes stays excluded, whatever route through
 the plan looks better from here.
 
+### The wave
+
+Fill a wave and dispatch it, under the protocol's The wave and Dispatch. Claim
+every card the ready set offers until one of the four listed stops applies. How
+many cards to hold is not one of this skill's adaptations, and neither is
+declining to hold one: the four stops are the whole list, and `--parallel`
+already set the width. A wave needs no recording as a deviation, because cards
+the breakdown left independent are independent.
+
+Where the wave meets this skill's own rule, the rule wins. A non-material
+adaptation on one card that would change what a sibling card in the same wave is
+building is material, because the sibling is already building against the
+unadapted version. Park it and ask, or hold the adaptation until that card
+closes. The wave is not a licence to adapt around a card you are running beside.
+
 ## Park and continue
 
 Park under the protocol's Park and continue, with one thing settled here:
 material decisions park. When a card reaches one, move it to `blocked` with the
-question in its `note`, then claim the next ready card. The run does not stop.
+question in its `note`, leave the rest of the wave running, and refill it from
+the ready set. The run does not stop.
 
 A permitted non-material adaptation is still made on the spot and recorded in
 `execution.md`. Parking is for material decisions only.
@@ -194,9 +212,16 @@ a material deviation dressed as a board change.
 ## Execute and orchestrate
 
 Break the plan into trackable tasks and keep their status current. With a board,
-the cards are those tasks and `board-events.js` is where their status lives. Delegate
+the cards are those tasks and `board-events.js` is where their status lives. Fill
+a wave from the ready set, dispatch one subagent per card, and move each card
+through the protocol's transitions as it gets there. Delegate
 bounded independent work when agent tools are available, but inspect and
 integrate every result yourself. Preserve unrelated user changes.
+
+Brief each card's subagent under the protocol's Dispatch, and add what this
+skill requires: it reports a material decision back rather than taking it,
+because Adapt without losing the plan is yours and not the subagent's. You park
+the card.
 
 Build what the plan prescribes. Where it leaves the implementation open, or a
 lighter build is a deviation you may make under Adapt without losing the plan,
@@ -223,18 +248,23 @@ explicitly asks.
 After implementation and primary validation, launch a **fresh independent
 agent** to review the current work. A self-review does not satisfy this gate.
 
-With a board, this loop runs once per card, scoped to that card's diff and the
-plan clauses in its `refs`, while the card sits in `review`. Reviewing each card
-against its own files is what makes parallel cards safe. The plan-level review
-still runs once, after the last card closes, and it is the one that catches
-integration.
+With a board, this loop runs once per card, while the card sits in `review`,
+scoped under the protocol's What a card owns: that card's `files`, the paths the
+card actually wrote, and the plan clauses in its `refs`. Reviewing each
+card against its own files is what makes parallel cards safe. The plan-level
+review still runs once, after the last card closes, and it is the one that
+catches integration.
 
 Give the reviewer raw evidence rather than your conclusions:
 
 - repository root and plan path;
 - `execution.md` path;
-- the base reference and complete current diff, including untracked files;
+- the base reference and the diff. A per-card review gets what What a card owns
+  specifies. A plan-level review, and every review in a run with no board, gets
+  the complete diff including untracked files;
 - validation commands already run.
+
+Without a board there is one change and one review, and both cover all of it.
 
 Ask the reviewer to read the plan and inspect the actual implementation without
 editing files. It must look for missing requirements, material unapproved or
@@ -249,7 +279,12 @@ Before each review, record a content fingerprint for the reviewed state in
 `execution.md`. Include tracked changes, hashes of untracked files, and every
 substantive section of `execution.md`; exclude only the append-only
 `Adversarial reviews` section plus the `Status` and `Updated` fields. A per-card
-fingerprint covers that card's `files` rather than the whole change. Triage
+fingerprint covers that card's `files` and only the `execution.md` entries
+naming that card. The plan-level fingerprint covers the whole change and all of
+`execution.md`. Scoping the per-card fingerprint this way is what lets a wave
+run: the orchestrator writes every card's decisions into one `execution.md`, so
+a fingerprint over the whole file would be changed by every sibling and no card
+review would ever stay valid. Triage
 every finding yourself. Fix valid findings, update `execution.md`, and rerun
 affected validation. If a fix requires a
 material deviation, ask first under Adapt without losing the plan.
@@ -259,6 +294,9 @@ configuration, dependencies, migrations, generated artifacts, or any
 fingerprinted execution content**, regardless of why it changed. Merely appending that review's unchanged findings and
 resolution to `execution.md` does not invalidate it. The last review must match
 the final implementation fingerprint.
+
+What the wave changed together is what the plan-level review and its
+whole-change fingerprint are for.
 
 After all gates pass, changing only `Status` from `in-progress` to `complete`
 and refreshing `Updated` does not require another review. No other post-review
@@ -285,4 +323,6 @@ Set `execution.md` to `complete` and report completion only when:
 Otherwise leave the status `in-progress` or `blocked`, append `stood-down`
 anyway, and state exactly what remains. In the final response, summarize the
 implementation, validation, adversarial review, deviations, open questions, and
-execution file.
+execution file. With a board, report the waves too: which cards ran together,
+and where the board held the run to one card. A run that was serial because
+every card depended on the last says so.

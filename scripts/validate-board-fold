@@ -129,9 +129,11 @@ const fact = (subject, name, value) => facts.push(`${subject} ${name} ${value}`)
 
 for (const card of board.cards.values()) {
   const subject = `card ${card.id}`;
-  // The same three tests drawCard marks the card with: a claim race, points
-  // outside 1, 2, 3, 5, 8, and a `moved` or `released` that missed.
-  const flagged = card.race || card.sized === false || card.drift.length;
+  // The same four tests drawCard marks the card with: a claim race, points
+  // outside 1, 2, 3, 5, 8, an empty `files` array on an otherwise sized card,
+  // and a `moved` or `released` that missed.
+  const flagged =
+    card.race || card.sized === false || card.owns === false || card.drift.length;
   fact(subject, 'blocks', ids(card.blocks));
   fact(subject, 'flagged', flagged ? 'yes' : 'no');
   fact(subject, 'owner', card.owner || '-');

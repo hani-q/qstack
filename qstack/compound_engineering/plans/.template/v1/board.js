@@ -292,6 +292,12 @@
          and it never reads as ready. It stays on the board: dropping it would
          hide the one thing worth seeing. */
       card.sized = POINTS.has(card.points);
+      /* A card with no `files` reserves nothing: it collides with no other
+         card and excludes none, so the ready set refuses it and the badge
+         below must agree. The breakdown writes an empty array only on an `8`,
+         which is never ready either, so this reads as a bad write anywhere
+         else. */
+      card.owns = card.files.length > 0;
       /* Related drops the card's own ordering edges, which already read on the
          card as "blocks" and "Waiting on": the same id a second time under
          related is a word that says nothing. A split parent and its children
@@ -386,6 +392,7 @@
     const flags = [
       card.race,
       !card.sized && `Points ${card.points}, not 1, 2, 3, 5 or 8. Not ready.`,
+      card.sized && !card.owns && 'No files. Not ready.',
       ...card.drift,
     ].filter(Boolean);
     const facts = [];
@@ -399,7 +406,8 @@
         ? ['blocked', 'Blocked']
         : card.status === 'backlog' && card.waiting.length
           ? ['waiting', 'Waiting']
-          : card.status === 'backlog' && card.sized && !flags.length
+          : card.status === 'backlog' && card.sized && card.owns
+            && card.points !== 8 && !flags.length
             ? ['ready', 'Ready']
             : null;
 
@@ -525,7 +533,7 @@
 
     // One line, whatever went wrong. Bad data outranks an empty board.
     const flagged = all.filter(
-      (card) => card.race || card.drift.length || !card.sized,
+      (card) => card.race || card.drift.length || !card.sized || !card.owns,
     ).length;
     const faults = [];
     if (board.clash) faults.push(board.clash);

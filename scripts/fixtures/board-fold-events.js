@@ -54,3 +54,4 @@ qstackBoardEvent({"ts":"2026-08-20T09:31:02Z","event":"created","actor":"adelaid
 qstackBoardEvent({"ts":"2026-08-20T09:31:00Z","event":"split","card":"T-10","actor":"adelaide","into":["T-14","T-15"],"reason":"the edge map and its cycle guard take separate reviews"});
 qstackBoardEvent({"ts":"2026-08-20T09:31:01Z","event":"created","actor":"adelaide","card":"T-14","epic":"E1","title":"Build the edge map","points":2,"refs":["4.1"],"files":["fold/edges.js"],"split_from":"T-10"});
 qstackBoardEvent({"ts":"2026-08-20T09:31:02Z","event":"created","actor":"adelaide","card":"T-15","epic":"E1","title":"Guard the split cycle","points":1,"refs":["4.1"],"files":["fold/cycle.js"],"split_from":"T-10"});
+qstackBoardEvent({"ts":"2026-08-20T09:32:00Z","event":"created","actor":"planner","card":"T-16","epic":"E2","title":"Card whose files nobody could name","points":3,"refs":["6.4"],"files":[],"depends_on":[]});

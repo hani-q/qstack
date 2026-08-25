@@ -94,10 +94,10 @@ hides the difference between a 1 and a 5.
 
 These two fields are the job. The orchestrator's ready set takes a card only
 when its status is `backlog`, every card in its `depends_on` is `done` or
-`split`, none of its `files` appear on a card that is `claimed`, `in-progress`,
-or `review`, and its `points` are not `8`. A board missing either field on any
-card is refused by the execution loops, because there is no safe order to run it
-in.
+`split`, its `files` are non-empty and appear on no card that is `claimed`,
+`in-progress`, or `review`, and its `points` are not `8`. A board missing either
+field on any card is refused by the execution loops, because there is no safe
+order to run it in.
 
 `depends_on` is real ordering only: A needs B's output to exist. It is stored in
 one direction, and the board reverses the edges to show "blocks: T-08, T-09".
@@ -114,10 +114,26 @@ rule runs. So depending on a card you expect to split is safe, and it is the
 right thing to write. Name the card that produces the output, not the children
 that do not exist yet.
 
-`files` is ownership. Two cards that write the same file need a dependency
-between them, or the order they run in is decided by whichever agent claims
-first, and the second one writes over a state it did not plan for. Prefer
-splitting that file's changes along a dependency the plan already has.
+`files` is ownership, and the execution loops run cards in parallel on the
+strength of it. Two cards that write the same file need a dependency between
+them, or the order they run in is decided by whichever agent claims first, and
+the second one writes over a state it did not plan for. Prefer splitting that
+file's changes along a dependency the plan already has.
+
+Write exact repository-relative file paths, never a directory. The ready set
+compares `files` as strings, so a card listing `src/api/` and a card listing
+`src/api/user.ts` look disjoint to it and run at the same time on the same file.
+
+Write one spelling per file, normalised: no leading `./`, no `..` segment, no
+trailing slash, and the real path rather than a symlink to it. `src/user.ts`,
+`./src/user.ts` and `src/api/../user.ts` are three strings and one file, and the
+check reads three. Match the case of the file on disk too, because a
+case-insensitive checkout will happily let two cards with different spellings
+write the same file.
+
+`files` must be non-empty on every card the loop can claim. An empty array is
+allowed only on an 8-point card, which is never ready, and splitting that card
+is where its real paths get written.
 
 ## Check before writing
 
@@ -128,11 +144,16 @@ and stop, when any of these holds:
 - `depends_on` contains a cycle, however long;
 - a card carries `points` outside `1`, `2`, `3`, `5`, `8`;
 - an 8-point card carries no `note` naming what it splits into;
-- two cards list the same file with no dependency either way;
+- a card under `8` points carries an empty `files` array;
+- any `files` entry is a directory rather than an exact file path;
+- any `files` entry is unnormalised: a leading `./`, a `..` segment, a trailing
+  slash, a symlink, or a case that does not match the file on disk;
+- two cards list the same file with no dependency either way, comparing the
+  normalised paths;
 - an epic has no cards.
 
-Run all six against the cards in memory, before the first `printf`. The file is
-append-only, so a bad card cannot be taken back, only noted and split.
+Run all nine against the cards in memory, before the first `printf`. The file
+is append-only, so a bad card cannot be taken back, only noted and split.
 
 ## Check the other boards
 

@@ -81,6 +81,13 @@ Boards are a static `board-events.js` beside the plan, so `plan.html#board`
 works from disk with no server. `/qstack-serve-plans` adds a stable localhost
 URL when you want one.
 
+Either loop then works that board in waves rather than one card at a time. The
+`depends_on` and `files` on each card say which cards do not need each other, so
+the loop claims every ready card whose files nobody else holds, gives each one
+its own subagent, and reviews each against its own diff before it closes. Four
+cards at once by default. Use `--parallel N` to change it, or `--parallel 1` for
+the old serial run.
+
 ## Skills
 
 Automatic skills are offered by the agent when the description matches what you
