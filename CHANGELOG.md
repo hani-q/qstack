@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.2.0.0] - 2026-08-26
+
+### Added
+
+* Both execution loops now work a plan board in waves instead of one card at a time. `depends_on` and `files` already said which cards do not need each other, but nothing ever told the loops to use that, so a board of independent cards ran in single file. The loops now claim every ready card whose files nobody else holds, give each one its own subagent, and refill the wave as cards close. `--parallel N` sets the width and `--parallel 1` restores the serial run; the default is four.
+
+* A card's declared `files` are now checked rather than trusted. Each subagent reports the paths it actually wrote, and the orchestrator compares that list against the card's `files` before the card can move to `review`. Running cards side by side rests entirely on that ownership holding, and instructions to a subagent are not concurrency control.
+
+### Changed
+
+* Per-card adversarial reviews now get the diff restricted to that card's `files`, plus the reported path list, rather than the whole working tree. With several cards live at once, a reviewer handed the complete diff reports a sibling card's unfinished work as this card's defect. Plan-level reviews, and every review in a run with no board, still get the complete diff.
+
+* A per-card review fingerprint now covers that card's `files` and only the `execution.md` entries naming that card. The old whole-file scope meant every sibling card's note invalidated every in-flight card review.
+
+### Fixed
+
+* A card with an empty `files` array is no longer ready. It reserved nothing, collided with nothing, and gave its reviewer no paths to look at. The breakdown now also rejects directory paths in `files`, which the ready set compared as strings and read as disjoint from the files inside them.
+
 ## [2.1.0.0] - 2026-08-24
 
 ### Added
