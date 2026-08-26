@@ -39,7 +39,8 @@ qstackBoardEvent({"ts":"2026-08-20T09:39:00Z","event":"moved","card":"T-06","fro
 qstackBoardEvent({"ts":"2026-08-20T09:39:30Z","event":"moved","card":"T-06","from":"review","to":"done","actor":"carlton","note":"review passed, 91ade07"});
 qstackBoardEvent({"ts":"2026-08-20T09:40:00Z","event":"stood-down","actor":"adelaide"});
 qstackBoardEvent({"ts":"2026-08-20T09:41:00Z","event":"claimed","card":"T-07","actor":"dunedin","reason":"no dependencies and no shared file"});
-qstackBoardEvent({"ts":"2026-08-20T09:42:00Z","event":"moved","card":"T-07","from":"review","to":"done","actor":"dunedin"});
+qstackBoardEvent({"ts":"2026-08-20T09:41:30Z","event":"moved","card":"T-07","from":"claimed","to":"in-progress","actor":"dunedin"});
+qstackBoardEvent({"ts":"2026-08-20T09:42:00Z","event":"moved","card":"T-07","from":"in-progress","to":"done","actor":"dunedin","note":"per-card adversarial review omitted: review mode final"});
 qstackBoardEvent({"ts":"2026-08-20T09:43:00Z","event":"claimed","card":"T-08","actor":"dunedin","reason":"T-07 closed"});
 qstackBoardEvent({"ts":"2026-08-20T09:43:10Z","event":"moved","card":"T-08","to":"in-progress","actor":"dunedin"});
 qstackBoardEvent({"ts":"2026-08-20T09:44:00Z","event":"claimed","card":"T-12","actor":"belmont","reason":"one file, no dependencies"});

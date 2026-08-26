@@ -350,7 +350,7 @@
   };
 
   /* The size a card was given, which the stylesheet weights at 5 and 8: the
-     two that will cost a review round. */
+     two heaviest sizes on the closed scale. */
   const points = (value) => {
     const node = el('span', 'board-card-points', String(value));
     node.dataset.points = String(value);

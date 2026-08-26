@@ -22,12 +22,11 @@ Every clause has a `§` number, so review feedback is "§4.2 is wrong" rather th
 "the second bit about caching". The document freezes when execution starts.
 
 **Execution that cannot silently drift.** Both loops work the plan card by card,
-keep a running `execution.md`, and refuse to claim completion until a fresh
-independent agent has reviewed the result against the frozen plan. Pick
-`/qstack-loop-no-nonsense` when the plan is the contract, or
-`/qstack-loop-trequartista` when the agent may adapt as long as it says so in
-writing. `/qstack-plan-adherence-review` then scores the outcome from 0 to 5
-against the plan, the execution record, and the actual diff.
+keep a running `execution.md`, and ask how much independent adversarial review
+to run before they change anything. Pick `/qstack-loop-no-nonsense` when the
+plan is the contract, or `/qstack-loop-trequartista` when the agent may adapt as
+long as it says so in writing. `/qstack-plan-adherence-review` then scores the
+outcome from 0 to 5 against the plan, the execution record, and the actual diff.
 
 **Memory that survives the session.** `/qstack-plan-close` writes what the work
 actually cost into `outcome.md`, and `/qstack-plan-prior-art` reads that folder
@@ -52,8 +51,8 @@ plan.md, or just the chat    a written draft, or the shape you talked through
         ↓
 /qstack-plan-to-html          prior art, render, ask the open questions, cut the board
         ↓                     (plan.html is authoritative from here; no Markdown is maintained)
-/qstack-loop-no-nonsense      work the cards, keep execution.md,
-/qstack-loop-trequartista     finish with independent adversarial review
+/qstack-loop-no-nonsense      choose review depth, work the cards,
+/qstack-loop-trequartista     keep execution.md current
         ↓
 /qstack-plan-adherence-review score the result against the plan, 0 to 5
         ↓
@@ -84,9 +83,19 @@ URL when you want one.
 Either loop then works that board in waves rather than one card at a time. The
 `depends_on` and `files` on each card say which cards do not need each other, so
 the loop claims every ready card whose files nobody else holds, gives each one
-its own subagent, and reviews each against its own diff before it closes. Four
+its own subagent, and isolates each card's writes and validation. Four
 cards at once by default. Use `--parallel N` to change it, or `--parallel 1` for
 the old serial run.
+
+Before a new board execution starts, the loop asks for `final` review, `full`
+review, or `none`. `final`, the recommended choice, launches one fresh reviewer
+after all cards close. `full` also reviews every card against its own diff.
+`none` relies on validation and launches no reviewer. Without a board, the
+question combines `final` and `full` into one whole-plan-review choice because
+their cost is identical. Plan or repository review requirements remove any
+weaker choices. The Review board column remains visible and stays empty when
+per-card review is omitted. For automation, `--review full|final|none` supplies
+the mode without a prompt and is rejected when it violates those requirements.
 
 ## Skills
 
@@ -100,8 +109,8 @@ are doing. Explicit skills run only when you type them.
 | [`qstack-plan-prior-art`](skills/qstack-plan-prior-art/) | Automatic | Rank earlier plans by overlap with what you are about to write, then report what was decided, deferred, learned, and superseded, plus live board cards touching the same files. Writes nothing. |
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit | Render a plan as a numbered HLD/LLD document, resolve its open questions, and break it into the cards of its execution board. Takes a Markdown draft or the working agreement reached in the conversation. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask the questions whose answers change what gets built, one at a time in plain language, and write each decision and its consequences straight into the plan. |
-| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and require independent adversarial review before claiming completion. |
-| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and require the same independent review. |
+| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and ask how much adversarial review to run. |
+| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and ask the same review-depth question. |
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Build a requirement-to-evidence matrix from the plan, the execution record, and the real diff, then assign a guarded 0 to 5 adherence score. Report-only. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit | Fold the board, check nothing is still claimed or in flight, and write `outcome.md`: the delta between the plan and what actually happened. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit | Serve this repository's plan collection over HTTP, asking for the bind address and port instead of guessing your network exposure. |
@@ -180,9 +189,10 @@ Bash and Python 3 for the plan renderer, the local plan server, and the
 a board runs as `node --check` before trusting it. Git throughout;
 `/qstack-reflect` needs a Git repository and says so rather than guessing.
 
-The execution loops need a host that can launch a fresh, independent review
-agent. Without that, they stop before claiming completion instead of reviewing
-their own work.
+`full` and `final` loop runs need a host that can launch a fresh, independent
+review agent. A `none` run does not. When the selected mode requires an agent
+and the host has none, the loop stops before claiming completion instead of
+reviewing its own work.
 
 ### Flags
 

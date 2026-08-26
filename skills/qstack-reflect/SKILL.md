@@ -261,10 +261,11 @@ find <plan-dirs> -name board-events.js -exec awk '
 ' {} + | sort -u | awk '{ n[$1]++ } END { for (a in n) print a, n[a] }'
 ```
 
-Backward moves. The sequence is `backlog` → `claimed` → `in-progress` →
-`review` → `done`, and a `moved` whose `to` sits earlier in it than its `from`
-is rework. That count is the reason this category exists. `blocked` and `split`
-are outside the sequence, so moves touching them are not counted here.
+Backward moves. Status order is `backlog` → `claimed` → `in-progress` →
+`review` → `done`; `final` and `none` review modes may skip `review`. A `moved`
+whose `to` sits earlier in that order than its `from` is rework. That count is
+the reason this category exists. `blocked` and `split` are outside the order, so
+moves touching them are not counted here.
 
 ```bash
 find <plan-dirs> -name board-events.js -exec awk '

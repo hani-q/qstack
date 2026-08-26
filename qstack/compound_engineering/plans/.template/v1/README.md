@@ -155,11 +155,13 @@ one board.
 | `split` | Parent closes into children. | `card`, `into`, `actor`, `reason` |
 | `note` | Comment, no state change. | `card`, `actor`, `note` |
 
-Six live columns plus one terminal: `backlog` → `claimed` → `in-progress` →
-`review` → `done`, with `blocked` reachable from any live status, and `split`
-terminal for the parent of a split. A card whose `depends_on` are unfinished
-waits in `backlog`; `blocked` is the stall only a human can clear, and the
-blocking question goes in `note`.
+Six live columns plus one terminal. `full` review mode uses `backlog` →
+`claimed` → `in-progress` → `review` → `done`; `final` and `none` move validated
+cards directly from `in-progress` to `done`. `blocked` is reachable from any
+live status, and `split` is terminal for the parent of a split. A card whose
+`depends_on` are unfinished waits in `backlog`; `blocked` is the stall only a
+human can clear, and the blocking question goes in `note`. The Review column
+stays empty when the selected mode omits per-card reviews.
 
 A `depends_on` naming a card that later splits resolves to that split's children
 and stays unsatisfied until every one of them closes. The parent closed the
@@ -191,9 +193,9 @@ marks it briefly without changing the board URL.
 
 Points are Fibonacci, capped, and set once at breakdown:
 
-- `1`: one file, no review round expected.
+- `1`: one file, contained change.
 - `2`: two or three files in one area.
-- `3`: several files, one review round expected.
+- `3`: several files with an integration seam.
 - `5`: a subsystem; expect rework.
 - `8`: too coarse. Split it before claiming it.
 

@@ -68,8 +68,8 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-prior-art` to read the existing plans before drafting a new one.
 - Use `/qstack-plan-to-html` to turn a plan into reviewable HTML and its execution board.
 - Use `/qstack-ask-plan-open-questions [plan-path]` to resolve open decisions in a Markdown draft or authoritative HTML plan.
-- Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and require independent review.
-- Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and independent review.
+- Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and choose its adversarial review depth.
+- Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and choose its adversarial review depth.
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
