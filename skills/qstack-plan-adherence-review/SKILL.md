@@ -93,9 +93,16 @@ repeating a recorded success. Distinguish a missing test from a failing test
 and from a test that was not run.
 
 With a board present, every card whose `refs` cite an obligation's clause is
-part of that obligation's evidence trail. A card at `done` is a claim that its
-per-card review passed, not proof that the obligation holds, so verify the code
-exactly as above. Two board findings carry more weight than any card status:
+part of that obligation's evidence trail. Read `Review mode` from
+`execution.md`: exactly one `full` value says a `done` card passed per-card
+review, while exactly one `final` or `none` value deliberately omits that
+review. In every mode, `done` says only that the loop closed the card, not that
+the obligation holds, so verify the code exactly as above. When a legacy record
+has no `Review mode`, state that and treat it as the loops' former implicit
+`full` mode without penalizing the missing field; still verify its recorded
+reviews and board transitions. A duplicated, malformed, or unknown value is
+invalid execution evidence, not a legacy record. Flag it explicitly. Two board
+findings carry more weight than any card status:
 
 - an obligation no card cites, which means the breakdown missed a requirement
   and nothing was ever scheduled to satisfy it;
@@ -110,7 +117,13 @@ Check the execution record and the board separately for:
 - approval claims with no recorded decision;
 - stale validation results or fingerprints;
 - a `complete` status that does not satisfy the plan's completion gate;
-- cards at `done` with no per-card review recorded;
+- in `full` mode, cards at `done` with no per-card review recorded;
+- in `full` or `final` mode, a missing or stale final review fingerprint;
+- in `none` mode, a missing explicit record that review was skipped;
+- a selected mode weaker than the minimum review required by the plan or
+  repository instructions;
+- board transitions or review evidence that contradict the recorded review
+  mode;
 - cards left at `claimed` or `in-progress` while the record calls the work
   complete;
 - `blocked` cards whose question in `note` was never put to the user;

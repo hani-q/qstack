@@ -2,7 +2,7 @@
 name: qstack-loop-no-nonsense
 description: >
   Execute an approved implementation plan exactly, maintaining QStack execution
-  evidence and requiring independent adversarial review.
+  evidence and asking how much independent adversarial review to run.
 disable-model-invocation: true
 ---
 
@@ -27,6 +27,72 @@ Verify approval before implementation. An explicit request to execute this
 specific plan counts as approval to start only when the plan itself is not
 marked `draft`, `proposed`, or otherwise unapproved and has no unresolved
 blocking gate. If approval is absent or contradictory, stop and ask.
+
+## Choose the review mode
+
+Review depth is the user's cost and quality choice. Resolve the plan, detect
+whether it has a board, inspect any existing `execution.md`, and read plan and
+repository review requirements without writing anything. Then settle the mode
+before creating or updating execution files, migrating or claiming a board,
+launching an agent, or editing implementation files.
+
+`--review full|final|none` supplies the choice for automation. Reject any other
+value. Always validate an existing `execution.md` first, with or without the
+flag:
+
+- if `Review mode` is present, it appears exactly once and must be `full`,
+  `final`, or `none`;
+- no such field means a legacy `full` run and is not rewritten merely to
+  backfill the field;
+- a duplicated, malformed, or unknown value stops preflight without mutation.
+
+Without the flag, reuse that recorded or legacy mode without asking. With the
+flag, it must match that mode as described below. For a new execution without
+the flag, ask one startup question, using the host's structured question tool
+when available and plain text when it is not. With a board, ask:
+
+  > How much independent adversarial review should this run use?
+  >
+  > - Final review only (recommended): one fresh reviewer after all work, balancing coverage and token cost.
+  > - Full review: review every card and the combined result; highest coverage and token use.
+  > - No adversarial review: fastest and lowest token use; rely on validation only.
+
+Without a board, `full` and `final` both launch one whole-plan reviewer, so do
+not present them as different costs. Ask instead:
+
+> How much independent adversarial review should this run use?
+>
+> - One whole-plan review (recommended, recorded as `final`): balance quality and token cost.
+> - No adversarial review: fastest and lowest token use; rely on validation only.
+
+Review mode is fixed once execution starts. On a resume, a `--review` value that
+differs from the recorded or legacy mode is a conflict: stop and name the mode
+already in force. Completed cards cannot be retroactively returned to their
+original isolated per-card review state, and changing fingerprinted execution
+content would invalidate earlier reviews. Do not ask again on a resume.
+An invalid or conflicting review flag is a preflight failure. This invocation
+never claimed the board, so it appends no `stood-down` and does not alter any
+coordinator left by an earlier run.
+
+The modes are:
+
+- `full`: per-card review plus one final plan-level review;
+- `final`: no per-card reviewers, then one final plan-level review;
+- `none`: no reviewers and no review fingerprints.
+
+Without a board, `full` and `final` both mean the one whole-plan review that the
+loop can run; an explicit `--review full` remains valid and is recorded as
+`full`. Review mode controls only the reviews this loop adds. During the
+read-only preflight, derive the minimum permitted mode from plan and repository
+instructions. A required final independent review permits only `final` or
+`full`; required per-card independent review permits only `full` when a board
+exists. Without a board, a per-card mandate is unsatisfiable: stop preflight and
+name the requirement rather than pretending the whole-plan review meets it.
+Remove weaker modes from the startup question and reject a weaker `--review`,
+recorded, or legacy mode before any mutation. If only one behavior is permitted,
+explain the requirement and use its least expensive valid mode without asking a
+fake choice. The choice changes reviewer agents only; implementation subagents
+and `--parallel` are unchanged.
 
 ## Resolve the board
 
@@ -80,6 +146,7 @@ every blocking item is resolved. Record either status transition. Use this shape
 
 - Plan: <repo-relative path>
 - Mode: no-nonsense
+- Review mode: full | final | none
 - Status: in-progress | blocked | complete
 - Started: YYYY-MM-DD
 - Updated: YYYY-MM-DD
@@ -103,7 +170,7 @@ every blocking item is resolved. Record either status transition. Use this shape
 - <command or check>: <result>
 
 ## Adversarial reviews
-- <round, reviewer findings, and resolution>
+- <round, reviewer findings, and resolution; or explicit skip for `none`>
 ```
 
 Update it when a decision is made, not from memory at the end. Record facts the
@@ -126,6 +193,13 @@ entries as superseded rather than deleting history.
   deviation in `execution.md`; approval does not rewrite the frozen plan.
 
 ## Select and claim cards
+
+### Arguments
+
+`/qstack-loop-no-nonsense [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none]`
+
+`--review` applies with or without a board and supplies the startup review
+choice instead of asking. The remaining arguments narrow a board run.
 
 With a board, the default scope is the whole board, in the order and the wave
 width you pick. Arguments narrow it:
@@ -223,29 +297,33 @@ proportion to risk. Run the repository's relevant tests, linters, type checks,
 builds, and focused behavioral checks. Do not commit or push unless the user
 explicitly asks.
 
-## Run the adversarial review loop
+## Run the selected adversarial reviews
 
-After implementation and primary validation, launch a **fresh independent
-agent** to review the current work. A self-review does not satisfy this gate.
+In `full` mode, run one review per card and one for the plan. A per-card review
+runs while the card is in `review`, before it moves to `done`, and is scoped
+under the protocol's What a card owns: that card's `files`, the paths the card
+actually wrote, and the `§` clauses in its `refs`.
 
-With a board, this loop runs once per card and once for the plan. The per-card
-review runs while the card is in `review`, before it moves to `done`, and is
-scoped under the protocol's What a card owns: that card's `files`, the paths the
-card actually wrote, and the `§` clauses in its `refs`. Reviewing each
-card against its own files is what makes parallel cards safe. The plan-level
-review still runs once, after the last card is `done` or `split`, and it is the
-review that catches integration, the seams no single card's diff showed.
+In `final` mode, move validated cards directly from `in-progress` to `done`
+under the protocol and run only the plan-level review. In `none` mode, use the
+same direct card transition, record that adversarial review was skipped by the
+explicit review choice, and launch no reviewer.
+
+The plan-level review in `full` or `final` runs after the last card on the board
+is `done` or `split`, never merely after the last card selected by `--tasks`,
+`--epic`, or `--limit`. It catches integration and seams no single card's diff
+showed. Without a board, that is the one whole-plan review. For every enabled
+review, launch a **fresh independent agent**. A self-review does not satisfy the
+selected mode.
 
 Give the reviewer raw evidence rather than your conclusions:
 
 - repository root and plan path;
 - `execution.md` path;
-- the base reference and the diff. A per-card review gets what What a card owns
-  specifies. A plan-level review, and every review in a run with no board, gets
-  the complete diff including untracked files;
+- the base reference and the diff. A `full` per-card review gets what What a
+  card owns specifies. A plan-level review gets the complete diff including
+  untracked files;
 - validation commands already run.
-
-Without a board there is one change and one review, and both cover all of it.
 
 Ask the reviewer to read the plan and inspect the actual implementation without
 editing files. It must look for missing requirements, unapproved deviations,
@@ -259,14 +337,14 @@ explicit statement when no blocking findings remain.
 Before each review, record a content fingerprint for the reviewed state in
 `execution.md`. Include tracked changes, hashes of untracked files, and every
 substantive section of `execution.md`; exclude only the append-only
-`Adversarial reviews` section plus the `Status` and `Updated` fields. A per-card
-fingerprint covers that card's `files` and only the `execution.md` entries
-naming that card. The plan-level fingerprint covers the whole change and all of
-`execution.md`. Scoping the per-card fingerprint this way is what lets a wave
-run: the orchestrator writes every card's decisions into one `execution.md`, so
-a fingerprint over the whole file would be changed by every sibling and no card
-review would ever stay valid. Triage every finding yourself. Fix valid
-findings,
+`Adversarial reviews` section plus the `Status` and `Updated` fields. A `full`
+per-card fingerprint covers that card's `files` and only the `execution.md`
+entries naming that card. A `full` or `final` plan-level fingerprint covers the
+whole change and all of `execution.md`. Scoping the per-card fingerprint this
+way is what lets a wave run: the orchestrator writes every card's decisions into
+one `execution.md`, so a fingerprint over the whole file would be changed by
+every sibling and no card review would ever stay valid. Triage every finding
+yourself. Fix valid findings,
 update `execution.md`, and rerun affected validation. If a fix would depart from
 the plan, ask first under Obey the plan exactly.
 
@@ -279,12 +357,14 @@ the final implementation fingerprint.
 What the wave changed together is what the plan-level review and its
 whole-change fingerprint are for.
 
-After all gates pass, changing only `Status` from `in-progress` to `complete`
-and refreshing `Updated` does not require another review. No other post-review
-change receives this exception.
+In `full` or `final`, changing only `Status` from `in-progress` to `complete`
+and refreshing `Updated` after review passes does not require another review.
+No other post-review change receives this exception. In `none`, any substantive
+change after validation requires the affected validation to run again.
 
-If the host cannot launch an independent agent, report that limitation and do
-not mark the work complete. Do not silently substitute another review method.
+When `full` or `final` requires a reviewer and the host cannot launch an
+independent agent, report that limitation and do not mark the work complete. Do
+not silently substitute another review method. `none` requires no agent.
 
 ## Completion gate
 
@@ -296,13 +376,15 @@ Set `execution.md` to `complete` and report completion only when:
 - with a board, every card is `done` or `split`, every card you claimed is one
   you closed, split, or released under your own slug, and your `stood-down` is
   on the board under the protocol's Standing down;
-- the final independent review fingerprint matches the current implementation;
+- in `full` or `final`, the final independent review fingerprint matches the
+  current implementation; in `none`, `execution.md` explicitly records that
+  review was skipped by the selected mode;
 - no blocking finding or question remains; and
 - `execution.md` accurately reflects all decisions and approved deviations.
 
 Otherwise leave the status `in-progress` or `blocked`, append `stood-down`
 anyway, and state exactly what remains. In the final response, summarize the
-implementation, validation, adversarial review, approved deviations, open
-questions, and execution file. With a board, report the waves too: which cards
-ran together, and where the board held the run to one card. A run that was
-serial because every card depended on the last says so.
+implementation, validation, selected review mode and outcome, approved
+deviations, open questions, and execution file. With a board, report the waves
+too: which cards ran together, and where the board held the run to one card. A
+run that was serial because every card depended on the last says so.

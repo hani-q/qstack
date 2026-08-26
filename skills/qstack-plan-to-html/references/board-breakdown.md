@@ -75,9 +75,9 @@ moves is not a signal.
 
 | `points` | Means |
 | --- | --- |
-| `1` | One file, no review round expected. |
+| `1` | One file, contained change. |
 | `2` | Two or three files in one area. |
-| `3` | Several files, one review round expected. |
+| `3` | Several files with an integration seam. |
 | `5` | A subsystem; expect rework. |
 | `8` | Too coarse. Must be split before it can be claimed. |
 
@@ -95,9 +95,9 @@ hides the difference between a 1 and a 5.
 These two fields are the job. The orchestrator's ready set takes a card only
 when its status is `backlog`, every card in its `depends_on` is `done` or
 `split`, its `files` are non-empty and appear on no card that is `claimed`,
-`in-progress`, or `review`, and its `points` are not `8`. A board missing either
-field on any card is refused by the execution loops, because there is no safe
-order to run it in.
+`in-progress`, `review`, or `blocked`, and its `points` are not `8`. A board
+missing either field on any card is refused by the execution loops, because
+there is no safe order to run it in.
 
 `depends_on` is real ordering only: A needs B's output to exist. It is stored in
 one direction, and the board reverses the edges to show "blocks: T-08, T-09".
@@ -159,8 +159,8 @@ is append-only, so a bad card cannot be taken back, only noted and split.
 
 Fold every other `board-events.js` under the same plan root
 (`qstack/compound_engineering/plans/*/board-events.js`). Report any card here whose
-`files` are already owned by a card that is `claimed`, `in-progress`, or
-`review` on another board. That work is live in another agent's hands, and
+`files` are already owned by a card that is `claimed`, `in-progress`, `review`,
+or `blocked` on another board. That work is live in another agent's hands, and
 planning over it produces a conflict a human resolves by hand.
 
 This is finding 4 of `/qstack-plan-prior-art`, repeated here because breakdown
@@ -206,11 +206,12 @@ each child names it in `split_from`. `points` is a number, not a string. `refs`,
 
 A `note` event is a comment on a card that changes nothing about it. It carries
 `card`, `actor`, and `note`, and no status field, so the fold reads it and moves
-on. Prefer the `note` field on the event that actually happened: a review round
-belongs on the `moved` into `review`, a blocking question on the `moved` into
-`blocked`, and what an 8-point card splits into on its own `created`. Write the
-standalone event only when there is no event to hang the comment on. The
-breakdown marker is the only one this file writes.
+on. Prefer the `note` field on the event that actually happened: under `full`
+review mode a review round belongs on the `moved` into `review`, an omitted
+per-card review belongs on the direct `moved` into `done`, a blocking question
+belongs on the `moved` into `blocked`, and what an 8-point card splits into on
+its own `created`. Write the standalone event only when there is no event to
+hang the comment on. The breakdown marker is the only one this file writes.
 
 The marker is the last line of the write, a `note` on the highest card id
 reading `breakdown complete: N cards, P points`, where `N` and `P` count every

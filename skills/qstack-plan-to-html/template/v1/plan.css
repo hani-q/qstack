@@ -1282,7 +1282,7 @@ button { cursor: pointer; }
 }
 
 /* the mono face carries 400 and 500, so weight is the whole scale: enough to
-   mark the two sizes that will take a review round, and it costs no colour */
+   mark the two heaviest sizes, and it costs no colour */
 .board-card-points[data-points="5"],
 .board-card-points[data-points="8"] { font-weight: 500; }
 

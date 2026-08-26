@@ -35,8 +35,8 @@ record. Existing plans keep working and nothing else here applies.
 
 With a board, the board is the progress record. `execution.md` drops its
 `## Progress` section and keeps design decisions, deviations, tradeoffs, open
-questions, validation, and adversarial reviews. One record per concern, so the
-two cannot drift.
+questions, validation, the selected review mode, and any adversarial reviews.
+One record per concern, so the two cannot drift.
 
 Fold the board before claiming anything. Refuse the whole board on one fault
 only: a card missing `depends_on` or `files`. Without both fields the ready set
@@ -126,10 +126,11 @@ Aliases that slip through are the collision this condition exists to prevent,
 wearing a different spelling.
 
 Condition 3 refuses an empty `files` array because such a card reserves
-nothing: it collides with no other card, excludes no other card, and its own
-review has no paths to look at. The breakdown writes one only on an
-under-specified `8`, which condition 4 already keeps out, so an empty `files`
-array on any other card is a bad write. Report it and leave it for a human.
+nothing: it collides with no other card, excludes no other card, and gives the
+orchestrator no path boundary for attribution or validation. The breakdown
+writes one only on an under-specified `8`, which condition 4 already keeps out,
+so an empty `files` array on any other card is a bad write. Report it and leave
+it for a human.
 
 Either exclusion costs you that card and nothing else; the rest of the board
 runs.
@@ -141,10 +142,10 @@ blocked card below, with the owner it already has.
 Condition 3 keeps a `blocked` card's `files` too, for the same reason. A card
 parked mid-work leaves unfinished edits in those paths, and handing them to
 another card gives it a file carrying half of somebody else's work, which its
-own restricted review then reads as its own. So a blocked card holds its ground
-until it is answered. That does stall every card sharing one of its paths, which
-is the honest cost: the alternative is two cards writing one file and neither
-review able to say which wrote what. Parked questions are asked before the run
+own validation or restricted review then reads as its own. So a blocked card
+holds its ground until it is answered. That does stall every card sharing one
+of its paths, which is the honest cost: the alternative is two cards writing one
+file with no reliable attribution. Parked questions are asked before the run
 stands down, so the stall has a way out.
 
 ## The pick
@@ -257,17 +258,18 @@ serial loop with extra steps.
 ## What a card owns
 
 A card's `files` are the paths it may write, and the ready set treats them as
-owned for as long as the card is `claimed`, `in-progress`, or `review`. That
-ownership is the whole safety argument for running cards side by side, so check
-it rather than trusting it. Instructions to a subagent are not concurrency
-control.
+owned for as long as the card is `claimed`, `in-progress`, `review`, or
+`blocked`. That ownership is the whole safety argument for running cards side
+by side, so check it rather than trusting it. Instructions to a subagent are not
+concurrency control.
 
-Before a card moves to `review`, work out which paths it actually wrote and
-compare them against its `files`. Derive that set yourself from the working
-tree, with `git status --porcelain` before dispatch and again after the card
-reports, rather than taking the subagent's word for it. A subagent that writes
-outside its `files` and leaves that path out of its report defeats a check built
-on the report alone, and it is the same subagent either way.
+Before a card leaves `in-progress` for either `review` or `done`, work out which
+paths it actually wrote and compare them against its `files`. Derive that set
+yourself from the working tree, with `git status --porcelain` before dispatch
+and again after the card reports, rather than taking the subagent's word for it.
+A subagent that writes outside its `files` and leaves that path out of its
+report defeats a check built on the report alone, and it is the same subagent
+either way.
 
 Any path outside the card's `files` is a blocking finding on that card: the card
 wrote into ground another card may own, and no restricted diff can show you
@@ -283,13 +285,13 @@ contain belongs to whichever card was running when it appeared, and if more than
 one was, say so and stop: an unattributable write is the failure this check
 exists to catch, not a detail to resolve by guessing.
 
-A card's review sees the diff restricted to that card's `files`, including
-untracked files under those paths, plus the list of paths the subagent reported.
-Restricting it is what lets a wave run at all: sibling cards are mid-edit in the
-same working tree, and a reviewer handed the whole diff reports their unfinished
-work as this card's missing requirements and unrequested code. The reported-path
-list is what keeps the restriction from hiding the one thing it would otherwise
-hide.
+In `full` review mode, a card's review sees the diff restricted to that card's
+`files`, including untracked files under those paths, plus the list of paths the
+subagent reported. Restricting it is what lets a wave run at all: sibling cards
+are mid-edit in the same working tree, and a reviewer handed the whole diff
+reports their unfinished work as this card's missing requirements and
+unrequested code. The reported-path list is what keeps the restriction from
+hiding the one thing it would otherwise hide.
 
 Validation is scoped the same way, with attribution required rather than
 deferred. When a check fails on a file this card never touched, name the live
@@ -315,10 +317,16 @@ mid-line and leave a board that `node --check` rejects.
 
 - `claimed` → `in-progress` when work on the card starts, which in a wave is
   when that card's subagent is dispatched.
-- `in-progress` → `review` before that card's adversarial review.
-- `review` → `done` when that review passes.
+- in `full` review mode, `in-progress` → `review` before that card's adversarial
+  review, then `review` → `done` when it passes;
+- in `final` or `none` review mode, validated work moves directly from
+  `in-progress` → `done`. Put `per-card adversarial review omitted: review mode
+  final` or `review mode none` in the move's `note`.
 - any live status → `blocked` when the card stops on something a human must
   answer, with the question in `note`.
+
+The Review column remains part of the board because it shows cards currently in
+per-card review. It stays empty when the selected mode omits those reviews.
 
 Each card in a wave moves through these on its own. Cards do not advance in
 step, and there is no wave-level status.
@@ -417,7 +425,7 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"created"
   >> qstack/compound_engineering/plans/<slug>/board-events.js
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"created","card":"T-13","epic":"board-file","title":"Backfill the rows written before it","points":3,"refs":["4.2"],"files":["src/backfill.ts"],"depends_on":["T-12"],"split_from":"T-05","actor":"adelaide"});' \
   >> qstack/compound_engineering/plans/<slug>/board-events.js
-printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"split","card":"T-05","into":["T-12","T-13"],"actor":"adelaide","reason":"the writer change and the backfill need separate reviews"});' \
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"split","card":"T-05","into":["T-12","T-13"],"actor":"adelaide","reason":"the writer change and the backfill own separate files"});' \
   >> qstack/compound_engineering/plans/<slug>/board-events.js
 ```
 
