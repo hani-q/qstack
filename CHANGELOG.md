@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.3.0.0] - 2026-08-26
+
+### Added
+
+* Both execution loops now ask how much adversarial review to run before they change execution state or launch an agent. The recommended `final` mode runs one fresh reviewer after the whole board closes, `full` also reviews every card, and `none` relies on validation without launching reviewers. Automation can make the same choice with `--review full|final|none`.
+
+### Changed
+
+* Review mode is recorded in `execution.md` and stays fixed across resumes. Existing execution records without the field keep the former `full` behavior. Invalid, duplicated, conflicting, or weaker-than-required modes stop during read-only preflight without touching the board.
+
+* Cards in `final` and `none` modes now move directly from `in-progress` to `done` after path ownership and validation checks. The Review lane remains visible but stays empty when per-card review is omitted. No-board runs offer one whole-plan review instead of presenting `full` and `final` as different costs.
+
+* Plan adherence review and project reflection now interpret `full`, `final`, `none`, and legacy executions separately, including their required fingerprints, skip records, and valid board transitions.
+
+### Fixed
+
+* Board breakdown guidance now treats blocked cards as still owning their files, matching the execution protocol and preventing another board from planning over unfinished work.
+
 ## [2.2.0.0] - 2026-08-26
 
 ### Added
