@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+#
+# Regression test for instruction-file rewriting in ./install.
+#
+# The interesting case is the *second* install: the first run creates
+# CLAUDE.md and AGENTS.md with a hardcoded mode, while every later run has to
+# read the existing file's permission bits and reapply them to the temporary
+# file it swaps in. Reading a file mode portably is the part that broke — GNU
+# stat and BSD stat spell it differently, and GNU stat fails dirtily when given
+# the BSD spelling, so the mode came back as filesystem statistics and chmod
+# rejected it.
+#
+# So this runs the installer twice against a throwaway HOME under three stat
+# flavours: whatever this machine ships, a BSD-only stat, and a GNU-only stat.
+# Both branches of file_mode are therefore exercised on every platform.
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+failures=0
+
+fail() {
+  echo "FAIL: $*" >&2
+  failures=$((failures + 1))
+}
+
+# A stat that only speaks BSD, like the one on macOS.
+make_bsd_stat() {
+  local dir="$1"
+  mkdir -p "$dir"
+  cat > "$dir/stat" <<'SHIM'
+#!/usr/bin/env bash
+if [ "$1" = "-f" ] && [ "$2" = "%Lp" ]; then
+  perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$3"
+  exit 0
+fi
+echo "stat: illegal option" >&2
+exit 1
+SHIM
+  chmod +x "$dir/stat"
+}
+
+# A stat that only speaks GNU, including its habit of reading -f as
+# --file-system: the format string becomes a path, so it reports on the real
+# file, complains about the bogus one, and exits non-zero.
+make_gnu_stat() {
+  local dir="$1"
+  mkdir -p "$dir"
+  cat > "$dir/stat" <<'SHIM'
+#!/usr/bin/env bash
+if [ "$1" = "-c" ] && [ "$2" = "%a" ]; then
+  perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$3"
+  exit 0
+fi
+if [ "$1" = "-f" ]; then
+  shift
+  status=0
+  for path in "$@"; do
+    if [ -e "$path" ]; then
+      echo "  File: \"$path\""
+      echo "    ID: 0 Namelen: 255 Type: ext2/ext3"
+      echo "Block size: 4096       Fundamental block size: 4096"
+    else
+      echo "stat: cannot read file system information for '$path': No such file or directory" >&2
+      status=1
+    fi
+  done
+  exit "$status"
+fi
+echo "stat: invalid option" >&2
+exit 1
+SHIM
+  chmod +x "$dir/stat"
+}
+
+run_case() {
+  local label="$1" stat_dir="${2:-}"
+  local home="$WORK/home-$label"
+  local claude="$home/.claude/CLAUDE.md"
+  local codex="$home/.codex/AGENTS.md"
+  local path="$PATH"
+  [ -n "$stat_dir" ] && path="$stat_dir:$PATH"
+
+  # Only harnesses whose config directory already exists are installed to.
+  mkdir -p "$home/.claude" "$home/.codex"
+
+  local log="$WORK/$label.log"
+  local args=(--copy --without-matt-pocock --without-human-review)
+
+  if ! PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${args[@]}" >"$log" 2>&1; then
+    fail "[$label] first install exited non-zero"
+    sed 's/^/    /' "$log" >&2
+    return
+  fi
+
+  for file in "$claude" "$codex"; do
+    [ -f "$file" ] || { fail "[$label] first install did not create $file"; return; }
+  done
+
+  # A user-chosen mode and surrounding content both have to survive a rerun.
+  chmod 640 "$claude"
+  chmod 600 "$codex"
+  printf '\n## Notes of my own\n\nKeep me.\n' >> "$claude"
+
+  if ! PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${args[@]}" >"$log" 2>&1; then
+    fail "[$label] second install exited non-zero"
+    sed 's/^/    /' "$log" >&2
+    return
+  fi
+
+  local mode
+  mode=$(PATH="$path" perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$claude")
+  [ "$mode" = "640" ] || fail "[$label] CLAUDE.md mode became $mode, expected 640"
+  mode=$(PATH="$path" perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$codex")
+  [ "$mode" = "600" ] || fail "[$label] AGENTS.md mode became $mode, expected 600"
+
+  grep -Fq 'Keep me.' "$claude" || fail "[$label] second install dropped user content"
+
+  local count
+  for file in "$claude" "$codex"; do
+    count=$(grep -Fxc '<!-- qstack:instructions:start -->' "$file" || true)
+    [ "$count" = "1" ] || fail "[$label] $(basename "$file") has $count command blocks, expected 1"
+    count=$(grep -Fxc '<!-- qstack:general-instructions:start -->' "$file" || true)
+    [ "$count" = "1" ] || fail "[$label] $(basename "$file") has $count general blocks, expected 1"
+  done
+
+  # A failed rewrite aborts under set -e and strands its temporary file.
+  local strays
+  strays=$(find "$home/.claude" "$home/.codex" -maxdepth 1 -name '*.qstack-*' -print)
+  [ -z "$strays" ] || fail "[$label] left temporary files behind: $strays"
+
+  echo "ok: $label"
+}
+
+make_bsd_stat "$WORK/bin-bsd"
+make_gnu_stat "$WORK/bin-gnu"
+
+run_case system
+run_case bsd-stat "$WORK/bin-bsd"
+run_case gnu-stat "$WORK/bin-gnu"
+
+if [ "$failures" -ne 0 ]; then
+  echo "$failures instruction-file check(s) failed." >&2
+  exit 1
+fi
+
+echo "Instruction files survive reinstallation on every stat flavour."

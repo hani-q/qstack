@@ -338,6 +338,16 @@ append_named_block() {
   printf '%s\n' "$block" >> "$destination"
 }
 
+# Read a file's permission bits. GNU stat spells this -c '%a', BSD stat -f '%Lp'.
+# The order matters and is not arbitrary: BSD stat rejects -c and exits, but GNU
+# stat reads -f as --file-system and takes no format argument, so it treats the
+# format as a second path, prints filesystem statistics for the real one, and
+# exits non-zero. Trying GNU first means the only flavour that can fail dirtily
+# is never reached on the platform where it misbehaves.
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || echo 644
+}
+
 # Update the file a symlink points to instead of replacing the symlink itself.
 # This preserves dotfile-manager layouts such as ~/.claude/CLAUDE.md -> repo/file.
 resolve_instruction_storage_path() {
@@ -374,7 +384,7 @@ update_instruction_file() {
   general_temp=$(mktemp "${storage}.qstack-general.XXXXXX")
   final_temp=$(mktemp "${storage}.qstack-final.XXXXXX")
   if [ -f "$storage" ]; then
-    mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
+    mode=$(file_mode "$storage")
     if grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage"; then
       if [ "$(sed -n '1p' "$storage")" = "$GENERAL_INSTRUCTIONS_START" ]; then
         write_with_named_block "$storage" "$general_temp" \
@@ -464,7 +474,7 @@ remove_instruction_file_block() {
     cp "$general_temp" "$final_temp"
   fi
   rm -f "$general_temp"
-  mode=$(stat -f '%Lp' "$storage" 2>/dev/null || stat -c '%a' "$storage")
+  mode=$(file_mode "$storage")
   chmod "$mode" "$final_temp"
   mv "$final_temp" "$storage"
   echo "      removed qstack general and command instructions ($label)"

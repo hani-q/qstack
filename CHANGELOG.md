@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.1.0] - 2026-08-27
+
+### Fixed
+
+* Reinstalling on Linux no longer aborts with `chmod: invalid mode`. Before rewriting `CLAUDE.md` or `AGENTS.md`, the installer reads the existing file's permission bits so it can put them back on the replacement, and it asked BSD stat first. GNU stat reads that spelling's `-f` as `--file-system`, so it took the format string as a second path, printed filesystem statistics for the real file, and exited non-zero, which then appended the real mode to that output. `chmod` was handed six lines of block counts and refused. The installer now asks GNU stat first, because BSD stat rejects the GNU spelling cleanly while GNU stat fails messily on the BSD one, and falls back to `644` if neither answers. Only reinstallation was affected: a first install writes a fixed mode, and the failure stopped before the file was replaced, so no instruction file was corrupted. Failed runs did strand a `CLAUDE.md.qstack-final.XXXXXX` file next to the original, which is safe to delete.
+
+### Added
+
+* `scripts/test-install-instructions` runs the installer twice against a throwaway home under this machine's stat, a BSD-only stat, and a GNU-only stat, then checks that permissions, hand-written content, and single copies of both qstack blocks all survive. It runs in CI, where the real GNU stat would have caught this.
+
 ## [2.3.0.0] - 2026-08-26
 
 ### Added
