@@ -33,6 +33,9 @@ jobs:
       - name: Validate branch-scoped versioning
         run: scripts/test-versioning
 
+      - name: Verify instruction files survive reinstallation
+        run: scripts/test-install-instructions
+
       - name: Install the Agent Skills reference validator
         run: >-
           python3 -m pip install
