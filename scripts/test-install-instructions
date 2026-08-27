@@ -10,9 +10,15 @@
 # the BSD spelling, so the mode came back as filesystem statistics and chmod
 # rejected it.
 #
-# So this runs the installer twice against a throwaway HOME under three stat
-# flavours: whatever this machine ships, a BSD-only stat, and a GNU-only stat.
-# Both branches of file_mode are therefore exercised on every platform.
+# So this runs the installer against a throwaway HOME under four stat flavours:
+# whatever this machine ships, a BSD-only stat, a GNU-only stat, and no working
+# stat at all. Every branch of file_mode is therefore exercised on every
+# platform, including the one that has to refuse rather than guess.
+#
+# Each flavour covers install, reinstall, symlinked instruction files, and
+# uninstall, because both file_mode call sites matter and only one of them is
+# on the install path. The throwaway home has a space in its name so the
+# installer's quoting stays honest too.
 
 set -euo pipefail
 
@@ -27,17 +33,24 @@ fail() {
   failures=$((failures + 1))
 }
 
-# A stat that only speaks BSD, like the one on macOS.
+# Read a mode without going through stat, so the shims below cannot influence
+# what the assertions see.
+mode_of() {
+  perl -e 'my @s = stat($ARGV[0]) or die "cannot stat $ARGV[0]\n"; printf "%o\n", $s[2] & 07777' "$1"
+}
+
+# A stat that only speaks BSD, like the one on macOS. It reports a real failure
+# for a path it cannot read, which is what makes the refusal path testable.
 make_bsd_stat() {
   local dir="$1"
   mkdir -p "$dir"
   cat > "$dir/stat" <<'SHIM'
 #!/usr/bin/env bash
 if [ "$1" = "-f" ] && [ "$2" = "%Lp" ]; then
-  perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$3"
-  exit 0
+  perl -e 'my @s = stat($ARGV[0]) or exit 1; printf "%o\n", $s[2] & 07777' "$3"
+  exit $?
 fi
-echo "stat: illegal option" >&2
+echo "stat: illegal option -- ${1#-}" >&2
 exit 1
 SHIM
   chmod +x "$dir/stat"
@@ -45,15 +58,16 @@ SHIM
 
 # A stat that only speaks GNU, including its habit of reading -f as
 # --file-system: the format string becomes a path, so it reports on the real
-# file, complains about the bogus one, and exits non-zero.
+# file, complains about the bogus one, and exits non-zero. That combination —
+# junk on stdout with a non-zero exit — is the original bug.
 make_gnu_stat() {
   local dir="$1"
   mkdir -p "$dir"
   cat > "$dir/stat" <<'SHIM'
 #!/usr/bin/env bash
 if [ "$1" = "-c" ] && [ "$2" = "%a" ]; then
-  perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$3"
-  exit 0
+  perl -e 'my @s = stat($ARGV[0]) or exit 1; printf "%o\n", $s[2] & 07777' "$3"
+  exit $?
 fi
 if [ "$1" = "-f" ]; then
   shift
@@ -70,57 +84,92 @@ if [ "$1" = "-f" ]; then
   done
   exit "$status"
 fi
-echo "stat: invalid option" >&2
+echo "stat: invalid option -- ${1#-}" >&2
 exit 1
 SHIM
   chmod +x "$dir/stat"
 }
 
-run_case() {
-  local label="$1" stat_dir="${2:-}"
-  local home="$WORK/home-$label"
-  local claude="$home/.claude/CLAUDE.md"
-  local codex="$home/.codex/AGENTS.md"
+# A machine with no usable stat at all. The installer must refuse rather than
+# invent a mode, because inventing one would widen a file the user kept private.
+make_no_stat() {
+  local dir="$1"
+  mkdir -p "$dir"
+  cat > "$dir/stat" <<'SHIM'
+#!/usr/bin/env bash
+echo "stat: not available here" >&2
+exit 1
+SHIM
+  chmod +x "$dir/stat"
+}
+
+install_args=(--copy --without-matt-pocock --without-human-review)
+
+# Only harnesses whose config directory already exists are installed to, and a
+# symlinked CLAUDE.md is the dotfile-manager layout resolve_instruction_storage_path
+# exists to support: the mode lives on the target, not on the link.
+prepare_home() {
+  local home="$1"
+  mkdir -p "$home/.claude" "$home/.codex" "$home/dotfiles"
+  : > "$home/dotfiles/claude.md"
+  ln -s "$home/dotfiles/claude.md" "$home/.claude/CLAUDE.md"
+}
+
+strays_in() {
+  find "$1/.claude" "$1/.codex" -maxdepth 1 -name '*.qstack-*' -print
+}
+
+run_install() {
+  local label="$1" home="$2" stat_dir="$3" log="$4"
   local path="$PATH"
   [ -n "$stat_dir" ] && path="$stat_dir:$PATH"
+  shift 4
+  PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${install_args[@]}" "$@" >"$log" 2>&1
+}
 
-  # Only harnesses whose config directory already exists are installed to.
-  mkdir -p "$home/.claude" "$home/.codex"
-
+run_case() {
+  local label="$1" stat_dir="${2:-}"
+  local home="$WORK/home $label"
+  local claude="$home/.claude/CLAUDE.md"
+  local target="$home/dotfiles/claude.md"
+  local codex="$home/.codex/AGENTS.md"
   local log="$WORK/$label.log"
-  local args=(--copy --without-matt-pocock --without-human-review)
 
-  if ! PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${args[@]}" >"$log" 2>&1; then
+  prepare_home "$home"
+
+  if ! run_install "$label" "$home" "$stat_dir" "$log"; then
     fail "[$label] first install exited non-zero"
     sed 's/^/    /' "$log" >&2
     return
   fi
 
-  for file in "$claude" "$codex"; do
-    [ -f "$file" ] || { fail "[$label] first install did not create $file"; return; }
-  done
+  [ -L "$claude" ] || { fail "[$label] first install replaced the CLAUDE.md symlink"; return; }
+  [ -s "$target" ] || { fail "[$label] first install did not write through to $target"; return; }
+  [ -f "$codex" ] || { fail "[$label] first install did not create $codex"; return; }
 
   # A user-chosen mode and surrounding content both have to survive a rerun.
-  chmod 640 "$claude"
+  chmod 640 "$target"
   chmod 600 "$codex"
-  printf '\n## Notes of my own\n\nKeep me.\n' >> "$claude"
+  printf '\n## Notes of my own\n\nKeep me.\n' >> "$target"
 
-  if ! PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${args[@]}" >"$log" 2>&1; then
+  if ! run_install "$label" "$home" "$stat_dir" "$log"; then
     fail "[$label] second install exited non-zero"
     sed 's/^/    /' "$log" >&2
     return
   fi
 
+  [ -L "$claude" ] || fail "[$label] second install replaced the CLAUDE.md symlink with a regular file"
+
   local mode
-  mode=$(PATH="$path" perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$claude")
-  [ "$mode" = "640" ] || fail "[$label] CLAUDE.md mode became $mode, expected 640"
-  mode=$(PATH="$path" perl -e 'printf "%o\n", (stat($ARGV[0]))[2] & 07777' "$codex")
+  mode=$(mode_of "$target")
+  [ "$mode" = "640" ] || fail "[$label] symlink target mode became $mode, expected 640"
+  mode=$(mode_of "$codex")
   [ "$mode" = "600" ] || fail "[$label] AGENTS.md mode became $mode, expected 600"
 
-  grep -Fq 'Keep me.' "$claude" || fail "[$label] second install dropped user content"
+  grep -Fq 'Keep me.' "$target" || fail "[$label] second install dropped user content"
 
-  local count
-  for file in "$claude" "$codex"; do
+  local count file
+  for file in "$target" "$codex"; do
     count=$(grep -Fxc '<!-- qstack:instructions:start -->' "$file" || true)
     [ "$count" = "1" ] || fail "[$label] $(basename "$file") has $count command blocks, expected 1"
     count=$(grep -Fxc '<!-- qstack:general-instructions:start -->' "$file" || true)
@@ -129,22 +178,86 @@ run_case() {
 
   # A failed rewrite aborts under set -e and strands its temporary file.
   local strays
-  strays=$(find "$home/.claude" "$home/.codex" -maxdepth 1 -name '*.qstack-*' -print)
+  strays=$(strays_in "$home")
   [ -z "$strays" ] || fail "[$label] left temporary files behind: $strays"
+
+  # Uninstall is the second file_mode call site, and nothing else reaches it.
+  if ! run_install "$label" "$home" "$stat_dir" "$log" --uninstall; then
+    fail "[$label] uninstall exited non-zero"
+    sed 's/^/    /' "$log" >&2
+    return
+  fi
+
+  for file in "$target" "$codex"; do
+    grep -Fq '<!-- qstack:instructions:start -->' "$file" \
+      && fail "[$label] uninstall left the command block in $(basename "$file")"
+    grep -Fq '<!-- qstack:general-instructions:start -->' "$file" \
+      && fail "[$label] uninstall left the general block in $(basename "$file")"
+  done
+
+  grep -Fq 'Keep me.' "$target" || fail "[$label] uninstall dropped user content"
+  [ -L "$claude" ] || fail "[$label] uninstall replaced the CLAUDE.md symlink"
+
+  mode=$(mode_of "$target")
+  [ "$mode" = "640" ] || fail "[$label] symlink target mode became $mode after uninstall, expected 640"
+  mode=$(mode_of "$codex")
+  [ "$mode" = "600" ] || fail "[$label] AGENTS.md mode became $mode after uninstall, expected 600"
+
+  strays=$(strays_in "$home")
+  [ -z "$strays" ] || fail "[$label] uninstall left temporary files behind: $strays"
+
+  echo "ok: $label"
+}
+
+# With no readable mode, refusing is the only safe answer: writing a guessed 644
+# over a 600 file would hand a private file to every account on the machine.
+run_refusal_case() {
+  # Separate declarations: bash expands every word of a `local` line before it
+  # assigns any of them, so $label is not yet set on the line that defines it.
+  local label="no-stat"
+  local home="$WORK/home $label"
+  local log="$WORK/$label.log"
+  local target="$home/dotfiles/claude.md"
+
+  prepare_home "$home"
+
+  if ! run_install "$label" "$home" "" "$log"; then
+    fail "[$label] setup install exited non-zero"
+    return
+  fi
+  chmod 600 "$target"
+
+  if run_install "$label" "$home" "$WORK/bin-none" "$log"; then
+    fail "[$label] install succeeded with no usable stat; it should have refused"
+    return
+  fi
+
+  local mode
+  mode=$(mode_of "$target")
+  [ "$mode" = "600" ] || fail "[$label] refused install still changed the mode to $mode"
+
+  grep -q 'cannot read the mode' "$log" \
+    || fail "[$label] refusal did not explain itself: $(tail -1 "$log")"
+
+  local strays
+  strays=$(strays_in "$home")
+  [ -z "$strays" ] || fail "[$label] refusal left temporary files behind: $strays"
 
   echo "ok: $label"
 }
 
 make_bsd_stat "$WORK/bin-bsd"
 make_gnu_stat "$WORK/bin-gnu"
+make_no_stat "$WORK/bin-none"
 
 run_case system
 run_case bsd-stat "$WORK/bin-bsd"
 run_case gnu-stat "$WORK/bin-gnu"
+run_refusal_case
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures instruction-file check(s) failed." >&2
   exit 1
 fi
 
-echo "Instruction files survive reinstallation on every stat flavour."
+echo "Instruction files survive reinstallation and uninstallation on every stat flavour."

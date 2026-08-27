@@ -344,8 +344,24 @@ append_named_block() {
 # format as a second path, prints filesystem statistics for the real one, and
 # exits non-zero. Trying GNU first means the only flavour that can fail dirtily
 # is never reached on the platform where it misbehaves.
+#
+# There is deliberately no fallback mode. This is only ever called to carry an
+# existing file's permissions onto its replacement, so guessing would quietly
+# widen a file the user had kept private. The answer is also checked to be octal
+# rather than trusted: that is what a stat failing dirtily looks like from here.
 file_mode() {
-  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || echo 644
+  local mode
+  mode=$(stat -c '%a' "$1" 2>/dev/null) || mode=$(stat -f '%Lp' "$1" 2>/dev/null) || {
+    echo "qstack: no usable stat on this machine; cannot read the mode of $1" >&2
+    return 1
+  }
+  case "$mode" in
+    *[!01234567]*|'')
+      echo "qstack: stat returned something that is not a file mode for $1: $mode" >&2
+      return 1
+      ;;
+  esac
+  printf '%s\n' "$mode"
 }
 
 # Update the file a symlink points to instead of replacing the symlink itself.
@@ -384,7 +400,10 @@ update_instruction_file() {
   general_temp=$(mktemp "${storage}.qstack-general.XXXXXX")
   final_temp=$(mktemp "${storage}.qstack-final.XXXXXX")
   if [ -f "$storage" ]; then
-    mode=$(file_mode "$storage")
+    if ! mode=$(file_mode "$storage"); then
+      rm -f "$general_temp" "$final_temp"
+      return 1
+    fi
     if grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage"; then
       if [ "$(sed -n '1p' "$storage")" = "$GENERAL_INSTRUCTIONS_START" ]; then
         write_with_named_block "$storage" "$general_temp" \
@@ -474,7 +493,10 @@ remove_instruction_file_block() {
     cp "$general_temp" "$final_temp"
   fi
   rm -f "$general_temp"
-  mode=$(file_mode "$storage")
+  if ! mode=$(file_mode "$storage"); then
+    rm -f "$final_temp"
+    return 1
+  fi
   chmod "$mode" "$final_temp"
   mv "$final_temp" "$storage"
   echo "      removed qstack general and command instructions ($label)"
