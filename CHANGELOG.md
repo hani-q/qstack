@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.4.0.1] - 2026-08-31
+
+### Fixed
+
+* The `qstack-review` plan's `outcome.md` recorded that nothing had been committed and no pull request existed, which was true when written and false from the moment it merged. Its front matter now reads `shipped` with the real merge commit, the open follow-up asking for a commit is closed, and the plan index says shipped. The correction is stated in the file rather than quietly overwritten, because a plan record is what `/qstack-plan-prior-art` reads before the next plan in that area.
+
 ## [2.4.0.0] - 2026-08-30
 
 ### Added

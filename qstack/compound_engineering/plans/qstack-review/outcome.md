@@ -1,20 +1,28 @@
 ---
-status: in-progress
+status: shipped
 date: 2026-08-31
 commits: |
-  None. Every file below is uncommitted working-tree state on branch
-  hani-q/qstack-code-review, which sits at f840027 (v2.3.1.0). The plan folder
-  has never been committed: `git log --diff-filter=A` over it returns only
-  Conductor session checkpoints, which are automatic snapshots rather than
-  commits. Nothing has been pushed and no pull request exists.
+  qstack b148f22  feat: add a manual code reviewer and a board-enforced final gate
+  qstack 0c6af49  merge of pull request #27 into main, released as v2.4.0.0
 ---
 
 # Outcome: a manual code reviewer and a board-enforced final gate
 
-> **IMPLEMENTATION COMPLETE; NOT SHIPPED.** All 26 cards are closed, the gate
-> card passed two independent reviews, and all six repository validators pass.
-> Nothing is committed. The branch needs a commit and a pull request before any
-> of this exists for anyone but this worktree.
+**Shipped 2026-08-31.** Pull request
+[#27](https://github.com/hani-q/qstack/pull/27) merged into `main` as
+`0c6af49`, released as v2.4.0.0. All 26 cards closed at 47 points, the gate card
+passed two independent reviews at one shared fingerprint, and all six repository
+validators passed on the branch and again in CI.
+
+> **This block replaces a false claim, and the replacement is the point.** As
+> merged, this file said "Nothing has been pushed and no pull request exists",
+> sitting inside the commit that pushed it. The statement was true when written
+> and false from the moment it landed. It is corrected here rather than quietly
+> overwritten, because a record asserting something the tree contradicts is the
+> exact defect this plan's six review rounds kept catching: once in a privacy
+> scan, once in three citations, once in a paragraph that outlived the rule it
+> described. A plan record is read by `/qstack-plan-prior-art` before the next
+> plan in this area, so a wrong one misleads work that has not started yet.
 
 **Board:** 47 of 47 points closed across 26 cards, 0 split. The plan's own
 breakdown was 12 cards and 27 points; the other 14 cards and 20 points are
@@ -138,8 +146,7 @@ disclosure findings were in the plan and the execution record, not in code.
 
 ## Open follow-ups
 
-- **Nothing is committed.** The branch needs a commit and a pull request. The
-  version claim and changelog heading are already in place for it.
+- ~~Nothing is committed.~~ Closed: merged as `0c6af49`, released v2.4.0.0.
 - **The board view badges the gate card `Ready` when the ready set forbids it.**
   `board.js` computes its badge from four of the five conditions. It cannot be
   fixed as written, because the fold discards the creating actor, so nothing
@@ -217,11 +224,11 @@ Each was skipped because it changes the board format, the loops' structure, or
 intended behaviour, which is beyond a cleanup pass and past the point where the
 gate closed.
 
-**The tree has moved past the reviewed fingerprint.** The round-6 review
-describes `20df6fc…`; these cleanups came after. They are small and every
-validator still passes, but the review of record no longer describes the tree
-byte for byte, and a reader should know that before trusting the gate's pass as
-covering them.
+**The tree moved past the reviewed fingerprint, and shipped that way.** The
+round-6 review describes `20df6fc…`; these cleanups came after it and went out
+in the same pull request. Every validator passed on the branch and again in CI,
+but the review of record does not describe them, so a reader should not read the
+gate's pass as covering the cleanup pass.
 
 ## Contradictions to check
 
