@@ -56,3 +56,7 @@ qstackBoardEvent({"ts":"2026-08-20T09:31:00Z","event":"split","card":"T-10","act
 qstackBoardEvent({"ts":"2026-08-20T09:31:01Z","event":"created","actor":"adelaide","card":"T-14","epic":"E1","title":"Build the edge map","points":2,"refs":["4.1"],"files":["fold/edges.js"],"split_from":"T-10"});
 qstackBoardEvent({"ts":"2026-08-20T09:31:02Z","event":"created","actor":"adelaide","card":"T-15","epic":"E1","title":"Guard the split cycle","points":1,"refs":["4.1"],"files":["fold/cycle.js"],"split_from":"T-10"});
 qstackBoardEvent({"ts":"2026-08-20T09:32:00Z","event":"created","actor":"planner","card":"T-16","epic":"E2","title":"Card whose files nobody could name","points":3,"refs":["6.4"],"files":[],"depends_on":[]});
+qstackBoardEvent({"ts":"2026-08-20T09:33:00Z","event":"created","actor":"planner","card":"T-17","epic":"E2","title":"Card citing a ledger section","points":2,"refs":["9.1"],"files":["ledger/cited.js"],"depends_on":[]});
+qstackBoardEvent({"ts":"2026-08-20T09:33:10Z","event":"note","actor":"adelaide","card":"T-17","entry":"t-17-why-the-cursor-moved"});
+qstackBoardEvent({"ts":"2026-08-20T09:34:00Z","event":"created","actor":"planner","card":"T-18","epic":"E2","title":"Card citing something that is not an anchor","points":2,"refs":["9.2"],"files":["ledger/uncited.js"],"depends_on":[]});
+qstackBoardEvent({"ts":"2026-08-20T09:34:10Z","event":"note","actor":"adelaide","card":"T-18","entry":"execution.md#T-18 Deviations"});
