@@ -43,7 +43,8 @@ order, and the first one missing is the next step:
 | `plan.html` with notes at `data-status="open"` | `/qstack-ask-plan-open-questions` |
 | `plan.html` and no `board-events.js`, or a board without its complete-breakdown marker | `/qstack-plan-to-html` to finish the board |
 | `board-events.js` with cards still open | the execution loop `execution.md` shows was used; `/qstack-loop-no-nonsense` when it shows none |
-| every card closed and no `outcome.md` | `/qstack-plan-adherence-review`, then `/qstack-plan-close` |
+| every card closed and no `outcome.md`, on a board with no `review` epic | `/qstack-plan-adherence-review`, then `/qstack-plan-close` |
+| every card closed and no `outcome.md`, on a board whose `review` epic gate card is `done` | `/qstack-plan-close`; the gate card already ran the adherence review |
 | `outcome.md` | nothing from the lifecycle |
 
 Work with no plan folder and no feature being described is outside the

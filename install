@@ -72,6 +72,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and choose its adversarial review depth.
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
+- Use `/qstack-review` to review a pull request, a branch, or the working tree against a correctness baseline plus the repository rules in `CODE_REVIEW_RULES.md`, and report findings with a computed score.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
 - Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.

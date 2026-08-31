@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.0.0] - 2026-08-30
+
+### Added
+
+* `/qstack-review` reviews a pull request, a branch against its base, or the working tree, and reports findings with a score rather than a verdict. It reads two layers of rules: a generic correctness baseline that ships with the skill and applies in any repository, plus the repository's own `CODE_REVIEW_RULES.md` at the root and in every directory holding a changed file, where a nested file governs only the files below it. Every finding carries a `path:line`, the consequence, and the smallest fix that removes it, and the score is arithmetic over the P0, P1, and P2 counts rather than a number a reviewer picks. With no rules file anywhere the report says the baseline ran alone, so an unruled repository reads differently from a clean one. The skill is manual only and report-only: it writes no file, posts no comment, appends no board event, and commits nothing.
+
+### Changed
+
+* Every execution board now ends with a `Review` epic holding one gate card: the whole-plan review, made visible so `/qstack-plan-close` can see whether it happened. The card holds the plan's `execution.md`, launches a fresh plan-adherence agent and a fresh code-review agent against one shared fingerprint, and closes only when both pass or a human records an override naming every finding accepted unfixed. Blocking findings become remediation cards beside it; P2 findings are recorded and block nothing.
+* The ready set gained a fifth condition: the gate card is ready only when every other card on the board is `done` or `split`. `depends_on` could not carry this, because it is a snapshot taken at breakdown while the file is append-only, so a card appended later could never join it. Boards written before this release have no `Review` epic and are unaffected.
+* The gate card does not count against `--parallel` while it is in `review`, so a serial run cannot deadlock waiting for remediation cards it has no slot to claim.
+* In `final` mode the Review column now holds the gate card rather than staying empty. It is empty only under `none`.
+* Breakdown refuses a board with no `Review` epic, except when appending cards to an existing board or recovering one written before this release.
+
 ## [2.3.1.0] - 2026-08-27
 
 ### Fixed

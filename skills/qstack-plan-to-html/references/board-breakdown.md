@@ -39,14 +39,25 @@ the recovery steps near the end.
 The one exception to stopping on a whole board is a user who asks for more cards
 on it. Append `created` events only, with ids continuing past the largest id
 already in the file, then a fresh marker carrying the new totals. Never renumber
-a card, never rewrite a line, never delete one.
+a card, never rewrite a line, never delete one. A board written before the
+Review epic existed has no gate card, and appending cards to it does not add
+one: the rule below binds a breakdown, not an append.
+
+On a board that does have a gate card, the card is already written and no line
+is rewritten, so its `depends_on` cannot grow to name what you append. That does
+not let the gate close early. Ready-set condition 5 holds it until every other
+card on the board is `done` or `split`, whenever a card arrived, which is why
+the timing does not rest on `depends_on`. Name in the report that the appended
+cards are absent from the gate card's `depends_on` and that condition 5 covers
+them anyway, so a reader of the card is not misled by a list that looks short.
 
 ## Break the plan down
 
 Epics come from the plan's build order, one per phase, in plan order. A plan
 with no build order gives one epic per LLD sheet, skipping sheets that carry no
 buildable work. Give each epic a short slug id such as `board-file` and the
-phase or sheet title.
+phase or sheet title. Every board carries one more epic after those, written
+under The Review epic below.
 
 Cards come from the plan's individually executable obligations, the same ones
 `/qstack-plan-adherence-review` extracts when it scores the work, so the board
@@ -95,7 +106,8 @@ hides the difference between a 1 and a 5.
 These two fields are the job. The orchestrator's ready set takes a card only
 when its status is `backlog`, every card in its `depends_on` is `done` or
 `split`, its `files` are non-empty and appear on no card that is `claimed`,
-`in-progress`, `review`, or `blocked`, and its `points` are not `8`. A board
+`in-progress`, `review`, or `blocked`, and its `points` are not `8`. The gate
+card of the Review epic carries one more condition, described below. A board
 missing either field on any card is refused by the execution loops, because
 there is no safe order to run it in.
 
@@ -135,6 +147,48 @@ write the same file.
 allowed only on an 8-point card, which is never ready, and splitting that card
 is where its real paths get written.
 
+## The Review epic
+
+Every board ends with one more epic after the build-order epics, holding
+exactly one card: the gate card, which is the automatic final review of the
+whole plan. Give the epic the id `review` and the title `Final review`. Write
+its `epic` event after the others and its card after every other card, so the
+gate card takes the highest id on the board.
+
+The gate card is fixed rather than derived from an obligation the way every
+other card is:
+
+- `title` says it is the automatic final review, so nobody reads it as a
+  per-card review or as building work;
+- `points` are `3`, on every board, whatever the plan's size;
+- `refs` are the clauses that define what the final review must establish.
+  Take the first of these the plan actually has: clauses stating its acceptance
+  or verification conditions, then the clauses of its final build-order phase,
+  then the design clauses the last implementation cards cite. Every plan has one
+  of the three, so the gate card always has a legal `refs`. Cite clause numbers,
+  never a sheet number: `plan.js` numbers `.clause` elements only, and a
+  release gate is a `.matrix` table with none, so a bare sheet number renders
+  a `§` link to an id nothing has;
+- `files` is the plan's own `execution.md`, beside `plan.html`, because that is
+  where the review's result is written;
+- `depends_on` names every card written before it, which on a new board is
+  every other card. Every id, not just the last one and not one per epic.
+  Readiness does not rest on this list: the protocol's ready-set condition 5
+  holds the gate card until every other card on the board closes, whenever a
+  card arrived. The list is belt and braces, and it is what a reader sees on
+  the card.
+
+Condition 3 of the ready set hands `execution.md` to the gate card for as long
+as the card is live, and condition 5 holds the card until every other card
+closes. The protocol owns that reasoning.
+
+Write the edges to the cards that exist at breakdown. A card that splits later
+carries its edge to its children under the rule above, so the gate still waits
+on the whole split.
+
+What the loop does with the card once it is ready belongs to
+`/qstack-loop-no-nonsense` and `/qstack-loop-trequartista`.
+
 ## Check before writing
 
 Refuse to write a board that cannot be executed. Fix the breakdown, or report
@@ -150,9 +204,13 @@ and stop, when any of these holds:
   slash, a symlink, or a case that does not match the file on disk;
 - two cards list the same file with no dependency either way, comparing the
   normalised paths;
-- an epic has no cards.
+- an epic has no cards;
+- there is no `review` epic holding exactly one gate card whose `depends_on`
+  names every card written before it. This check applies to a board this pass
+  writes whole or recovers, never to one it is only appending cards to, and
+  never to a board written before the Review epic existed.
 
-Run all nine against the cards in memory, before the first `printf`. The file
+Run all ten against the cards in memory, before the first `printf`. The file
 is append-only, so a bad card cannot be taken back, only noted and split.
 
 ## Check the other boards
@@ -191,9 +249,11 @@ if [ ! -e "$board" ]; then
 fi
 before=$(wc -l < "$board" | tr -d ' ')       # 1 for a new, header-only board
 printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"epic","actor":"planner","epic":"board-file","title":"The board file"});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"epic","actor":"planner","epic":"review","title":"Final review"});' >> "$board"
 printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"created","actor":"planner","card":"T-01","epic":"board-file","title":"Fold board-events.js into cards","points":3,"refs":["4.2"],"files":["skills/qstack-plan-to-html/template/v1/board.js"],"depends_on":[]});' >> "$board"
 printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:01Z","event":"created","actor":"planner","card":"T-02","epic":"board-file","title":"Draw lanes and columns","points":5,"refs":["4.3","4.4"],"files":["skills/qstack-plan-to-html/template/v1/board.js","skills/qstack-plan-to-html/template/v1/plan.css"],"depends_on":["T-01"]});' >> "$board"
-printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:02Z","event":"note","actor":"planner","card":"T-02","note":"breakdown complete: 2 cards, 8 points"});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:02Z","event":"created","actor":"planner","card":"T-03","epic":"review","title":"Automatic final review of the whole plan","points":3,"refs":["7.4","7.7"],"files":["qstack/compound_engineering/plans/<slug>/execution.md"],"depends_on":["T-01","T-02"]});' >> "$board"
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:03Z","event":"note","actor":"planner","card":"T-03","note":"breakdown complete: 3 cards, 11 points"});' >> "$board"
 ```
 
 Card ids run `T-01` upward in creation order, zero-padded to two digits, and are

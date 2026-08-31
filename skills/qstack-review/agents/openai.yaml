@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Review"
+  short_description: "Review a change against repository rules and score it"
+  default_prompt: "Use $qstack-review to review this change against the repository rules and report its findings with a score."
+policy:
+  allow_implicit_invocation: false

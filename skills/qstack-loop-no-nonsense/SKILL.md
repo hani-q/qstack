@@ -309,8 +309,9 @@ under the protocol and run only the plan-level review. In `none` mode, use the
 same direct card transition, record that adversarial review was skipped by the
 explicit review choice, and launch no reviewer.
 
-The plan-level review in `full` or `final` runs after the last card on the board
-is `done` or `split`, never merely after the last card selected by `--tasks`,
+The plan-level review in `full` or `final` runs after every other card on the
+board is `done` or `split`, never merely after the last card selected by
+`--tasks`,
 `--epic`, or `--limit`. It catches integration and seams no single card's diff
 showed. Without a board, that is the one whole-plan review. For every enabled
 review, launch a **fresh independent agent**. A self-review does not satisfy the
@@ -336,8 +337,12 @@ explicit statement when no blocking findings remain.
 
 Before each review, record a content fingerprint for the reviewed state in
 `execution.md`. Include tracked changes, hashes of untracked files, and every
-substantive section of `execution.md`; exclude only the append-only
-`Adversarial reviews` section plus the `Status` and `Updated` fields. A `full`
+substantive section of `execution.md`; exclude the append-only
+`Adversarial reviews` section, the `Status` and `Updated` fields, and the
+plan folder's own append-only bookkeeping: `board-events.js`, which the gate
+card's own transitions change during the review it is fingerprinting, and this
+`execution.md`, which enters through its substantive sections and would
+otherwise be hashed twice. A `full`
 per-card fingerprint covers that card's `files` and only the `execution.md`
 entries naming that card. A `full` or `final` plan-level fingerprint covers the
 whole change and all of `execution.md`. Scoping the per-card fingerprint this
@@ -365,6 +370,98 @@ change after validation requires the affected validation to run again.
 When `full` or `final` requires a reviewer and the host cannot launch an
 independent agent, report that limitation and do not mark the work complete. Do
 not silently substitute another review method. `none` requires no agent.
+
+## The gate card
+
+A board written with a Review epic ends in one more card: the automatic final
+review of the whole plan. Its `files` is the plan's `execution.md`, and the
+protocol's ready-set condition 5 offers it only once every other card on the
+board is `done` or `split`, whenever those cards arrived. That card is the
+plan-level review, made visible on the board. Run the review on it, run no
+second plan-level review beside it, and no per-card review of the gate card
+itself. A board with no `review` epic keeps the plan-level review exactly as
+described above.
+
+In `none` mode the gate card carries no review, because that mode launches no
+reviewer. Move it straight from `in-progress` to `done` with `gate review
+omitted: review mode none` in the move's `note`, and record the same skip in
+`execution.md`. That is the review mode the user chose rather than an override,
+and it accepts no finding unfixed, because none was raised. A plan whose own
+text requires a final independent review still permits only `final` or `full`,
+decided under Choose the review mode from the plan rather than from the presence
+of a gate card.
+
+The gate card is also what makes the final review visible to
+`/qstack-plan-close`. That skill already refuses to write `outcome.md` while any
+card is open, so it needs no change of its own.
+
+Work this card yourself rather than dispatching a subagent for it: the two
+reviewers below are the only agents it launches, and neither writes. Move it
+through the protocol's The transitions, which holds it in `review` for the
+whole gate.
+
+Record the plan-level fingerprint defined in Run the selected adversarial
+reviews, then launch two fresh independent agents against that one fingerprint,
+both in one dispatch so they run concurrently:
+
+- a plan-adherence agent, scoring the implementation against the plan and
+  `execution.md` the way `/qstack-plan-adherence-review` does;
+- a code-review agent, reviewing the change itself the way `/qstack-review`
+  does.
+
+Both are fresh, and both read the same fingerprinted state. Give each the raw
+evidence listed above and require the same finding shape. Your own reading of
+the change satisfies neither of them.
+
+Give the code-review agent the change without the plan folder's own record:
+`execution.md`, `board-events.js`, and `outcome.md`. That record is the
+adherence agent's primary input, it grows every round, and `/qstack-review`
+requires a reviewer to read every file it is handed in full. Exclude those three
+by name rather than by folder, since the plan folder also holds real
+deliverables, and say in the brief that they were excluded so the omission is
+not read as a silent skip.
+
+Open no remediation card until both agents have reported: triaging the first
+while the second still runs spends rounds on findings the other may answer.
+Triage every finding yourself: a reviewer agent can be wrong, and a finding you
+reject is recorded in `execution.md` with the evidence that refutes it rather
+than discarded. The fix does not happen inline here: every P0 and
+P1 finding you accept becomes a remediation card in the `review` epic, worked
+like any other card. Record P2 findings in `execution.md` and open no card for
+them, because they block nothing.
+
+Write those cards yourself, under the protocol's Subagents never write. Each is
+a `created` event carrying `epic`, `title`, `points`, `refs`, `files`, and
+`depends_on`, taking the next free id under the protocol's Splitting, and each
+has to satisfy the ready set: non-empty `files`, and `points` in the closed set.
+Its `files` are the implementation paths the finding traces to, never
+`execution.md`, which the gate card owns for as long as it is live. Its
+`refs` are the `§` clauses the finding traces to. A finding whose only fix is in
+`execution.md` gets no card: fix it yourself under the gate card and record what
+changed in that card's own `note`, because a remediation card naming that path
+could never satisfy ready-set condition 3.
+
+Remediation changes fingerprinted content, so both agents run again on the new
+fingerprint under the rerun rule above. The card moves to `done` when one shared
+fingerprint carries a pass from both.
+
+### The override
+
+The gate card's only other route to `done` is an explicit human override.
+Nothing else closes it, and the protocol's The transitions is where that is
+stated, including why it is never split. Write
+one when a human instruction tells you to close the gate with findings
+outstanding: append a `note` on the card naming who overrode it, why, and every
+finding accepted unfixed, then the `moved` to `done` from whichever status the
+card is in, `review` if the round is still open and `blocked` if it was already
+parked, and record the same three facts in `execution.md`.
+
+Everything else leaves the card where it is. A review that keeps failing, a
+reviewer the host cannot launch, and a run that has spent its budget are each a
+question for a human, so park the card under the protocol's Park and continue
+with what it is waiting on in its `note`, and ask. The loop never writes an
+override for itself, and a stalled or repeatedly failing review is not
+permission to write one.
 
 ## Completion gate
 

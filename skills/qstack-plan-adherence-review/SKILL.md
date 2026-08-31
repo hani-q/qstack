@@ -117,7 +117,9 @@ Check the execution record and the board separately for:
 - approval claims with no recorded decision;
 - stale validation results or fingerprints;
 - a `complete` status that does not satisfy the plan's completion gate;
-- in `full` mode, cards at `done` with no per-card review recorded;
+- in `full` mode, cards at `done` with no per-card review recorded, excluding
+  the gate card of the `review` epic, which carries the plan-level review
+  instead of a per-card one;
 - in `full` or `final` mode, a missing or stale final review fingerprint;
 - in `none` mode, a missing explicit record that review was skipped;
 - a selected mode weaker than the minimum review required by the plan or

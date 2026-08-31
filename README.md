@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 23 skills into Claude Code, Codex, and any harness that
+result. QStack installs 24 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -27,6 +27,10 @@ to run before they change anything. Pick `/qstack-loop-no-nonsense` when the
 plan is the contract, or `/qstack-loop-trequartista` when the agent may adapt as
 long as it says so in writing. `/qstack-plan-adherence-review` then scores the
 outcome from 0 to 5 against the plan, the execution record, and the actual diff.
+`/qstack-review` answers the other question, whether the code is right, against
+a correctness baseline plus whatever `CODE_REVIEW_RULES.md` the repository
+keeps. It runs on a pull request or a branch with no plan behind it, and its
+score is arithmetic over the findings rather than a number a reviewer picks.
 
 **Memory that survives the session.** `/qstack-plan-close` writes what the work
 actually cost into `outcome.md`, and `/qstack-plan-prior-art` reads that folder
@@ -88,14 +92,22 @@ cards at once by default. Use `--parallel N` to change it, or `--parallel 1` for
 the old serial run.
 
 Before a new board execution starts, the loop asks for `final` review, `full`
-review, or `none`. `final`, the recommended choice, launches one fresh reviewer
-after all cards close. `full` also reviews every card against its own diff.
-`none` relies on validation and launches no reviewer. Without a board, the
-question combines `final` and `full` into one whole-plan-review choice because
-their cost is identical. Plan or repository review requirements remove any
-weaker choices. The Review board column remains visible and stays empty when
-per-card review is omitted. For automation, `--review full|final|none` supplies
-the mode without a prompt and is rejected when it violates those requirements.
+review, or `none`. `final`, the recommended choice, runs the whole-plan review
+once every implementation card has closed. `full` also reviews every card
+against its own diff. `none` relies on validation and launches no reviewer.
+Without a board, the question combines `final` and `full` into one
+whole-plan-review choice because their cost is identical. Plan or repository
+review requirements remove any weaker choices. For automation,
+`--review full|final|none` supplies the mode without a prompt and is rejected
+when it violates those requirements.
+
+Every board now ends with a Review epic holding one gate card: the whole-plan
+review, made visible so `/qstack-plan-close` can see whether it happened. It
+launches two fresh agents, one scoring plan adherence and one reviewing the
+code, against one shared fingerprint, and closes only when both pass or a human
+records an override naming what was accepted unfixed. Blocking findings become
+remediation cards beside it. The Review column therefore holds that card in
+`final` as well as `full`, and is empty only under `none`.
 
 ## Skills
 
@@ -114,6 +126,12 @@ are doing. Explicit skills run only when you type them.
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Build a requirement-to-evidence matrix from the plan, the execution record, and the real diff, then assign a guarded 0 to 5 adherence score. Report-only. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit | Fold the board, check nothing is still claimed or in flight, and write `outcome.md`: the delta between the plan and what actually happened. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit | Serve this repository's plan collection over HTTP, asking for the bind address and port instead of guessing your network exposure. |
+
+### Code review
+
+| Skill | Invocation | Purpose |
+| --- | --- | --- |
+| [`qstack-review`](skills/qstack-review/) | Explicit | Review a pull request, a branch against its base, or the working tree against a correctness baseline plus the repository's own `CODE_REVIEW_RULES.md`. Every finding carries a `path:line`, the consequence, and the smallest fix; the score is arithmetic over the severity counts, not chosen. Report-only. |
 
 ### Project reflection
 
@@ -267,7 +285,7 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 23 in total
+    ├── ...                          ← one directory per skill, 24 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
