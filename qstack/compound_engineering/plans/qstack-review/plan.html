@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en" data-theme="print">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>QStack review: a manual reviewer and a board-enforced final gate</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b1a2a'/%3E%3Crect x='12' y='12' width='40' height='40' fill='none' stroke='%23f2603f' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../.template/v1/plan.css">
+  <link rel="stylesheet" href="qstack-review.css">
+</head>
+<body>
+  <a class="skip" href="#doc">Skip to the plan</a>
+
+  <header class="doc-bar">
+    <div class="doc-bar-inner">
+      <p class="doc-id">
+        <b>QSTACK-REV-001</b>
+        <span class="doc-id-sep">/</span><span>rev 1</span>
+        <span class="doc-id-sep">/</span><span>approved</span>
+      </p>
+      <nav class="doc-bar-nav" aria-label="Sections">
+        <a href="#problem">Problem</a>
+        <a href="#shape">Shape</a>
+        <a href="#design">Design</a>
+        <a href="#gate">Gate</a>
+      </nav>
+      <nav class="doc-bar-views" data-view-switch aria-label="View">
+        <a href="#doc" aria-current="true">Plan</a>
+        <a href="#board" aria-current="false">Board</a>
+      </nav>
+      <button class="doc-tool" type="button" data-theme-toggle aria-label="Switch between print and vellum">◐</button>
+      <button class="doc-tool wide" type="button" data-print aria-label="Print this plan">PRINT</button>
+    </div>
+  </header>
+
+  <header class="title-block">
+    <div class="title-block-kicker">
+      <span class="label">Product and execution plan</span>
+      <span class="num">QSTACK-REV-001</span>
+    </div>
+    <h1>A manual code reviewer that works in any repository, and a final review the board refuses to skip.</h1>
+    <p class="title-block-abstract">
+      QStack gains <code>/qstack-review</code>: a manual, report-only reviewer
+      that reads a diff, applies a generic correctness baseline distilled from
+      1,620 real review findings, layers the repository's own
+      <code>CODE_REVIEW_RULES.md</code> on top, and reports findings with a
+      score computed from their severities. It writes nothing and posts nothing;
+      the caller owns delivery. Alongside it, plan breakdown gains one Review
+      epic holding a single final gate card, so the whole-plan review that both
+      execution loops already run becomes a card
+      <code>/qstack-plan-close</code> can see.
+    </p>
+
+    <dl class="fields">
+      <div class="field"><dt>Document</dt><dd>QSTACK-REV-001</dd></div>
+      <div class="field"><dt>Revision</dt><dd>1</dd></div>
+      <div class="field" data-status="locked"><dt>Status</dt><dd><span class="stamp">Approved</span></dd></div>
+      <div class="field"><dt>Owner</dt><dd>QStack maintainer</dd></div>
+      <div class="field"><dt>Issued</dt><dd>2026-08-29</dd></div>
+      <div class="field"><dt>Supersedes</dt><dd>None</dd></div>
+      <div class="field"><dt>Sheets</dt><dd>10</dd></div>
+      <div class="field"><dt>Ships when</dt><dd class="free">
+        <code>/qstack-review</code> runs in Claude and Codex with matching
+        manual-only invocation, produces a report with a computed score in a
+        repository with and without a rules file, breakdown writes the final
+        gate card, both loops drive it, and every repository validator passes.
+      </dd></div>
+    </dl>
+  </header>
+
+  <div class="doc-body" id="doc">
+    <aside class="spine">
+      <p class="label spine-title">Contents</p>
+      <nav data-spine aria-label="Plan contents"></nav>
+      <div class="spine-legend" data-spine-legend></div>
+    </aside>
+
+    <main>
+
+      <!-- ============================== PART I ============================= -->
+
+      <section class="sheet" id="problem" data-title="The problem" data-status="locked" data-part="hld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">The problem</span></p>
+            <h2>The review that matters most is the one nothing checks happened.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          Two problems, one shared cause. A paid reviewer is being replaced, and
+          QStack's own strongest review is enforced by nothing but the good
+          manners of the agent running it.
+        </p>
+
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>A reviewer that repeats what you already rejected costs more than no reviewer</h3>
+              <p>
+                A year of a paid reviewer's output across a private
+                organisation was extracted and normalised: 478 pull requests,
+                1,620 findings.
+                The corpus is good. It found a container whose
+                <code>ENTRYPOINT</code> did not exist, integer overflow inside a
+                bounds check, a mutex held across a 100 ms spin-wait, and a test
+                watching the <code>sudo</code> wrapper instead of the process it
+                claimed to verify. It also shows what the replacement has to get
+                right: of 1,620 findings only 78 drew any human reply, and only
+                12 were explicit dismissals. There is no large ignore list to
+                learn from, so a reviewer that guesses at what to suppress will
+                guess wrong.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>No topic is safe to ignore, so suppression has to be evidence-bound</h3>
+              <p>
+                The obvious design is a list of subjects the reviewer stays
+                quiet about. The data refuses it. Every dismissal in the corpus
+                was dismissed for a specific, checkable reason: a companion pull
+                request in a sibling repository landed the other half, an import
+                already existed outside the diff excerpt, two producers really
+                do use different field names. Each one is a rule about
+                <em>what to verify before flagging</em>, not a subject to skip.
+                Documentation, tests, performance, and build code all look like
+                noise in aggregate and all contain real defects in this corpus.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The whole-plan review is a procedural gate, not an enforced one</h3>
+              <p>
+                Both execution loops already run a fresh independent review per
+                card and one more across the whole plan after the last card
+                closes
+                (<code>skills/qstack-loop-no-nonsense/SKILL.md:210</code>).
+                The loop refuses to mark itself complete while a blocking
+                finding stands. But <code>/qstack-plan-close</code> checks
+                something else entirely: that every card is <code>done</code> or
+                <code>split</code> and the board stood down
+                (<code>skills/qstack-plan-close/SKILL.md:105</code>). The final
+                review leaves no card, so nothing outside the loop's own
+                paragraph can tell whether it ran.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>There is no way to ask for a review outside a plan</h3>
+              <p>
+                Every review QStack performs today happens inside an execution
+                loop. A branch worked by hand, a pull request opened without a
+                plan, or a diff someone wants a second opinion on has no
+                entry point.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="sheet" id="shape" data-title="The shape of the answer" data-status="locked" data-part="hld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">The shape of the answer</span></p>
+            <h2>One skill that only reports, and one card the board cannot lose.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          The reviewer reads two layers of rules and emits findings. A table
+          turns those findings into a number. Everything that touches the
+          outside world belongs to whoever called the skill.
+        </p>
+
+        <div class="plate breakout">
+          <div class="plate-head">
+            <div><span class="label">Review pipeline</span><h3>Diff in, report out, nothing else moves</h3></div>
+            <span class="stamp" data-status="ref">Reference</span>
+          </div>
+          <div class="rail">
+            <article class="rail-node" data-status="ref">
+              <span class="label">Input</span>
+              <h3>Scope</h3>
+              <p>A pull request, a branch against its base, or the working tree.</p>
+            </article>
+            <span class="rail-link" aria-hidden="true"></span>
+            <article class="rail-node" data-status="locked">
+              <span class="label">Layer 1</span>
+              <h3>Generic baseline</h3>
+              <p>Correctness lessons that hold in any repository, carried in the skill.</p>
+            </article>
+            <span class="rail-link" aria-hidden="true"></span>
+            <article class="rail-node" data-status="locked">
+              <span class="label">Layer 2</span>
+              <h3><code>CODE_REVIEW_RULES.md</code></h3>
+              <p>This repository's own Flag and Leave-alone rules, when it has them.</p>
+            </article>
+            <span class="rail-link" aria-hidden="true"></span>
+            <article class="rail-node" data-status="locked">
+              <span class="label">Output</span>
+              <h3>Findings, then a score</h3>
+              <p>Severities counted into a number by a fixed table.</p>
+            </article>
+            <span class="rail-link" aria-hidden="true"></span>
+            <article class="rail-node" data-status="gate">
+              <span class="label">Caller</span>
+              <h3>Delivery</h3>
+              <p>Posting, cards, and checks belong to whoever ran the skill.</p>
+            </article>
+          </div>
+          <div class="key">
+            <span class="stamp" data-status="ref">Reference</span>
+            <span class="stamp" data-status="locked">Locked</span>
+            <span class="stamp" data-status="gate">Outside the skill</span>
+          </div>
+        </div>
+
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>Two layers of rules, one reviewer</h3>
+              <p>
+                The skill carries a generic baseline so it is useful in a
+                repository that has never heard of it. A repository that wants
+                more writes <code>CODE_REVIEW_RULES.md</code> at its root: its
+                own Flag rules<span class="eli"><button class="eli-mark" type="button"
+                  aria-label="Explain: Flag rule">i</button><span class="eli-body" role="note">
+                  <b>Flag rule</b>
+                  A standing instruction that says "if you see this, say
+                  something, and here is how serious it is." Like a house rule
+                  on a fridge door: everyone new reads the same list instead of
+                  learning it by getting told off.
+                </span></span> and its own Leave-alone rules. Layer 2 wins on
+                its own subjects and adds to layer 1 everywhere else.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The score is arithmetic over findings, never an opinion</h3>
+              <p>
+                The reviewer is never asked for a number. It produces findings
+                with severities, and a fixed table turns the counts into 1 to 5.
+                "5/5" therefore means exactly one thing: no P0 and no P1
+                findings. This is the whole defence against a reviewer that
+                learns a high score is wanted and starts producing one.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The reviewer has no side effects</h3>
+              <p>
+                It reads, it reports, and it stops. It does not comment on a
+                pull request, write a card, edit a file, or commit. That keeps
+                one skill honest across every context it runs in: the same
+                report whether a person asked for it locally, an execution loop
+                asked for it, or something automated does later.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The final review becomes one card, so the existing close rule catches it</h3>
+              <p>
+                Breakdown writes one extra epic holding a single gate
+                card<span class="eli"><button class="eli-mark" type="button"
+                  aria-label="Explain: gate card">i</button><span class="eli-body" role="note">
+                  <b>Gate card</b>
+                  A card that represents a check rather than a piece of
+                  building. Like the final inspection on a building site:
+                  nothing else is left to construct, but the job is not finished
+                  until somebody signs it off, and the sign-off is itself a task
+                  on the list.
+                </span></span> that depends on every implementation card. The
+                loop moves it. <code>/qstack-plan-close</code> already refuses
+                to close a plan with an open card, so it needs no new rule and
+                gains a real one.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="sheet" id="user-change" data-title="What changes for the user" data-status="locked" data-part="hld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">What changes for the user</span></p>
+            <h2>One new command, and a plan that cannot close unreviewed.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="plate">
+            <div class="plate-head">
+              <div><span class="label">Today</span><h3>Reviewing a pull request</h3></div>
+              <span class="stamp" data-status="ref">Now</span>
+            </div>
+            <p>
+              A paid third-party bot reviews it, or nobody does. Findings arrive
+              as comments. The subscription covers repositories whose reviews
+              are almost always 4/5 or 5/5.
+            </p>
+          </div>
+          <div class="plate">
+            <div class="plate-head">
+              <div><span class="label">After</span><h3>Reviewing a pull request</h3></div>
+              <span class="stamp" data-status="locked">Then</span>
+            </div>
+            <p>
+              You open the pull request, then run <code>/qstack-review</code> in
+              a local session. It reports findings and a computed score against
+              the exact head commit. You decide what to post.
+            </p>
+          </div>
+          <div class="plate">
+            <div class="plate-head">
+              <div><span class="label">Today</span><h3>Finishing a plan</h3></div>
+              <span class="stamp" data-status="ref">Now</span>
+            </div>
+            <p>
+              The loop runs a whole-plan review and says so in
+              <code>execution.md</code>. <code>/qstack-plan-close</code> counts
+              cards and closes the plan. A skipped final review looks identical
+              to a passed one from outside the loop.
+            </p>
+          </div>
+          <div class="plate">
+            <div class="plate-head">
+              <div><span class="label">After</span><h3>Finishing a plan</h3></div>
+              <span class="stamp" data-status="locked">Then</span>
+            </div>
+            <p>
+              The board carries a final gate card. It sits in
+              <code>review</code> until a fresh plan-adherence agent and a fresh
+              code-review agent both pass at the same fingerprint. An open gate
+              stops <code>/qstack-plan-close</code> by the rule it already has.
+            </p>
+          </div>
+        </div>
+
+        <div class="plate breakout" data-status="ref">
+          <div class="plate-head">
+            <div><span class="label">Playground</span><h3>What a score means, in the only way it can be produced</h3></div>
+            <span class="stamp" data-status="ref">Reference</span>
+          </div>
+          <p>
+            Move the counts. The number is the table in §7.2 and nothing else:
+            there is no judgement step where a reviewer decides the work "feels
+            like a four".
+          </p>
+
+          <div class="sc" data-score-calc>
+            <div class="sc-controls">
+              <div class="sc-row" data-status="gate">
+                <span class="label">P0</span>
+                <input type="range" min="0" max="4" step="1" value="0" data-sc="p0"
+                       aria-label="Number of P0 findings">
+                <output data-sc-out="p0">0</output>
+              </div>
+              <div class="sc-row" data-status="open">
+                <span class="label">P1</span>
+                <input type="range" min="0" max="8" step="1" value="0" data-sc="p1"
+                       aria-label="Number of P1 findings">
+                <output data-sc-out="p1">0</output>
+              </div>
+              <div class="sc-row" data-status="ref">
+                <span class="label">P2</span>
+                <input type="range" min="0" max="12" step="1" value="0" data-sc="p2"
+                       aria-label="Number of P2 findings">
+                <output data-sc-out="p2">0</output>
+              </div>
+            </div>
+
+            <div class="sc-readout" data-sc-readout data-status="locked">
+              <p class="label">Computed score</p>
+              <p class="sc-score" data-sc-score>5/5</p>
+              <p class="sc-because" data-sc-because>
+                Row: <b>no P0 and no P1</b>. P2 findings never move the number,
+                so 0 of them still reads 5/5.
+              </p>
+            </div>
+          </div>
+
+          <div class="matrix-scroll">
+            <table class="matrix sc-static">
+              <caption class="label">The same table, worked through by hand</caption>
+              <thead>
+                <tr><th>P0</th><th>P1</th><th>P2</th><th>Score</th><th>Row that decided it</th></tr>
+              </thead>
+              <tbody>
+                <tr data-status="gate"><td>2</td><td>0</td><td>0</td><td>1/5</td><td>more than one P0</td></tr>
+                <tr data-status="gate"><td>1</td><td>6</td><td>3</td><td>2/5</td><td>any P0</td></tr>
+                <tr data-status="open"><td>0</td><td>4</td><td>0</td><td>3/5</td><td>three or more P1</td></tr>
+                <tr data-status="open"><td>0</td><td>1</td><td>9</td><td>4/5</td><td>one P1</td></tr>
+                <tr data-status="locked"><td>0</td><td>0</td><td>7</td><td>5/5</td><td>no P0 and no P1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="sheet" id="options" data-title="Options and the recommendation" data-status="locked" data-part="hld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Options and the recommendation</span></p>
+            <h2>Four choices, and the reason each other one was dropped.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+
+        <div class="matrix-scroll">
+          <table class="matrix">
+            <thead>
+              <tr><th>Decision</th><th>Option</th><th>What it costs</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr data-status="locked">
+                <td>Where review runs</td>
+                <td><b>Picked:</b> a local session on demand, against the exact head commit.</td>
+                <td>A person has to ask, and has to ask again after a push.</td>
+                <td>Locked</td>
+              </tr>
+              <tr data-status="deferred">
+                <td>Where review runs</td>
+                <td>A hosted workflow triggered by a comment, posting a check per commit.</td>
+                <td>Researched in full and parked: it needs a paid GitHub plan for required checks on a private organisation repository, and a shared credential on a runner.</td>
+                <td>Deferred</td>
+              </tr>
+              <tr data-status="locked">
+                <td>Where the score comes from</td>
+                <td><b>Picked:</b> a fixed table over finding counts.</td>
+                <td>A blunt scale. Six P2 findings and none read the same.</td>
+                <td>Locked</td>
+              </tr>
+              <tr data-status="deferred">
+                <td>Where the score comes from</td>
+                <td>Ask the reviewer for a 1 to 5 judgement.</td>
+                <td>Rejected. A number that a gate reads and a model produces drifts toward whatever passes.</td>
+                <td>Rejected</td>
+              </tr>
+              <tr data-status="locked">
+                <td>How the board carries review</td>
+                <td><b>Picked:</b> one atomic gate card, both reviews behind it.</td>
+                <td>The card is coarse: a reader sees "review open", not which half failed.</td>
+                <td>Locked</td>
+              </tr>
+              <tr data-status="deferred">
+                <td>How the board carries review</td>
+                <td>Two cards, one for plan adherence and one for code review.</td>
+                <td>Rejected. They must agree on one fingerprint; two cards can close against two different trees.</td>
+                <td>Rejected</td>
+              </tr>
+              <tr data-status="deferred">
+                <td>How the board carries review</td>
+                <td>Code-review every card as it settles.</td>
+                <td>Rejected. Cross-card defects are invisible card by card, later cards rewrite earlier code, and every review is a fresh agent, so the cost multiplies by card count.</td>
+                <td>Rejected</td>
+              </tr>
+              <tr data-status="locked">
+                <td>How the skill is invoked</td>
+                <td><b>Picked:</b> manual only, in both Claude and Codex.</td>
+                <td>You have to remember it exists.</td>
+                <td>Locked</td>
+              </tr>
+              <tr data-status="deferred">
+                <td>How the skill is invoked</td>
+                <td>Let the agent choose to review on its own.</td>
+                <td>Rejected. Review is expensive and self-selected review is exactly the self-review the loops already forbid.</td>
+                <td>Rejected</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="sheet" id="cost" data-title="Cost and risk" data-status="locked" data-part="hld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Cost and risk</span></p>
+            <h2>Small to build, and three ways it could quietly stop being worth running.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          This plan is documents and skill text. It writes no runtime code and
+          adds no dependency. The risk is not in the build; it is in whether the
+          reviewer stays trusted after twenty runs.
+        </p>
+
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>Cost</h3>
+              <p>
+                Six phases across roughly a dozen files, all Markdown and YAML.
+                No new dependency, no network call, and no paid API: a review
+                spends the subscription session that runs it. The one number
+                worth watching is the neighbouring plan in this repository,
+                which closed 196 points against 100 planned
+                (a neighbouring plan in the private repository). Plan text is cheaper than that plan's C and Go, but
+                the ratio is a warning against a confident estimate.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Risk: the reviewer learns what the gate wants</h3>
+              <p>
+                The score gates a plan's close, so pressure toward a passing
+                number exists whether or not anyone intends it. Two defences:
+                the number is computed from counts rather than asked for, and
+                the reviewer prompt never mentions that a gate reads it.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Risk: the generic baseline goes stale or grows into a linter</h3>
+              <p>
+                The baseline is distilled from one organisation's corpus at one
+                point in time, and under DQ-006 it may not name that corpus, so a
+                reader here cannot check a rule against its evidence. Left alone
+                it drifts; fed every new lesson it becomes a list nobody reads.
+                The report's Rules delta section is the pressure valve: a
+                proposed rule lands in the repository's own file, where it can be
+                specific and can cite evidence that repository is allowed to
+                hold, rather than in the host-neutral baseline.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Risk: an atomic gate hides which half failed</h3>
+              <p>
+                One card covering plan adherence and code review reads as a
+                single "open" on the board. The remediation cards it spawns
+                carry the detail, and the report in <code>execution.md</code>
+                carries the rest. Accepted as the price of one shared
+                fingerprint.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="note" data-status="locked">
+          <span class="label">Settled · DQ-006</span>
+          <p>
+            The evidence behind the baseline is committed to the private
+            repository it was mined from, not here. This repository is public, so every rule in
+            §7.4 and §7.5 is written to stand without naming a repository, a
+            pull request, or a finding.
+          </p>
+        </div>
+
+        <div class="note" data-status="locked">
+          <span class="label">Settled · DQ-007</span>
+          <p>
+            A gate card that never passes is closable by an explicit human
+            override, recorded on the board as a note naming who overrode it and
+            what was accepted unfixed. No loop may write one.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================== PART II ============================ -->
+
+      <header class="part-break">
+        <p class="label">Part II</p>
+        <h2>Low-level design</h2>
+        <p class="sheet-lede">From here on the document addresses an implementer.</p>
+      </header>
+
+      <section class="sheet" id="architecture" data-title="Current-system architecture" data-status="ref" data-part="lld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Current-system architecture</span></p>
+            <h2>What already exists, with the lines that prove it.</h2>
+          </div>
+          <span class="stamp">Reference</span>
+        </div>
+        <p class="sheet-lede">
+          Every claim below was read in this checkout. Line numbers are from the
+          branch this plan was written on.
+        </p>
+
+        <div class="rail breakout">
+          <article class="rail-node" data-status="ref">
+            <span class="label">Discovery</span>
+            <h3><code>install:147-156</code></h3>
+            <p>Every <code>skills/&lt;name&gt;/SKILL.md</code> is a skill. No registry to edit.</p>
+          </article>
+          <span class="rail-link" aria-hidden="true"></span>
+          <article class="rail-node" data-status="ref">
+            <span class="label">Invocation</span>
+            <h3><code>SKILL.md</code> + <code>agents/openai.yaml</code></h3>
+            <p>Frontmatter is the source of truth; the YAML mirrors it for Codex.</p>
+          </article>
+          <span class="rail-link" aria-hidden="true"></span>
+          <article class="rail-node" data-status="ref">
+            <span class="label">Execution</span>
+            <h3>Both loops</h3>
+            <p>Per-card review, then one whole-plan review after the last card.</p>
+          </article>
+          <span class="rail-link" aria-hidden="true"></span>
+          <article class="rail-node" data-status="ref">
+            <span class="label">Board</span>
+            <h3><code>board-events.js</code></h3>
+            <p>Append-only events folded into lanes and six status columns.</p>
+          </article>
+          <span class="rail-link" aria-hidden="true"></span>
+          <article class="rail-node" data-status="gate">
+            <span class="label">Close</span>
+            <h3><code>/qstack-plan-close</code></h3>
+            <p>Refuses while any card is open. Never looks at a review.</p>
+          </article>
+        </div>
+
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>A skill is a directory, and that is the whole registration</h3>
+              <p>
+                <code>install:147-156</code> treats every directory under
+                <code>skills/</code> holding a <code>SKILL.md</code> as a skill,
+                which is the layout skills.sh discovers. Adding
+                <code>skills/qstack-review/</code> is therefore the entire
+                registration step. The installer refuses to create global links
+                from a linked worktree
+                (<code>install:125-136</code>), so installation happens from the
+                primary checkout, not from this workspace.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Invocation mode is declared twice and validated once</h3>
+              <p>
+                <code>SKILL.md</code> frontmatter is the source of truth: no
+                <code>disable-model-invocation</code> means the agent may select
+                the skill itself, and <code>true</code> means manual only. Each
+                skill's <code>agents/openai.yaml</code> mirrors that through
+                <code>policy.allow_implicit_invocation</code>, and
+                <code>scripts/validate-skill-invocation</code> rejects
+                disagreement.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The loops already review twice, and the second review leaves no card</h3>
+              <p>
+                <code>skills/qstack-loop-no-nonsense/SKILL.md:207</code> requires
+                a fresh independent agent, and <code>:210</code> splits that into
+                a per-card review scoped to the card's diff and cited clauses,
+                plus one plan-level review after the last card closes. The
+                trequartista loop carries the same contract at
+                <code>skills/qstack-loop-trequartista/SKILL.md:226</code>. The
+                plan-level review's only trace is prose in
+                <code>execution.md</code>.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Close counts cards, and a review is not a card</h3>
+              <p>
+                <code>skills/qstack-plan-close/SKILL.md:105-107</code> requires
+                every card in the fold to be <code>done</code> or
+                <code>split</code>, and the board to be stood down. Give the
+                final review a card and this existing rule enforces it, with no
+                change to the close skill at all.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Subagents never write to the board</h3>
+              <p>
+                <code>skills/qstack-plan-to-html/references/board-protocol.md:155</code>
+                is explicit: the orchestrator owns the card and writes every
+                event, including on a subagent's behalf. The review agents this
+                plan launches are subagents, so the loop writes the gate card's
+                events and creates any remediation cards.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Severity language already exists in this stack's review records</h3>
+              <p>
+                The private repository's execution records already grade
+                adversarial review findings as P0, P1, and P2, for example
+                "Round-1 whole-plan review: one P1 and six P2"
+                (a shipped plan's execution record there). The mined corpus uses the same three letters. The
+                scheme in this plan is therefore adopted, not invented.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="refs">
+          <div class="ref"><span class="num">R1</span><p><code>plans/qstack-skill-expansion/plan.html:450</code> locks skill discovery by directory, with no separate registry. This plan adds a directory and nothing else.</p></div>
+          <div class="ref"><span class="num">R2</span><p><code>plans/qstack-skill-expansion/plan.html:511</code> locks <code>SKILL.md</code> as the single invocation source with <code>agents/openai.yaml</code> mirroring it, and forbids a separate policy manifest.</p></div>
+          <div class="ref"><span class="num">R3</span><p><code>plans/qstack-skill-expansion/plan.html:517</code> keeps the installed skill-creator validator and pinned <code>skills-ref</code> authoritative for every skill definition.</p></div>
+          <div class="ref"><span class="num">R4</span><p><code>plans/qstack-skill-expansion/plan.html:529</code> locks host-neutral skill text: no fixed model names and no vendor-specific tooling.</p></div>
+          <div class="ref"><span class="num">R5</span><p><code>plans/qstack-skill-expansion/plan.html:535</code> locks one execution truth: durable evidence goes in <code>execution.md</code>, and a new skill does not create a competing audit file.</p></div>
+          <div class="ref"><span class="num">R6</span><p><code>plans/qstack-skill-expansion/plan.html:541</code> locks that analysis grants no permission to edit, commit, push, publish, or deploy. The report-only contract in §7.6 is this rule applied.</p></div>
+          <div class="ref"><span class="num">R7</span><p>A neighbouring plan in the private repository records 196 points closed against 100 planned, the estimate-moving fact behind §5.1.</p></div>
+          <div class="ref"><span class="num">R8</span><p><code>AGENTS.md</code> and <code>GENERAL_INSTRUCTIONS.md</code> already bind agent behaviour and writing style in this repository; the new skill text follows them rather than restating them.</p></div>
+        </div>
+      </section>
+
+      <section class="sheet" id="design" data-title="The design" data-status="locked" data-part="lld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">The design</span></p>
+            <h2>One new skill directory, one new epic, two loop edits.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          Nothing here introduces a component, dependency, or abstraction. Every
+          piece is a file in a layout the installer and the board already read.
+        </p>
+
+        <div class="clauses">
+          <article class="clause">
+            <div>
+              <h3>The skill directory</h3>
+              <p>
+                <code>skills/qstack-review/SKILL.md</code> plus
+                <code>skills/qstack-review/agents/openai.yaml</code>. Frontmatter
+                carries <code>disable-model-invocation: true</code>, and the
+                YAML carries <code>policy.allow_implicit_invocation: false</code>
+                to match, which is what
+                <code>scripts/validate-skill-invocation</code> checks. Manual
+                only, in both hosts, because review is expensive and an agent
+                choosing to review its own work is the self-review the loops
+                already reject. The name does not collide: the two review skills
+                in the wider installed catalog are <code>/review</code> and
+                <code>/code-review</code>, and QStack prefixes its own. The
+                description says what this one adds, so a reader can choose.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Severity and the score table</h3>
+              <p>
+                Three severities. <b>P0</b>: merged as written it breaks
+                production. <b>P1</b>: a real defect, or a violation of a Flag
+                rule. <b>P2</b>: an improvement that never blocks. The score is
+                the first matching row of: more than one P0 gives 1; any P0
+                gives 2; three or more P1 gives 3; one or two P1 gives 4;
+                otherwise 5. A repository's own rules file may replace this
+                table, and layer 2 wins when it does.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>Rules discovery</h3>
+              <p>
+                Read <code>CODE_REVIEW_RULES.md</code> at the repository root
+                when it exists, then any <code>CODE_REVIEW_RULES.md</code> in a
+                directory containing changed files. A nested file applies only
+                below its own directory and may add Flag and Leave-alone rows;
+                it may not change severity definitions or the score table. With
+                no rules file anywhere, the generic baseline runs alone and the
+                report says so, so a reader can tell an unruled repository from
+                a clean one.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The generic baseline</h3>
+              <p>
+                Six correctness invariants, each distilled from findings in the
+                mined corpus and each stated as a thing to check rather than a
+                subject to worry about. A valid domain value must not double as
+                a missing-or-error sentinel. A buffer, cursor, registry, or
+                thread slot used across calls needs a named owner, a progress
+                invariant, and a shutdown order. A test must observe the process,
+                bytes, or registry it claims to verify. Parser or compiler
+                lowering must not silently discard, reinterpret, or accept-as-empty
+                a supported construct. A public endpoint must authenticate
+                sensitive data, constrain origins, and take rate-limit identity
+                only from a trusted proxy chain. A packaging, container, or
+                wrapper change must trace its declared paths and entry points
+                through the artifact that actually ships.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The generic Leave-alone rules are verification duties, not subjects</h3>
+              <p>
+                Three, and each names what to check before flagging. Before
+                calling an import, symbol, path, or branch absent, read the whole
+                current file and tree rather than the diff excerpt. Do not call a
+                shortened wait unsafe when an explicit tested readiness signal now
+                orders the work. Leave a strict guard alone when a public
+                contract, its documented development path, and rejection tests
+                show the strictness is deliberate. Each carries its verification
+                step, because "intentional" without evidence is not a reason.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The report, and the report only</h3>
+              <p>
+                One report: the scope reviewed including the exact commit,
+                findings worst first with severity and <code>file:line</code>,
+                the computed score with its counts, and a Rules delta section
+                proposing Flag or Leave-alone rows for the repository's own file.
+                No file is written, no comment posted, no card appended. Inside
+                planned work the durable record stays
+                <code>execution.md</code>; this skill creates no second audit
+                file.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The Review epic and its one card</h3>
+              <p>
+                Breakdown writes a final epic after the build-order epics,
+                holding exactly one card: the automatic final review. Its
+                <code>depends_on</code> lists every implementation card. Its
+                <code>files</code> is the plan's <code>execution.md</code>, which
+                is where its result is written, and the dependency edges make that
+                ownership safe. Its <code>refs</code> cite the plan's release-gate
+                clauses. Points are 3.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>What the gate card does when the loop reaches it</h3>
+              <p>
+                The loop takes a fingerprint of the whole change, launches a
+                fresh plan-adherence agent and a fresh code-review agent against
+                that same fingerprint, and holds the card in
+                <code>review</code>. Every P0 and P1 finding becomes a
+                remediation card in the same epic. P2 findings are recorded and
+                block nothing. After remediation the fingerprint has changed, so
+                both agents run again on the new one. The card moves to
+                <code>done</code> when both pass at one shared fingerprint, or on
+                an explicit human override recorded as a board note naming who
+                overrode it and every finding accepted unfixed (DQ-007). A loop
+                never writes that override for itself.
+              </p>
+            </div>
+          </article>
+          <article class="clause">
+            <div>
+              <h3>The per-card review is unchanged</h3>
+              <p>
+                Cards still settle through the existing combined per-card review.
+                This plan adds nothing there. The final gate exists for what a
+                card-scoped diff cannot show: interactions between cards, and
+                code an earlier card wrote that a later card rewrote.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="plate breakout">
+          <div class="plate-head">
+            <div><span class="label">Gate lifecycle</span><h3>Where the card sits, and what moves it</h3></div>
+            <span class="stamp" data-status="locked">Locked</span>
+          </div>
+          <svg class="gate-svg" viewBox="0 0 960 300" role="img"
+               aria-label="Implementation cards close, then the final gate card takes a fingerprint, runs two fresh review agents, spawns remediation cards for blocking findings, and only closes when both agents pass at one shared fingerprint.">
+            <title>The final gate card lifecycle</title>
+
+            <rect class="box" x="16" y="112" width="150" height="64" rx="4"/>
+            <text class="t" x="91" y="139" text-anchor="middle">every impl</text>
+            <text class="t" x="91" y="157" text-anchor="middle">card done</text>
+
+            <path class="link" d="M166 144 H214"/>
+            <path class="link" d="M204 138 L214 144 L204 150 Z"/>
+
+            <rect class="box-sig" data-status="open" x="214" y="100" width="170" height="88" rx="4"/>
+            <text class="t-sig" data-status="open" x="299" y="130" text-anchor="middle">GATE CARD</text>
+            <text class="t-small" x="299" y="150" text-anchor="middle">status: review</text>
+            <text class="t-small" x="299" y="168" text-anchor="middle">fingerprint taken</text>
+
+            <path class="link" d="M384 122 H452"/>
+            <path class="link" d="M442 116 L452 122 L442 128 Z"/>
+            <path class="link" d="M384 166 H452"/>
+            <path class="link" d="M442 160 L452 166 L442 172 Z"/>
+
+            <rect class="box" x="452" y="88" width="196" height="60" rx="4"/>
+            <text class="t" x="550" y="112" text-anchor="middle">fresh adherence</text>
+            <text class="t" x="550" y="130" text-anchor="middle">agent</text>
+
+            <rect class="box" x="452" y="152" width="196" height="60" rx="4"/>
+            <text class="t" x="550" y="176" text-anchor="middle">fresh code-review</text>
+            <text class="t" x="550" y="194" text-anchor="middle">agent</text>
+
+            <path class="link-sig" data-status="gate" d="M550 212 V258 H299 V188"/>
+            <path class="link-sig" data-status="gate" d="M293 198 L299 188 L305 198 Z"/>
+            <text class="t-small" x="424" y="276" text-anchor="middle">P0 or P1: remediation cards, then a new fingerprint</text>
+
+            <path class="link" d="M648 118 H716 V140"/>
+            <path class="link" d="M648 182 H716 V148"/>
+            <path class="link" d="M716 144 H772"/>
+            <path class="link" d="M762 138 L772 144 L762 150 Z"/>
+
+            <rect class="box-sig" data-status="locked" x="772" y="112" width="172" height="64" rx="4"/>
+            <text class="t-sig" data-status="locked" x="858" y="139" text-anchor="middle">both pass, one</text>
+            <text class="t-sig" data-status="locked" x="858" y="157" text-anchor="middle">fingerprint: done</text>
+          </svg>
+          <div class="key">
+            <span class="stamp" data-status="open">Held in review</span>
+            <span class="stamp" data-status="gate">Blocking findings</span>
+            <span class="stamp" data-status="locked">Closed</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="sheet" id="build" data-title="Build order" data-status="locked" data-part="lld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Build order</span></p>
+            <h2>Each phase leaves the repository installable and its validators green.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+
+        <div class="phases">
+          <article class="phase">
+            <span class="num">00</span>
+            <h3>Freeze the inputs</h3>
+            <div>
+              <p>
+                Record in <code>execution.md</code> that the baseline was
+                distilled from the corpus held in the private repository,
+                then check every baseline rule for a repository name,
+                pull-request number, finding identifier, or defect described
+                closely enough to identify one. This repository is public; that
+                check is the whole phase.
+              </p>
+              <div class="tags"><span class="tag">decision record</span><span class="tag">de-identified</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">01</span>
+            <h3>Write the skill</h3>
+            <div>
+              <p>
+                <code>skills/qstack-review/SKILL.md</code> and its
+                <code>agents/openai.yaml</code>: the severity definitions, the
+                score table, rules discovery, the generic baseline, the
+                Leave-alone verification duties, and the report format. Manual
+                invocation declared in both files.
+              </p>
+              <div class="tags"><span class="tag">SKILL.md</span><span class="tag">openai.yaml</span><span class="tag">manual only</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">02</span>
+            <h3>Teach breakdown the Review epic</h3>
+            <div>
+              <p>
+                Extend
+                <code>skills/qstack-plan-to-html/references/board-breakdown.md</code>
+                so every breakdown writes the final Review epic and its single
+                gate card, with the <code>depends_on</code>, <code>files</code>,
+                <code>refs</code> and points contract from §7.7, and add it to
+                the checks that run before the first append.
+              </p>
+              <div class="tags"><span class="tag">board-breakdown</span><span class="tag">one card</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">03</span>
+            <h3>Teach both loops to drive the gate</h3>
+            <div>
+              <p>
+                In <code>qstack-loop-no-nonsense</code> and
+                <code>qstack-loop-trequartista</code>: hold the gate card in
+                <code>review</code>, run the two fresh agents at one
+                fingerprint, open remediation cards for P0 and P1 findings, and
+                close the card when both pass at a shared fingerprint. Both
+                skills carry the same sentence forbidding a loop from writing its
+                own override, so a stalled review is never read as permission.
+                The per-card review text does not change.
+              </p>
+              <div class="tags"><span class="tag">both loops</span><span class="tag">fingerprint</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">04</span>
+            <h3>Publish the catalog entries</h3>
+            <div>
+              <p>
+                Add the skill to <code>README.md</code>, the QStack block in
+                <code>GENERAL_INSTRUCTIONS.md</code> that the installer
+                synchronizes into both global instruction files, and
+                <code>CHANGELOG.md</code>. Confirm <code>/qstack</code> and
+                <code>/qstack-next</code> list it, since both read the installed
+                skills at run time rather than a stored list.
+              </p>
+              <div class="tags"><span class="tag">README</span><span class="tag">general instructions</span><span class="tag">changelog</span></div>
+            </div>
+          </article>
+          <article class="phase">
+            <span class="num">05</span>
+            <h3>Validate</h3>
+            <div>
+              <p>
+                Run <code>scripts/validate-skill-invocation</code>,
+                <code>scripts/validate-template-sync</code>, and
+                <code>scripts/validate-board-fold</code>, plus the pinned
+                portable skill validation the repository already uses. Then
+                exercise the skill for real: a repository with a rules file, a
+                repository without one, and a diff whose only findings are P2.
+              </p>
+              <div class="tags"><span class="tag">validators</span><span class="tag">real run</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="sheet" id="gate" data-title="Release gate" data-status="gate" data-part="lld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Release gate</span></p>
+            <h2>What has to hold before this ships.</h2>
+          </div>
+          <span class="stamp">Gate</span>
+        </div>
+
+        <div class="matrix-scroll">
+          <table class="matrix">
+            <thead>
+              <tr><th>Area</th><th>Scenario</th><th>Acceptance</th><th>Gate</th></tr>
+            </thead>
+            <tbody>
+              <tr data-status="gate">
+                <td>INVOKE</td>
+                <td>The skill is installed from the primary checkout into both hosts.</td>
+                <td><code>scripts/validate-skill-invocation</code> passes, and the skill is manual only in Claude and Codex alike.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>SCORE</td>
+                <td>A review produces two P1 findings and nine P2 findings.</td>
+                <td>The report reads 4/5, and the number is derivable from the counts by the §7.2 table without reading the prose.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>RULES</td>
+                <td>The same diff is reviewed in a repository with a root rules file and in one with none.</td>
+                <td>Both produce a report. The unruled run says the baseline ran alone; the ruled run cites the repository rule it applied.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>QUIET</td>
+                <td>The reviewer runs against a clean diff.</td>
+                <td>No file is created or modified, nothing is posted, and no board event is appended. Verified by <code>git status</code> and the board fold before and after.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>GATE</td>
+                <td>A plan is broken down, worked to the last implementation card, and <code>/qstack-plan-close</code> is invoked with the gate card still in <code>review</code>.</td>
+                <td>Close refuses and names the open gate card, using its existing all-cards-closed rule with no change to that skill.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>REMEDIATE</td>
+                <td>The final review returns one P1 finding.</td>
+                <td>A remediation card appears in the Review epic, the gate stays in <code>review</code>, and it closes only after a fresh pass at the new fingerprint.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="gate">
+                <td>OVERRIDE</td>
+                <td>A gate card is closed while a P1 finding stands.</td>
+                <td>The board carries a note naming the human who overrode it and every finding accepted unfixed, and no loop produced one unprompted.</td>
+                <td>Blocker</td>
+              </tr>
+              <tr data-status="locked">
+                <td>BOARD</td>
+                <td>A board written by the new breakdown rules is folded.</td>
+                <td><code>scripts/validate-board-fold</code> passes, the Review epic holds one card, and no card is flagged.</td>
+                <td>Required</td>
+              </tr>
+              <tr data-status="locked">
+                <td>CATALOG</td>
+                <td><code>/qstack</code> is run after installation.</td>
+                <td>The new skill appears with its description, and <code>README.md</code> and <code>CHANGELOG.md</code> name it.</td>
+                <td>Required</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="sheet" id="decisions" data-title="Decisions" data-status="locked" data-part="lld">
+        <div class="sheet-head">
+          <div>
+            <p class="sheet-mark"><span class="num"></span><span class="label">Decisions</span></p>
+            <h2>Every choice this plan rests on, and nothing left owed.</h2>
+          </div>
+          <span class="stamp">Locked</span>
+        </div>
+        <p class="sheet-lede">
+          The first five were worked through as a decision map before this plan
+          was written, and each names the ticket that settled it. The last two
+          were settled during the plan's own question pass. Reopening any of
+          them costs the reasoning recorded here. No question is left open,
+          and the document was approved at revision 1 on 2026-08-29.
+        </p>
+
+        <div class="clauses">
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-001">
+            <div>
+              <h3>Keep the combined per-card review and add one atomic final gate</h3>
+              <p>
+                Per-card review already covers plan clauses and code correctness
+                before a card settles. The final gate covers what no card's diff
+                shows. One card rather than two, because plan adherence and code
+                review must agree on the same fingerprint. Settled in ticket 01.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-002">
+            <div>
+              <h3>The board shows no score</h3>
+              <p>
+                Two different reviews produce two different numbers: a code
+                review scores one commit, and plan adherence judges a whole plan
+                that may span several. Rendering either on the board invites
+                reading them as one measurement. The board shows a gate that is
+                open or closed. Settled in ticket 02.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-003">
+            <div>
+              <h3>The reviewer is manual, generic, layered, and report-only</h3>
+              <p>
+                Manual in both hosts; a generic baseline that works with no rules
+                file; a root rules file that adds repository law and may override
+                scoring; nested files that add rows below their own directory but
+                never change severity; and one report with no side effects.
+                Settled in ticket 03.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-004">
+            <div>
+              <h3>One execution plan per repository</h3>
+              <p>
+                A board's <code>files</code>, its overlap checks, its review
+                fingerprints, and adherence review all resolve inside one
+                repository. This plan owns the QStack side. The rules file, the
+                repository wrapper, and the pull-request delivery path are a
+                separate plan in the private repository. Settled in ticket 08.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-005">
+            <div>
+              <h3>Hosted automation is researched and deferred</h3>
+              <p>
+                Comment triggers, per-commit checks, and a shared credential on a
+                runner were researched against primary sources and are not in
+                this launch. Required status checks on a private organisation
+                repository need a paid GitHub plan, and the local path costs
+                nothing. Settled in tickets 04, 09, and 10.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-006">
+            <div>
+              <p class="label">Resolved decision · DQ-006</p>
+              <h3>The mined evidence stays in the private repository, and the baseline here carries no trace of it</h3>
+              <p>
+                <strong>Decision:</strong> the corpus analysis is committed to
+                the private repository it was mined from, beside its own plan. This
+                repository is public, so the generic baseline in §7.4 and the
+                Leave-alone duties in §7.5 keep only de-identified lessons: no
+                repository name, no pull-request number, no finding identifier,
+                and no defect described closely enough to identify one.
+              </p>
+              <p>
+                <strong>Why:</strong> the reports name real defects in private
+                code. Committing them here would publish that permanently and in
+                Git history. Nothing in the baseline needs them: a rule such as
+                "a valid domain value must not double as a missing-or-error
+                sentinel" stands on its own.
+              </p>
+              <p>
+                <strong>Rejected:</strong> committing the derived reports here,
+                which publishes private defects; and leaving the evidence in a
+                scratch folder, which loses the ability to answer why a rule
+                exists at all.
+              </p>
+              <p>
+                <strong>Affects:</strong> §5.3, build order phase 00, and the
+                wording of every baseline rule. Phase 00 now checks the baseline
+                for identifying detail rather than deciding where evidence goes.
+              </p>
+            </div>
+          </article>
+          <article class="decision clause" data-status="locked" data-decision-id="DQ-007">
+            <div>
+              <p class="label">Resolved decision · DQ-007</p>
+              <h3>A gate card can be closed by an explicit human override that records what was accepted</h3>
+              <p>
+                <strong>Decision:</strong> the final gate card closes either on a
+                passing review at one shared fingerprint, or on a human override.
+                The override is a board <code>note</code> naming who overrode it,
+                why, and every finding accepted unfixed, followed by the
+                <code>moved</code> to <code>done</code>. Only a human instruction
+                produces one: a loop may never write an override for itself, and
+                the same sentence appears in both loop skills so neither can read
+                a stalled review as permission.
+              </p>
+              <p>
+                <strong>Why:</strong> without it, a plan whose review keeps
+                failing can never close and sits on the board forever. With it,
+                the difference between a passed review and an accepted risk stays
+                visible to anyone reading the board.
+              </p>
+              <p>
+                <strong>Rejected:</strong> no override at all, which strands
+                abandoned plans; and a separate whole-plan abandon path, which
+                answers a different question and can be added later without
+                changing this one.
+              </p>
+              <p>
+                <strong>Affects:</strong> §7.8, the release gate's OVERRIDE row,
+                build order phase 03, and the <code>note</code> vocabulary both
+                loops write.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="plate">
+          <div class="plate-head">
+            <div><span class="label">Not in scope</span><h3>Explicit exclusions</h3></div>
+            <span class="stamp" data-status="locked">Locked</span>
+          </div>
+          <ul>
+            <li>Any hosted workflow, GitHub Action, or shared credential.</li>
+            <li>Anything that posts to a pull request. The caller owns delivery.</li>
+            <li>A second opinion from another vendor's model as a required step.</li>
+            <li>Iterating a review until it returns a passing score.</li>
+            <li>Review memory in an external index or knowledge base.</li>
+            <li>Repository rules files for any repository other than through the generic contract.</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <section class="board" id="board" aria-label="Execution board">
+    <div class="board-head">
+      <div>
+        <p class="label">Execution board</p>
+        <h2>Cards move when an agent moves them.</h2>
+      </div>
+      <dl class="board-meter" data-board-meter hidden>
+        <div><dt>Points</dt><dd><span data-board-points-done>0</span> / <span data-board-points-total>0</span></dd></div>
+        <div><dt>Cards</dt><dd><span data-board-cards-done>0</span> / <span data-board-cards-total>0</span></dd></div>
+        <div><dt>Actors</dt><dd><span data-board-actors>0</span></dd></div>
+        <div><dt>Coordinator</dt><dd><span data-board-coordinator>None</span></dd></div>
+      </dl>
+    </div>
+    <p class="board-state" data-board-state>Loading the board…</p>
+    <div class="board-lanes" data-board-lanes></div>
+  </section>
+
+  <footer class="colophon">
+    <div class="colophon-inner">
+      <p>
+        This document locks the reviewer's contract, its two rule layers, the
+        score arithmetic, and the single final gate card.
+        <span class="mono">QSTACK-REV-001 · rev 1 · 2026-08-29</span>
+      </p>
+      <span class="stamp" data-status="locked">Approved</span>
+    </div>
+  </footer>
+
+  <script src="../.template/v1/plan.js"></script>
+  <script src="../.template/v1/board.js"></script>
+  <script src="qstack-review.js"></script>
+</body>
+</html>

@@ -93,7 +93,7 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"coordina
 
 ## The ready set
 
-A card is ready when all four hold:
+A card is ready when all five hold:
 
 1. its status is `backlog`;
 2. every card in its `depends_on` is `done` or `split`, and where a named card
@@ -101,7 +101,20 @@ A card is ready when all four hold:
 3. its `files` array is non-empty, and none of its `files` appear in the
    `files` of any card currently `claimed`, `in-progress`, `review`, or
    `blocked`;
-4. its `points` are `1`, `2`, `3`, or `5`.
+4. its `points` are `1`, `2`, `3`, or `5`;
+5. if it is the gate card of the `review` epic, every other card on the board
+   is `done` or `split`.
+
+Condition 5 is a board-level check rather than a per-card one, and it exists
+because `depends_on` cannot carry the gate's timing. That list is a snapshot
+taken at breakdown, the file is append-only, and a card appended later can never
+be added to it. Condition 2 alone would therefore let the gate open beside work
+appended after the board was written, and the review would pass against a
+fingerprint the later cards then change. Read condition 5 over the fold, not
+over the gate card's own fields, and it is true no matter when a card arrived.
+The gate card still carries a `depends_on` like every other card, and the
+breakdown still writes every card into it, but that list is now belt and braces
+rather than the mechanism.
 
 Condition 2 follows a split through to its children because the parent's work
 moved into them. Read the parent's own `split` as satisfying the dependency and
@@ -208,6 +221,12 @@ these stops you, and these are the only four:
 2. the wave is full;
 3. the next card would take the run past its `--limit`;
 4. the host has no agent tools, which caps the wave at one.
+
+The gate card of the `review` epic does not count against the wave while it is
+in `review`. It holds no subagent, and the remediation cards it opens are the
+wave's actual work, so counting it would deadlock a `--parallel 1` run: the wave
+would be full and the gate could not close until a card it forbids you to claim
+had landed.
 
 **If the ready set offers a card and none of those four applies, you claim it.**
 Preferring to finish the card in front of you is not on the list. Neither is
@@ -322,11 +341,23 @@ mid-line and leave a board that `node --check` rejects.
 - in `final` or `none` review mode, validated work moves directly from
   `in-progress` → `done`. Put `per-card adversarial review omitted: review mode
   final` or `review mode none` in the move's `note`.
+- the gate card of the `review` epic is the exception to the rule above. It
+  passes through `review` in `final` as well as in `full`, and holds that
+  status for the whole review round, because the review it carries is the
+  plan-level one rather than a per-card one. In `none` it moves directly to
+  `done` carrying `gate review omitted: review mode none`, which names the
+  review it skipped rather than the per-card one it never had. What the loop
+does while it sits there belongs to
+  the loops.
 - any live status → `blocked` when the card stops on something a human must
   answer, with the question in `note`.
+- the gate card is never split. Children would each satisfy condition 5 the
+  moment the parent closed, and the plan would close with no plan-level review
+  having run.
 
-The Review column remains part of the board because it shows cards currently in
-per-card review. It stays empty when the selected mode omits those reviews.
+The Review column shows cards currently under review. In `full` that is any
+card between `in-progress` and `done`; in `final` it is the gate card alone;
+in `none` it stays empty.
 
 Each card in a wave moves through these on its own. Cards do not advance in
 step, and there is no wave-level status.
@@ -393,6 +424,17 @@ then come back to it when that card reaches `done` or `split`. The card stays
 original question: the board shows a card waiting on a human,
 `/qstack-plan-close` refuses to write `outcome.md`, and `/qstack-reflect` counts
 a card that never left `blocked`.
+
+The gate card of the `review` epic re-checks ready-set condition 5 before that
+move, because the resume path is the only door into a card that skips the ready
+set. The test is condition 5 itself: every other card on the board is `done` or
+`split`. Do not narrow it to what appeared since the card parked. A remediation
+card opened before the gate parked and still sitting in `backlog` fails
+condition 5 and passes that narrower test, and it is reachable whenever a run
+parks the gate on a budget or a missing reviewer. If any other card is open,
+work it first and leave the gate `blocked`. Resuming past condition 5 lets the
+review pass against a fingerprint the open card then changes, and `done` has no
+transition out.
 
 ```bash
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"note","card":"T-05","actor":"adelaide","note":"answered: the client keeps the retries. Waiting on T-09, which holds src/writer.ts."});' \
@@ -464,9 +506,12 @@ Append `stood-down` when the run ends, on every exit path: the completion gate
 passed, the run was abandoned, or it stopped on a question.
 
 Empty the wave first. Every card you claimed reaches `done`, `split`, `blocked`,
-or `released` under your own slug before you stand down. A card left `claimed` or
-`in-progress` by a run that has ended is unclaimable by every later run, and
-nothing takes it back automatically.
+or `released` under your own slug before you stand down. A card left `claimed`,
+`in-progress`, or `review` by a run that has ended is unclaimable by every later
+run, and nothing takes it back automatically. `review` is on that list for the
+same reason as the other two: only `blocked` has a documented way back, so a
+card
+still under review when a run ends is parked rather than left where it is.
 
 ```bash
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"stood-down","actor":"adelaide"});' \

@@ -161,7 +161,9 @@ cards directly from `in-progress` to `done`. `blocked` is reachable from any
 live status, and `split` is terminal for the parent of a split. A card whose
 `depends_on` are unfinished waits in `backlog`; `blocked` is the stall only a
 human can clear, and the blocking question goes in `note`. The Review column
-stays empty when the selected mode omits per-card reviews.
+shows the gate card in `final`, any card between
+`in-progress` and `done` in `full`, and nothing under `none`. The protocol's The
+transitions owns that rule.
 
 A `depends_on` naming a card that later splits resolves to that split's children
 and stays unsatisfied until every one of them closes. The parent closed the

@@ -1,0 +1,144 @@
+/* =========================================================================
+   qstack-review: plan-specific styles only.
+   Loaded after plan.css. Logical properties only. One accent: use a status.
+   ========================================================================= */
+
+.part-break {
+  grid-column: 1 / -1;
+  margin-block: 56px 8px;
+  padding-block-end: 10px;
+  border-block-end: 1px solid var(--rule);
+}
+
+.part-break .label { color: var(--ink-mute); }
+
+.part-break h2 {
+  margin-block-start: 6px;
+}
+
+/* --- Score calculator -------------------------------------------------- */
+
+.sc {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 780px) {
+  .sc { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+
+.sc-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.sc-row {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.sc-row > .label {
+  font-family: var(--mono, monospace);
+  color: var(--sig, var(--ink-mute));
+}
+
+.sc-row input[type="range"] {
+  inline-size: 100%;
+  accent-color: var(--sig, var(--ink-mute));
+}
+
+.sc-row output {
+  font-family: var(--mono, monospace);
+  min-inline-size: 1.6rem;
+  text-align: end;
+}
+
+.sc-readout {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--rule);
+}
+
+.sc-score {
+  font-family: var(--mono, monospace);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--sig, var(--ink));
+}
+
+.sc-because {
+  color: var(--ink-mute);
+}
+
+.sc-because b { color: var(--ink); font-weight: 600; }
+
+.sc-static caption,
+.sc-static th,
+.sc-static td {
+  text-align: start;
+}
+
+/* --- Gate lifecycle diagram -------------------------------------------- */
+
+.gate-svg { inline-size: 100%; block-size: auto; }
+
+.gate-svg .box {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.gate-svg .box-sig {
+  fill: none;
+  stroke: var(--sig, currentColor);
+  stroke-width: 1.5;
+}
+
+.gate-svg .dash { stroke-dasharray: 5 4; }
+
+.gate-svg .t {
+  fill: currentColor;
+  font-size: 13px;
+  font-family: var(--mono, monospace);
+}
+
+.gate-svg .t-sig {
+  fill: var(--sig, currentColor);
+  font-size: 13px;
+  font-family: var(--mono, monospace);
+}
+
+.gate-svg .t-small {
+  fill: var(--ink-mute, currentColor);
+  font-size: 11px;
+  font-family: var(--mono, monospace);
+}
+
+.gate-svg .link {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.gate-svg .link-sig {
+  stroke: var(--sig, currentColor);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* --- Decisions ---------------------------------------------------------- */
+
+/* A decision is a clause that also carries a DQ id, so it keeps the clause
+   number and gains a rule in the signal colour of its own status. */
+.decision {
+  border-inline-start: 4px solid var(--sig, var(--rule));
+  padding-inline-start: 14px;
+}
+
+@media print {
+  .decision { break-inside: avoid; }
+}

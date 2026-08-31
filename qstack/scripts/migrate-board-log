@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import tempfile
+from pathlib import Path
+
+
+def resolve_paths(value: Path) -> tuple[Path, Path]:
+    source = value / "board.jsonl" if value.is_dir() else value
+    if source.name != "board.jsonl":
+        raise ValueError("expected a plan directory or a board.jsonl path")
+    return source, source.with_name("board-events.js")
+
+
+def convert_line(line: str) -> tuple[str, bool]:
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        preserved = json.dumps(
+            {"event": "unreadable", "legacy_line": line},
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        return f"qstackBoardEvent({preserved});\n", False
+
+    encoded = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+    return f"qstackBoardEvent({encoded});\n", True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Migrate board.jsonl to the file-loadable board-events.js format."
+    )
+    parser.add_argument("path", type=Path, help="plan directory or board.jsonl path")
+    args = parser.parse_args()
+
+    try:
+        source, destination = resolve_paths(args.path.resolve())
+    except ValueError as error:
+        parser.error(str(error))
+
+    if not source.is_file():
+        parser.error(f"not found: {source}")
+    if destination.exists():
+        parser.error(f"refusing to overwrite: {destination}")
+
+    lines = source.read_text(encoding="utf-8").splitlines()
+    converted = ['qstackBoardEvent({"event":"board","format":1});\n']
+    valid = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        output, parsed = convert_line(line)
+        converted.append(output)
+        valid += int(parsed)
+
+    fd, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.writelines(converted)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+        source.unlink()
+    finally:
+        temporary.unlink(missing_ok=True)
+
+    unreadable = len(converted) - valid - 1
+    print(
+        f"qstack: migrated {valid} events and {unreadable} unreadable lines "
+        f"from {source} to {destination}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
