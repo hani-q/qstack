@@ -155,6 +155,15 @@ one board.
 | `split` | Parent closes into children. | `card`, `into`, `actor`, `reason` |
 | `note` | Comment, no state change. | `card`, `actor`, `note` |
 
+Any event about a card may also carry `note`, and any event after `created` may
+carry `entry`. The two divide the work of saying what happened, and the protocol's
+The ledger entry owns the rule: `note` is the one line that belongs to the board,
+`entry` is an anchor slug pointing at the section of `execution.md` where the
+reasoning was actually written. The board builds `execution.md#<slug>` from the
+slug, so an event cannot put a scheme, a path or a `javascript:` URL into a link;
+a slug that is not lowercase letters, digits and hyphens is a bad write and the
+card says so. Most cards carry no entry, because most cards close in one line.
+
 Six live columns plus one terminal. `full` review mode uses `backlog` →
 `claimed` → `in-progress` → `review` → `done`; `final` and `none` move validated
 cards directly from `in-progress` to `done`. `blocked` is reachable from any
@@ -185,13 +194,26 @@ Cards carry six fields beyond their id, title and status:
 
 There is no `linked_to` and no `blocked_by`, because `depends_on` is planned
 ordering, `blocked` is an unplanned stall, and "related" is computed from shared
-`refs` or shared `files` rather than stored.
+`refs` or shared `files` rather than stored. There is no comment field either:
+prose about a card goes in `execution.md` under an anchor, and the card cites it.
+A board that carried the reasoning as well would be the same paragraph in two
+files, and the append-only one could never be corrected.
 
 The card keeps those meanings visually separate. `Ready` and `Waiting` sit by
 the card id. `Needs` names its prerequisites, `Unlocks` names cards downstream,
 and `Related` stays quieter because it does not control work order. Every card
 id in those rows is a button: selecting one scrolls its card into view and
-marks it briefly without changing the board URL.
+marks it briefly without changing the board URL. `Ledger` is the one row that
+leaves the page: it opens `execution.md` at the section this card earned, in its
+own tab, because the board is polling and may have a filter set and a card open.
+
+A card in a column is a summary. A column is 216px wide, so the title clamps at
+three lines, the note shows the last one, `Related` shows three, and a long
+actor slug or file path is cut with an ellipsis rather than allowed to run into
+the column beside it. Nothing clamped is lost: pressing the card id opens the
+whole record. Below six columns of 216px the lane scrolls sideways inside its
+own head, so a card is a known width on any screen instead of whatever the
+window had left over.
 
 Points are Fibonacci, capped, and set once at breakdown:
 
@@ -217,6 +239,29 @@ script, so the same page works over HTTP and when opened directly from disk. It
 reloads every 3 s while the board is visible and stops when it is hidden. The
 board is a view, not a sheet: it takes no `§` number and never enters the spine,
 and print always renders the plan.
+
+### The filter and the card in full
+
+Two controls sit on the board, and `board.js` builds both from `.board` rather
+than reading them out of `plan.html`. A plan whose markup was frozen before this
+release gets them by loading the stylesheet and the script, with no edit to a
+document execution has already started against.
+
+`Show` is a row of chips, one per column plus `All`, each carrying its count. It
+hides columns and nothing else: it moves no card, appends no event, and changes
+no URL. One status at a time, and a lane with nothing in the chosen column is
+hidden rather than left as a head over an empty row. The choice is kept in
+`localStorage` under the plan's own path, so two plans opened from disk do not
+share it, and a browser with storage off simply forgets it between visits.
+
+Pressing a card id opens that card in a modal holding what the column dropped:
+every note rather than the last, every flag, `Needs`, `Unlocks` and `Related`
+uncapped, the full file paths, and the card's own slice of the event stream in
+file order. Clicking anywhere else on the card opens the same thing. A card id
+inside the modal retargets it rather than scrolling something behind it, and a
+`§ref` closes it and opens the clause in the plan view. It stays live: the 3 s
+reload refills an open card, so one left open is one being watched. `Escape`,
+the backdrop, and `Close` all close it.
 
 The meter above the lanes reads points, cards, actors, and Coordinator, which
 names the actor holding the whole board and shows `None` when nobody does. The
@@ -275,6 +320,7 @@ coordinator cannot race itself.
 | `.matrix` | The release-gate table. Sticky header, status column. |
 | `.phases` / `.phase` | Build order. |
 | `.board` / `.board-lane` / `.board-card` | The execution board. Rendered from `board-events.js`; never hand-written. |
+| `.board-filter` / `.board-chip` / `.board-dialog` | The status filter and the card in full. Built by `board.js`; absent from `plan.html`. |
 | `.refs` / `.ref` | The research basis. |
 | `.tabset` / `.tab` + `.tab-panel` | Tabbed specification panels. Prints expanded. |
 | `.key` | A row of stamps read as a legend beneath a diagram. |

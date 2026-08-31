@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.5.0.0] - 2026-08-31
+
+### Added
+
+* The execution board has a `Show` filter: one chip per column plus `All`, each carrying its count, and pressing one leaves that column alone on the board. It is a view control and nothing else, so it moves no card, appends no event, and changes no URL. A lane with nothing in the chosen column is hidden rather than left as a head over an empty row, and a board with no cards has no filter at all. The choice is kept in `localStorage` under the plan's own path, so two plans opened from disk do not share one filter and a browser with storage off simply forgets it between visits.
+
+* Pressing a card id opens that card in full, in a modal holding everything the column has to drop: every note rather than the last, every flag, `Needs`, `Unlocks` and `Related` uncapped, the full file paths, and the card's own slice of the event stream in file order, which is the first time a plan can be read as one card's history rather than as a whole board's. Clicking anywhere else on the card opens the same thing. A card id inside the modal retargets it instead of scrolling something behind it, and a `§ref` closes it and opens that clause in the plan view. The 3-second reload refills an open card, so one left open is one being watched, and `Escape`, the backdrop and `Close` all close it.
+
+* `board.js` builds both controls from `.board` rather than reading them out of `plan.html`. A plan whose markup was frozen when execution started gets them by loading the stylesheet and the script, with no edit to the document itself.
+
+* A card can cite the section of `execution.md` where its reasoning was written, through a new optional `entry` field on any board event after `created`. The card shows a `Ledger` row and the dialog names the file; both open it in their own tab, because the board is polling and may have a filter set and a card open. The event carries the anchor slug alone and the board builds `execution.md#<slug>`, so no event can put a scheme, a path or a `javascript:` URL into a link, and a slug that is not lowercase letters, digits and hyphens is a bad write the card reports rather than a link nobody meant. Most cards carry no entry: most cards close in one line, and inventing a section to have something to cite is worse than citing nothing.
+
+* `scripts/fixtures/board-fold-events.js` gained two cards that exercise `entry`: one citing a well-formed anchor, one citing `execution.md#T-18 Deviations`, which is not one. The second folds to a flagged card, so both the accept and the reject path are now facts every implementation of the fold has to agree on rather than behaviour only `board.js` has ever run.
+
+* `board-protocol.md` gained The ledger entry, which is the rule that makes the field worth having. Reasoning is written once, in `execution.md`, under an anchor placed above its heading so the target survives a reviewer rewording it. `note` keeps the one line that belongs to the board: a blocked card's question, which files it wrote to, `review mode final`, what an `8` splits into. A `note` restating a ledger section was the same paragraph maintained in two files, and only one of them can ever be corrected: `board-events.js` is append-only, so the board would keep the first draft after review fixed the ledger. Both loops read that one file, so the rule cannot say two different things.
+
+### Changed
+
+* A board column is 216px at its narrowest rather than 168px, and the lane scrolls sideways under it. A card is now a known width on any screen instead of whatever the window had left over after six columns, which is what made a card look skewed on a narrow one. What a card drops to hold that width is clamped rather than cut: the title at three lines, the note to the last one, `Related` to three, and a long actor slug or file path with an ellipsis. All of it is in the card dialog, and the card border and the state line still say a flagged card is flagged.
+
+### Fixed
+
+* A card no longer overruns the column it was drawn in. Every grid on the board that holds card text was declaring `display: grid` with no template, which puts its children in an implicit `auto` track; an implicit track sizes to max-content and overflows its own box instead of shrinking to it, so a single long actor slug, title or file path pushed a card sideways across the column beside it. Each of those grids now names `minmax(0, 1fr)`.
+
 ## [2.4.0.1] - 2026-08-31
 
 ### Fixed

@@ -17,6 +17,14 @@
      · resolves a depends_on naming a split parent to that split's children
      · reads related off shared refs and shared files, and stores nothing
      · draws one lane per epic and six columns per lane
+     · builds the status filter and the card dialog itself, so a plan written
+       before either existed gets both from the stylesheet and this file
+     · shows one status at a time when the filter is set, and hides a lane with
+       nothing in that column
+     · opens a card's whole record in a modal: every note, every flag, every
+       relationship uncapped, and the card's own slice of the event stream
+     · links a card to the execution.md sections it earned, from the anchor
+       slugs the loop cited rather than from prose repeated onto the card
      · flags a second coordinator, a claim race, a `moved` whose `from` missed,
        and points outside 1, 2, 3, 5, 8
      · reloads the event script every 3 s while the board view is on screen
@@ -51,6 +59,13 @@
   // Fibonacci, capped, and closed: anything else is a size nobody set.
   const POINTS = new Set([1, 2, 3, 5, 8]);
   const RELATED_SHOWN = 3;
+  /* The ledger a card's reasoning is written into, and the shape of an anchor
+     the board will build a link to. The event carries the slug alone and the
+     board builds the path, so no event can put a scheme, a traversal or a
+     `javascript:` URL into an href. Anything else is a bad write, and the card
+     says so rather than linking somewhere nobody meant. */
+  const LEDGER = 'execution.md';
+  const SLUG = /^[a-z0-9][a-z0-9-]*$/;
   const POLL_MS = 3000;
   const FORMAT = 1;
 
@@ -190,7 +205,10 @@
           splitFrom: event.split_from || '',
           // Below this line is fold state rather than a `created` field.
           status: 'backlog', owner: '', claimedAt: '', into: [],
-          notes: [], race: '', raceWith: '', drift: [],
+          notes: [], race: '', raceWith: '', drift: [], entries: [],
+          /* Every usable event that named this card, in file order. The column
+             shows a summary; the dialog shows this. */
+          log: [event],
         });
         return true;
       }
@@ -198,6 +216,17 @@
       const card = cards.get(event.card);
       if (!card) return false;
       if (!move(event, card)) return false;
+      // Same rule as the note below: a dropped line leaves nothing behind.
+      card.log.push(event);
+      /* An `entry` cites the ledger section this event wrote, so the reasoning
+         lives in execution.md once instead of there and on the card as well.
+         The same section cited twice is one entry: a card that parked and
+         resumed under one heading has one place to read, not two links to it. */
+      if (event.entry) {
+        const slug = String(event.entry);
+        if (!SLUG.test(slug)) card.drift.push(`Entry "${slug}" is not an anchor`);
+        else if (!card.entries.includes(slug)) card.entries.push(slug);
+      }
       /* A note rides on any event and carries the question a blocked card waits
          on. It lands only once the event itself turned out to be usable, so a
          dropped line leaves nothing of itself behind. */
@@ -349,6 +378,20 @@
     return link;
   };
 
+  /* A link into the ledger beside the plan. It opens in its own tab: the board
+     is polling, holds a filter and may have a card open, and none of that
+     should be thrown away to read a paragraph. The column has room for the slug
+     and the dialog has room for the path it sits in, so the caller says which;
+     how each one looks is the stylesheet's to decide, by where the link landed.
+  */
+  const ledgerLink = (slug, full) => {
+    const link = el('a', 'board-card-link', full ? `${LEDGER}#${slug}` : slug);
+    link.href = `./${LEDGER}#${slug}`;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    return link;
+  };
+
   /* The size a card was given, which the stylesheet weights at 5 and 8: the
      two heaviest sizes on the closed scale. */
   const points = (value) => {
@@ -366,61 +409,96 @@
     return button;
   };
 
-  /* Relationships are the part of a card that determines work order, so they
-     get rows and targets instead of sharing one metadata sentence. Related is
-     still capped: it is useful context, but never as important as ordering. */
-  const relation = (label, ids, kind, states = new Map()) => {
-    if (!ids.length) return '';
-    const shown = kind === 'related' ? ids.slice(0, RELATED_SHOWN) : ids;
-    const rest = ids.length - shown.length;
+  /* One labelled row of chips, and the only place the row's shape is written.
+     Ordering, the ledger and anything else a card points at all read the same
+     way down the card, so they are all drawn by this. */
+  const relationRow = (label, kind, ...chips) => {
+    const shown = chips.filter(Boolean);
+    if (!shown.length) return '';
     const row = el(
       'div', 'board-card-relation',
       el('span', 'board-card-relation-label', label),
-      el(
-        'span', 'board-card-links',
-        ...shown.map((id) => cardJump(id, states.get(id))),
-        rest > 0 && el('span', 'board-card-link-more', `+${rest}`),
-      ),
+      el('span', 'board-card-links', ...shown),
     );
     row.dataset.relation = kind;
     return row;
   };
 
+  /* Relationships are the part of a card that determines work order, so they
+     get rows and targets instead of sharing one metadata sentence. How many to
+     show is the caller's: the column caps Related because it is useful context
+     and never as important as ordering, and the dialog caps nothing. */
+  const relation = (label, ids, kind, states = new Map(), cap = Infinity) => {
+    const shown = ids.slice(0, cap);
+    const rest = ids.length - shown.length;
+    return relationRow(
+      label, kind,
+      ...shown.map((id) => cardJump(id, states.get(id))),
+      rest > 0 && el('span', 'board-card-link-more', `+${rest}`),
+    );
+  };
+
+  const ledgerRow = (slugs, full) =>
+    relationRow('Ledger', 'ledger', ...slugs.map((slug) => ledgerLink(slug, full)));
+
+  // One line per bad write, because a card can take more than one and the
+  // second must not cover the first. The claim race, if any, reads first.
+  // Read the same way in the column and in the dialog, so the two cannot drift.
+  const flagsOf = (card) => [
+    card.race,
+    !card.sized && `Points ${card.points}, not 1, 2, 3, 5 or 8. Not ready.`,
+    card.sized && !card.owns && 'No files. Not ready.',
+    ...card.drift,
+  ].filter(Boolean);
+
+  /* Which of a card's needs it is still waiting on. Read in the column and in
+     the dialog, so like the flags it is derived in one place. */
+  const needStates = (card) =>
+    new Map(card.needs.map((id) => [id, card.waiting.includes(id) ? 'waiting' : 'done']));
+
+  /* The flags a caller already has are passed back in: a card that draws both
+     would otherwise decide it was flagged twice over. */
+  const readinessOf = (card, flags = flagsOf(card)) => {
+    if (card.status === 'blocked') return 'blocked';
+    if (card.status !== 'backlog') return '';
+    if (card.waiting.length) return 'waiting';
+    if (card.sized && card.owns && card.points !== 8 && !flags.length) return 'ready';
+    return '';
+  };
+
+  const READINESS = { blocked: 'Blocked', waiting: 'Waiting', ready: 'Ready' };
+
+  const badge = (state) => {
+    const node = el('span', 'board-card-readiness', READINESS[state]);
+    node.dataset.state = state;
+    return node;
+  };
+
+  /* The id is the card's own control. Making the whole article a button would
+     put the relationship buttons inside one, and giving every card a tab stop
+     would put sixty of them between the filter and the first thing a reader
+     wants. The id is already the card's name, so it is the thing to press. */
+  const cardOpen = (id) => {
+    const button = el('button', 'board-card-id', id);
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-label', `Card ${id} in full`);
+    return button;
+  };
+
   const drawCard = (card) => {
-    // One line per bad write, because a card can take more than one and the
-    // second must not cover the first. The claim race, if any, reads first.
-    const flags = [
-      card.race,
-      !card.sized && `Points ${card.points}, not 1, 2, 3, 5 or 8. Not ready.`,
-      card.sized && !card.owns && 'No files. Not ready.',
-      ...card.drift,
-    ].filter(Boolean);
+    const flags = flagsOf(card);
     const facts = [];
     if (card.files.length) facts.push(count(card.files.length, 'file'));
     const notes = [card.notes[card.notes.length - 1]].filter(Boolean);
-    const dependencyState = new Map(
-      card.needs.map((id) => [id, card.waiting.includes(id) ? 'waiting' : 'done']),
-    );
-    const readiness =
-      card.status === 'blocked'
-        ? ['blocked', 'Blocked']
-        : card.status === 'backlog' && card.waiting.length
-          ? ['waiting', 'Waiting']
-          : card.status === 'backlog' && card.sized && card.owns
-            && card.points !== 8 && !flags.length
-            ? ['ready', 'Ready']
-            : null;
+    const readiness = readinessOf(card, flags);
 
     const node = el(
       'article', 'board-card',
       el(
         'p', 'board-card-head',
-        el('span', 'board-card-id', card.id),
-        readiness && (() => {
-          const badge = el('span', 'board-card-readiness', readiness[1]);
-          badge.dataset.state = readiness[0];
-          return badge;
-        })(),
+        cardOpen(card.id),
+        readiness && badge(readiness),
         card.points && points(card.points),
       ),
       el('p', 'board-card-title', card.title),
@@ -433,13 +511,15 @@
         ),
       ...flags.map((text) => el('p', 'board-card-flag', text)),
       ...notes.map((note) => el('p', 'board-card-note', note)),
+      ledgerRow(card.entries),
       card.splitFrom && relation('From', [card.splitFrom], 'from'),
-      relation('Needs', card.needs, 'needs', dependencyState),
+      relation('Needs', card.needs, 'needs', needStates(card)),
       relation('Unlocks', card.blocks, 'unlocks'),
-      relation('Related', card.related, 'related'),
+      relation('Related', card.related, 'related', new Map(), RELATED_SHOWN),
     );
     node.id = `board-card-${card.id}`;
     node.tabIndex = -1;
+    node.dataset.card = card.id;
     node.dataset.status = card.status;
     if (flags.length) node.dataset.flagged = 'true';
     return node;
@@ -447,7 +527,17 @@
 
   lanesHost.addEventListener('click', (event) => {
     const jump = event.target.closest('[data-board-card-jump]');
-    if (!jump) return;
+    if (!jump) {
+      /* The id button and anywhere else on the card reach the same call: the
+         button carries the keyboard path and the accessible name, and the rest
+         of the card is the mouse taking the shortcut. A §ref is the exception,
+         because it already goes somewhere and opening the card on the way
+         would leave a modal over the clause it just opened. */
+      if (event.target.closest('a[href]')) return;
+      const card = event.target.closest('.board-card');
+      if (card) openDialog(card.dataset.card, card.querySelector('.board-card-id'));
+      return;
+    }
     const target = doc.getElementById(`board-card-${jump.dataset.boardCardJump}`);
     if (!target) return;
     const previous = lanesHost.querySelector('[data-focused]');
@@ -476,6 +566,10 @@
         ...held.map(drawCard),
       );
       col.dataset.status = status;
+      /* What the filter needs to know, written down by the pass that already
+         worked it out. Asking the DOM for it again would tie a lane's
+         visibility to the card markup's class name and nesting depth. */
+      col.dataset.held = String(held.length);
       cols.append(col);
     }
     // The lane carries its own points figure: a swimlane's size is the whole
@@ -492,6 +586,315 @@
     return el('section', 'board-lane', head, el('div', 'board-scroll', cols));
   };
 
+  /* -- The status filter -------------------------------------------------- */
+
+  /* A view control and nothing else: it hides columns, it never moves a card,
+     and it appends nothing. One status at a time, because the question a
+     reader arrives with is "what is running right now" rather than "which four
+     of six columns interest me". `all` is the way back.
+
+     Built here rather than in plan.html so a plan written before this release
+     gets the control by loading the stylesheet and this script, with no edit to
+     markup that was frozen when execution started. */
+
+  // .board holds the meter, the state line, the filter, and the lanes. Without
+  // it there is nowhere to hang the filter, and the board is lanes only.
+  const boardHost = lanesHost.closest?.('.board') || null;
+  const FILTERS = [['all', 'All'], ...COLUMNS.map((key) => [key, COLUMN_LABEL[key]])];
+  // Per plan, because every plan opened from disk shares one null origin and a
+  // filter set on one board is not a filter anybody asked for on another.
+  const FILTER_KEY = `qstack-board-filter:${location.pathname}`;
+
+  let filter = 'all';
+  let filterBar = null;
+  let chipHost = null;
+  let emptyLine = null;
+
+  /* Storage is off in a Safari file:// window and can be off anywhere else, and
+     a board that will not draw because a preference would not load is a worse
+     board than one that forgets the preference. */
+  const remembered = () => {
+    try {
+      return globalThis.localStorage?.getItem(FILTER_KEY) || 'all';
+    } catch {
+      return 'all';
+    }
+  };
+  const remember = (value) => {
+    try {
+      globalThis.localStorage?.setItem(FILTER_KEY, value);
+    } catch { /* nothing to do: the filter still works for this visit */ }
+  };
+
+  /* Built once. Rebuilding the row on every poll would destroy the chip a
+     reader had just tabbed to, and restart its transition three times a
+     minute; only the counts and the pressed state change after this. */
+  const ensureFilter = () => {
+    if (chipHost || !boardHost) return;
+    const stored = remembered();
+    filter = FILTERS.some(([key]) => key === stored) ? stored : 'all';
+
+    chipHost = el(
+      'div', 'board-chips',
+      ...FILTERS.map(([key, label]) => {
+        const chip = el(
+          'button', 'board-chip',
+          el('span', 'board-chip-name', label),
+          el('span', 'board-chip-count', '0'),
+        );
+        chip.type = 'button';
+        chip.dataset.boardFilter = key;
+        return chip;
+      }),
+    );
+    emptyLine = el('p', 'board-filter-empty');
+    emptyLine.hidden = true;
+    filterBar = el('div', 'board-filter', el('span', 'label', 'Show'), chipHost, emptyLine);
+    filterBar.setAttribute('role', 'group');
+    filterBar.setAttribute('aria-label', 'Filter cards by status');
+    boardHost.insertBefore(filterBar, lanesHost);
+
+    chipHost.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-board-filter]');
+      if (!chip) return;
+      filter = chip.dataset.boardFilter;
+      remember(filter);
+      applyFilter();
+    });
+  };
+
+  /* Counts on the chips, so the filter answers "is anything in review" before
+     anyone presses it. One pass: `inColumn` folds a split parent into `done`,
+     which is the same rule the columns are drawn under. A chip counting
+     nothing still presses, because "empty" is an answer. */
+  const paintFilter = (cards) => {
+    if (!chipHost) return;
+    /* A board with no cards has nothing to filter, and six chips reading 0
+       beside "No board yet" answer a question nobody asked. */
+    filterBar.hidden = !cards.length;
+    const held = { all: cards.length };
+    for (const card of cards) {
+      for (const status of COLUMNS) {
+        if (inColumn(card, status)) held[status] = (held[status] || 0) + 1;
+      }
+    }
+    for (const chip of chipHost.children) {
+      const n = held[chip.dataset.boardFilter] || 0;
+      chip.querySelector('.board-chip-count').textContent = String(n);
+      if (n) delete chip.dataset.empty;
+      else chip.dataset.empty = 'true';
+    }
+  };
+
+  /* Runs after every redraw as well as on every press: the poll replaces every
+     lane, and a filter that survived the file but not the redraw would turn
+     itself off every three seconds. The column list lives in COLUMNS and
+     nowhere else, so hiding is decided here rather than restated as one CSS
+     selector per status. */
+  const applyFilter = () => {
+    if (!chipHost) return;
+    boardHost.dataset.filter = filter;
+    for (const chip of chipHost.children) {
+      chip.setAttribute('aria-pressed', String(chip.dataset.boardFilter === filter));
+    }
+    /* An epic's head over an empty row says only that the filter is on, which
+       the chips said already. Hide the lane and keep the ones that answer. */
+    let shown = 0;
+    for (const lane of lanesHost.children) {
+      let has = filter === 'all';
+      for (const col of lane.querySelectorAll('.board-col')) {
+        const wanted = filter === 'all' || col.dataset.status === filter;
+        col.hidden = !wanted;
+        if (wanted && Number(col.dataset.held)) has = true;
+      }
+      lane.hidden = !has;
+      if (has) shown += 1;
+    }
+    const label = COLUMN_LABEL[filter] || filter;
+    emptyLine.textContent = shown ? '' : `Nothing in ${label}.`;
+    emptyLine.hidden = Boolean(shown);
+  };
+
+  /* -- The card dialog ---------------------------------------------------- */
+
+  /* A card in a column is a summary, and it has to stay one: the column is 216
+     pixels wide and the board is read across, not down. Everything the fold
+     knows and the column drops — every note rather than the last, every
+     relationship rather than the first three, and the card's own slice of the
+     event stream — is one press away instead of gone. */
+
+  let dialog = null;
+  let dialogCard = '';
+  let dialogShown = '';
+  let dialogReturn = null;
+  let latest = null;
+
+  const field = (term, value) =>
+    value ? el('div', 'board-field', el('dt', '', term), el('dd', '', value)) : '';
+
+  const section = (label, ...parts) => {
+    const body = parts.filter(Boolean);
+    return body.length
+      ? el('section', 'board-dialog-section', el('p', 'label', label), ...body)
+      : '';
+  };
+
+  /* One line per event, in file order. `2026-08-29T19:43:09Z` reads as
+     `08-29 19:43`: the year is the same on every line of a plan, and seconds
+     are noise until two events tie, which the title attribute settles. */
+  const moment = (event) => {
+    const into = list(event.into);
+    const detail = [
+      event.from && event.to ? `${event.from} → ${event.to}` : event.to,
+      into.length && `into ${into.join(', ')}`,
+      event.reason,
+      event.note,
+    ].filter(Boolean).join(' · ');
+    const row = el(
+      'li', 'board-log-row',
+      el('span', 'board-log-ts', String(event.ts || '').slice(5, 16).replace('T', ' ')),
+      el('span', 'board-log-event', String(event.event || '')),
+      el('span', 'board-log-actor', event.actor || ''),
+      detail && el('span', 'board-log-detail', detail),
+    );
+    row.title = String(event.ts || '');
+    return row;
+  };
+
+  /* What has to change before the open card is worth rebuilding. An event
+     appended to some other card must not reset this one's scroll or take the
+     focus off its close button, and on a running board that is most polls.
+
+     The relationship sets are compared by their ids rather than by how many
+     they hold, because `needs`, `blocks` and `related` are all derived from
+     other cards: a dependency that splits rewrites this card's `needs` with no
+     event on this card at all, and a card outside `backlog` has an empty
+     `waiting` that cannot stand in for the change. Lengths also miss two edits
+     that cancel out inside one poll. */
+  const dialogState = (card) =>
+    [card.status, card.owner, card.log.length, card.notes.length,
+      card.entries.join(','), card.drift.length, card.waiting.join(','),
+      card.needs.join(','), card.blocks.join(','), card.related.join(',')].join('|');
+
+  const fillDialog = (card) => {
+    const flags = flagsOf(card);
+    const readiness = readinessOf(card, flags);
+    const status = el('span', 'stamp', COLUMN_LABEL[card.status] || card.status);
+    status.dataset.status = card.status;
+    /* The stamp already names the status, so the badge earns its place only
+       when it says something the stamp does not: a backlog card that is ready
+       to claim, and one that is still waiting on work upstream. */
+    const mark = readiness && readiness !== 'blocked' ? badge(readiness) : '';
+
+    const close = el('button', 'doc-tool wide', 'CLOSE');
+    close.type = 'button';
+    close.dataset.boardDialogClose = 'true';
+    close.setAttribute('aria-label', 'Close this card');
+
+    const title = el('h3', 'board-dialog-title', card.title);
+    title.id = 'board-dialog-title';
+
+    dialog.dataset.status = card.status;
+    dialogShown = dialogState(card);
+    dialog.replaceChildren(
+      el(
+        'div', 'board-dialog-bar',
+        el(
+          'p', 'board-dialog-mark',
+          el('span', 'num', card.id),
+          status,
+          mark,
+          card.points && points(card.points),
+        ),
+        close,
+      ),
+      el(
+        'div', 'board-dialog-body',
+        title,
+        el(
+          'dl', 'board-dialog-fields',
+          field('Epic', latest?.epics.get(card.epic) || card.epic || 'None'),
+          field('Owner', card.owner || 'Unclaimed'),
+          field('Points', card.sized ? String(card.points) : `${card.points} — off the scale`),
+          field('From', card.splitFrom),
+        ),
+        section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
+        section(
+          'Clauses',
+          card.refs.length && el('p', 'board-dialog-refs', ...card.refs.map(refLink)),
+        ),
+        section(
+          'Files',
+          card.files.length &&
+            el('ul', 'board-files', ...card.files.map((file) => el('li', '', file))),
+        ),
+        section(
+          'Ledger',
+          card.entries.length &&
+            el('ul', 'board-files',
+              ...card.entries.map((slug) => el('li', '', ledgerLink(slug, true)))),
+        ),
+        section(
+          'Order',
+          relation('Needs', card.needs, 'needs', needStates(card)),
+          relation('Unlocks', card.blocks, 'unlocks'),
+        ),
+        /* Related is its own section rather than a third row under Order: it is
+           the one relationship that controls nothing about work order, which is
+           the whole reason the card draws it quieter. Bare chips under the
+           header, the way Clauses and Files read: a row label here would only
+           say "related" a second time. */
+        section(
+          'Related',
+          card.related.length &&
+            el('div', 'board-card-links', ...card.related.map((id) => cardJump(id))),
+        ),
+        section('Notes', ...card.notes.map((note) => el('p', 'board-dialog-note', note))),
+        section('Log', card.log.length && el('ol', 'board-log', ...card.log.map(moment))),
+      ),
+    );
+  };
+
+  const openDialog = (id, from) => {
+    const card = latest?.cards.get(id);
+    if (!card || !boardHost) return;
+    if (!dialog) {
+      dialog = el('dialog', 'board-dialog');
+      dialog.setAttribute('aria-labelledby', 'board-dialog-title');
+      dialog.addEventListener('click', (event) => {
+        // The dialog itself is the backdrop: the body covers everything else.
+        if (event.target === dialog || event.target.closest('[data-board-dialog-close]')) {
+          dialog.close();
+          return;
+        }
+        // A relationship inside the dialog retargets it. Jumping to a card
+        // behind a modal would scroll something the reader cannot see.
+        const jump = event.target.closest('[data-board-card-jump]');
+        if (jump) {
+          openDialog(jump.dataset.boardCardJump);
+          return;
+        }
+        // A §ref belongs to the plan, so the dialog gets out of its way and
+        // lets the hash change do the rest.
+        if (event.target.closest('a[href^="#"]')) dialog.close();
+      });
+      dialog.addEventListener('close', () => {
+        dialogCard = '';
+        dialogShown = '';
+        if (dialogReturn?.isConnected) dialogReturn.focus();
+        dialogReturn = null;
+      });
+      boardHost.append(dialog);
+    }
+    // Retargeting keeps the element that opened the first dialog, so closing
+    // after three hops still lands the reader back on the card they pressed.
+    if (from) dialogReturn = from;
+    const retarget = dialogCard !== id;
+    dialogCard = id;
+    if (retarget || dialogState(card) !== dialogShown) fillDialog(card);
+    if (!dialog.open) dialog.showModal();
+  };
+
   const show = (message, tone) => {
     if (!stateLine) return;
     stateLine.textContent = message;
@@ -506,6 +909,7 @@
   };
 
   const render = (board) => {
+    latest = board;
     const all = [...board.cards.values()];
     const closed = all.filter((card) => CLOSED.has(card.status));
 
@@ -541,6 +945,21 @@
     if (flagged) faults.push(count(flagged, 'flagged card'));
     if (faults.length) show(faults.join(' · '), 'error');
     else show(all.length ? '' : NO_BOARD, 'warn');
+
+    // The filter is view state, so it is applied again over the lanes that just
+    // replaced the ones it was applied to.
+    ensureFilter();
+    paintFilter(all);
+    applyFilter();
+
+    /* An open dialog outlives the redraw as well, and it is the one place on
+       the board showing a card in full while an agent is working it. Refill it
+       from the fold that just landed rather than leave it three seconds old. */
+    if (dialogCard) {
+      const card = board.cards.get(dialogCard);
+      if (!card) dialog?.close();
+      else if (dialogState(card) !== dialogShown) fillDialog(card);
+    }
   };
 
   /* -- The file ---------------------------------------------------------- */
@@ -643,7 +1062,12 @@
       link.setAttribute('aria-current', String(viewOf(link.hash) === view));
     }
     if (view === 'board') load();
-    else stopPolling();
+    else {
+      stopPolling();
+      // The board is hidden in the plan view, and a modal belonging to a hidden
+      // section is a modal over the wrong document.
+      if (dialog?.open) dialog.close();
+    }
   };
 
   /* The two hashes the switch owns name a view, not a place inside one, so

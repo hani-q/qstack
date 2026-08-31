@@ -372,6 +372,50 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","
 Never read-modify-write the file. Never use a JSON array. Keep the exact call
 wrapper: raw JSON is not executable and makes both `file://` and HTTP views fail.
 
+## The ledger entry
+
+The reasoning behind a card is written once, in `execution.md`, and the card
+cites it. It is not written on the card as well. A `note` that restates a
+section of the ledger is the same paragraph maintained in two files, and the two
+drift: the ledger gets corrected in review and the board keeps the first draft
+forever, because `board-events.js` is append-only and cannot be corrected at
+all.
+
+So the division is:
+
+- `note` carries what is true in one line and belongs to the board: the question
+  a `blocked` card is parked on, which of its `files` you wrote to, `review mode
+  final`, what an `8` splits into. Keep writing these.
+- `entry` carries a pointer to the ledger, for a card whose close needed more
+  than that one line. It is the anchor slug alone, and the board builds
+  `execution.md#<slug>` from it.
+
+Most cards earn no entry. A one-point card that did what it said needs no
+section, and inventing one to have something to cite is worse than citing
+nothing.
+
+When a card does earn a section, write the anchor immediately above its heading
+so the target survives a reviewer rewording the heading later:
+
+```markdown
+<a id="t-05-resumed-and-closed"></a>
+## T-05 and T-08 resumed and closed
+```
+
+The slug is lowercase letters, digits and hyphens, starts with the card id, and
+says what the section settles. Anything else is a bad write and the card says so
+instead of linking somewhere nobody meant.
+
+Cite it on the event that wrote it, in the same append that moves the card:
+
+```bash
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","card":"T-05","from":"in-progress","to":"done","actor":"adelaide","entry":"t-05-resumed-and-closed"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
+```
+
+A card can earn more than one over its life, and one section cited twice is one
+entry, not two. `created` carries none: breakdown writes no ledger sections.
+
 ## Park and continue
 
 A card that stops on something a human must answer moves to `blocked` with the

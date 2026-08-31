@@ -94,6 +94,10 @@
   --gothic: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
+  /* A board column, and the width every card on the board is drawn at. The
+     lane's scroll threshold is computed from it rather than written out. */
+  --board-col: 216px;
+
   --page: min(1320px, 100vw - 48px);
   --measure: 72ch;
   --spine-w: 216px;
@@ -1040,10 +1044,16 @@ button { cursor: pointer; }
    it. board.js folds ./board-events.js into the markup below. Nothing in it is a
    control: no card moves in the browser and there is no write path back.
 
+     .board-filter > .board-chips > one .board-chip per status, plus All
      .board-lane  > .board-lane-head + .board-scroll > .board-cols
      .board-cols  > six .board-col, one per status
      .board-col   > .board-col-head + one .board-card per card
-     .board-card  > head + title + refs + meta + flags + relationship rows */
+     .board-card  > head + title + refs + meta + flags + relationship rows
+     .board-dialog > .board-dialog-bar + .board-dialog-body
+
+   A column is 216px at its narrowest and the lane scrolls under it, so a card
+   is a known width on any screen and never a column's leftovers. What a card
+   drops to stay that width is in the dialog, never nowhere. */
 
 /* The view switch -------------------------------------------------------- */
 
@@ -1142,6 +1152,95 @@ button { cursor: pointer; }
 .board-state[data-tone="warn"] { color: var(--sig-open); }
 .board-state[data-tone="error"] { color: var(--redline); }
 
+/* The filter --------------------------------------------------------------- */
+
+/* A segmented control built the way the columns are: one ruled ground showing
+   through 1px gaps. It reads as part of the drawing, not as a widget dropped
+   on top of it. board.js builds the markup. */
+.board-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding-block: 22px 4px;
+}
+
+/* the state line already carries its own padding when it has something to say */
+.board-state:not([hidden]) + .board-filter { padding-block-start: 0; }
+
+.board-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.board-chip {
+  appearance: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px 6px;
+  border: 0;
+  box-shadow: inset 0 -2px 0 transparent;
+  background: var(--ground);
+  color: var(--ink-mute);
+  transition: color .14s ease, background-color .14s ease, box-shadow .14s ease;
+}
+
+/* a chip and a column head do one job: a status name beside its count, so
+   they are set the same way, under Lanes and columns below. The two values a
+   chip takes differently are set there too, after the rule they override:
+   equal specificity means source order decides, and an override written up
+   here would quietly do nothing. */
+
+.board-chip:hover { color: var(--ink); }
+
+.board-chip:focus-visible {
+  outline: 2px solid var(--redline);
+  outline-offset: -2px;
+}
+
+/* the same mark the document bar puts under the view a reader is in */
+.board-chip[aria-pressed="true"] {
+  background: var(--ground-raise);
+  box-shadow: inset 0 -2px 0 var(--redline);
+  color: var(--ink);
+}
+.board-chip[aria-pressed="true"] .board-chip-count { color: var(--redline); }
+
+/* a column with nothing in it still presses: "empty" is an answer */
+.board-chip[data-empty]:not([aria-pressed="true"]) { color: var(--ink-faint); }
+
+.board-filter-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+/* .board-filter-empty needs no [hidden] rule: it declares no display, so the
+   UA one applies. .board-filter is flex, which beats it. */
+.board-filter[hidden] { display: none; }
+
+/* One status at a time. board.js hides the other five, because the list of
+   statuses is COLUMNS and restating it here as one selector per status would
+   mean a seventh column that presses, counts, and hides nothing. The rule is
+   needed at all only because `display: grid` below beats the UA [hidden]. */
+.board-col[hidden] { display: none; }
+
+/* The chosen column takes the lane and lays its cards out as a run rather
+   than a stack. */
+
+.board[data-filter]:not([data-filter="all"]) .board-cols {
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.board[data-filter]:not([data-filter="all"]) .board-col {
+  grid-template-columns: repeat(auto-fill, minmax(var(--board-col), 1fr));
+  gap: 10px;
+}
+
 /* Lanes and columns: a swimlane per epic -------------------------------- */
 
 .board-lane { padding-block-start: 30px; }
@@ -1176,23 +1275,50 @@ button { cursor: pointer; }
 }
 
 /* overflow-inline is still unimplemented in Chrome and Safari, and the row
-   has to scroll or the six columns overflow the page */
-.board-scroll { overflow-x: auto; }
+   has to scroll or the six columns overflow the page. The scrollbar is left
+   visible and drawn in the line-work colour: a lane that scrolls with no mark
+   saying so reads as a lane that ends at the edge of the screen. */
+.board-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) var(--ground-sink);
+}
+
+/* Where the platform draws a classic scrollbar rather than an overlay one,
+   it is drawn in the line work. macOS hides its overlay bar at rest whatever
+   this says, and there the cue is the sixth column cut at the window edge:
+   a column that stops mid-card is a lane that carries on. */
+.board-scroll::-webkit-scrollbar { height: 9px; }
+
+.board-scroll::-webkit-scrollbar-track {
+  background: var(--ground-sink);
+  border-block-start: 1px solid var(--rule);
+}
+
+.board-scroll::-webkit-scrollbar-thumb { background: var(--rule); }
+.board-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 
 /* the 1px gap over a ruled ground is the only line work between columns */
 .board-cols {
   display: grid;
-  grid-template-columns: repeat(6, minmax(168px, 1fr));
+  grid-template-columns: repeat(6, minmax(var(--board-col), 1fr));
   gap: 1px;
-  /* 6 × 168 plus 5 rules. Under that the row scrolls inside .board-scroll
-     rather than crushing six columns into a phone. */
-  min-inline-size: 1013px;
+  /* Six columns plus the five rules between them. Under that the lane scrolls
+     inside .board-scroll. 216 is where a card holds a three-line title, an
+     owner and a §ref without the title breaking mid-word; below it the card
+     stops being readable long before the row stops fitting. */
+  min-inline-size: calc(6 * var(--board-col) + 5px);
   background: var(--rule);
   border-block-end: 1px solid var(--rule);
 }
 
+/* minmax(0, 1fr) rather than the implicit track a bare `display: grid` gives:
+   an implicit `auto` track sizes to max-content and overflows the column
+   instead of shrinking to it, so one long actor slug pushes a card into the
+   column beside it. Every grid below that holds card text says the same. */
 .board-col {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 8px;
   padding: 10px;
@@ -1200,6 +1326,7 @@ button { cursor: pointer; }
 }
 
 .board-col-head {
+  grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1207,7 +1334,8 @@ button { cursor: pointer; }
   padding-block-end: 2px;
 }
 
-.board-col-name {
+.board-col-name,
+.board-chip-name {
   font-family: var(--gothic);
   font-size: 10px;
   font-weight: 600;
@@ -1216,25 +1344,41 @@ button { cursor: pointer; }
   color: var(--ink-faint);
 }
 
-.board-col-count {
+.board-col-count,
+.board-chip-count {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
 
+/* the chip runs a shade tighter and smaller than a column head: it sits in a
+   row of seven, not alone above a column */
+.board-chip-name { letter-spacing: .14em; }
+.board-chip-count { font-size: 10px; }
+
 /* Cards ------------------------------------------------------------------ */
 
+/* A card is a summary of a record, and pressing it opens the record. The
+   column is a fixed width, so a title, a note and a flag are clamped rather
+   than allowed to run a card down the page: what is clamped here is in the
+   dialog in full, and a path with no spaces in it breaks rather than overhangs
+   the column it was drawn in. */
 .board-card {
   display: grid;
   gap: 8px;
   padding: 11px;
+  grid-template-columns: minmax(0, 1fr);
   background: var(--ground-raise);
   border: 1px solid var(--rule);
   outline: 2px solid transparent;
   outline-offset: -2px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
   transition: border-color 140ms ease, outline-color 140ms ease;
 }
+
+.board-card:hover { border-color: var(--ink-faint); }
 
 /* the id reads on the left, its size on the right */
 .board-card-head {
@@ -1244,12 +1388,50 @@ button { cursor: pointer; }
   gap: 8px;
 }
 
+/* a button that looks like the id it already was: the card's name is the thing
+   a reader presses to read the card */
 .board-card-id {
+  appearance: none;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: .04em;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
+  text-align: start;
+  transition: color .14s ease;
+}
+
+.board-card-id:hover { color: var(--redline); }
+
+.board-card-id:focus-visible {
+  outline: 2px solid var(--redline);
+  outline-offset: 2px;
+}
+
+/* Everything on a card that can run long is cut the same way and at the same
+   depth, so the depth is stated once. The full text is in the dialog. */
+.board-card-title,
+.board-card-flag,
+.board-card-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* One line, cut with an ellipsis: an actor slug runs 31 characters and an
+   anchor slug longer, and neither is worth a second line on a card. */
+.board-card-owner,
+.board-log-actor,
+.board-card-relation[data-relation="ledger"] .board-card-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .board-card-title {
@@ -1299,6 +1481,7 @@ button { cursor: pointer; }
 .board-card-readiness[data-state="blocked"] { color: var(--redline); }
 
 .board-card-owner {
+  min-inline-size: 0;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: .04em;
@@ -1306,20 +1489,25 @@ button { cursor: pointer; }
 }
 .board-card-owner::before { content: "@"; }
 
-.board-card-refs {
+/* Both hold §links from the same builder, so they are set once; the dialog
+   has the room to run them larger and a shade brighter. */
+.board-card-refs,
+.board-dialog-refs {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
 }
 
-.board-card-refs a {
+.board-card-refs a,
+.board-dialog-refs a {
   border: 0;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: .04em;
   color: var(--ink-faint);
 }
-.board-card-refs a:hover { color: var(--redline); }
+.board-card-refs a:hover,
+.board-dialog-refs a:hover { color: var(--redline); }
 
 /* A bad write has to be visible: a moved event whose from did not match, or a
    second claim with no released between. */
@@ -1332,7 +1520,9 @@ button { cursor: pointer; }
   color: var(--redline);
 }
 
-/* what a card is waiting on, and the last thing an agent said about it */
+/* what a card is waiting on, and the last thing an agent said about it. A
+   blocked card's question can run a paragraph, and the dialog is where it is
+   read: three lines here is the trailer. */
 .board-card-note {
   font-family: var(--mono);
   font-size: 10px;
@@ -1402,6 +1592,17 @@ button { cursor: pointer; }
 
 .board-card-relation[data-relation="related"] { opacity: .76; }
 
+/* The card cites a section of execution.md rather than repeating it, and the
+   slug is longer than a card id, so the chip is capped to the column. */
+.board-card-relation[data-relation="ledger"] .board-card-link {
+  max-inline-size: 100%;
+}
+
+.board-card-relation[data-relation="ledger"] .board-card-link:hover {
+  border-color: var(--redline);
+  color: var(--redline);
+}
+
 .board-card-link-more {
   padding-block: 3px;
   font-family: var(--mono);
@@ -1417,6 +1618,205 @@ button { cursor: pointer; }
 /* done is closed, not deleted: dim the title, never strike it */
 .board-card[data-status="done"] .board-card-title,
 .board-card[data-status="split"] .board-card-title { color: var(--ink-mute); }
+
+/* The card in full ------------------------------------------------------- */
+
+/* One sheet lifted off the board, ruled like every other sheet in the document
+   and marked at the head in the reviewer's pencil. It holds what the column
+   had to drop, and while a run is going it refills every 3 s with the lanes
+   behind it, so a card left open is a card being watched. */
+.board-dialog {
+  inline-size: min(680px, calc(100vw - 32px));
+  max-block-size: min(84vh, 900px);
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-block-start: 2px solid var(--redline);
+  background: var(--ground-raise);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.board-dialog::backdrop { background: rgba(4, 12, 22, .82); }
+:root[data-theme="vellum"] .board-dialog::backdrop { background: rgba(11, 26, 42, .46); }
+
+/* the head stays put while the log scrolls: it names the card being read */
+.board-dialog-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--ground-raise);
+  border-block-end: 1px solid var(--rule);
+}
+
+.board-dialog-mark {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* board statuses are a different vocabulary from the sheets' locked/open/gate,
+   so the stamp is coloured here rather than through the document's carrier */
+.board-dialog[data-status="done"],
+.board-dialog[data-status="split"] { --sig: var(--sig-locked); }
+.board-dialog[data-status="in-progress"],
+.board-dialog[data-status="review"] { --sig: var(--sig-open); }
+.board-dialog[data-status="blocked"] { --sig: var(--redline); }
+
+.board-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: 22px 20px 26px;
+}
+
+.board-dialog-title {
+  font-family: var(--gothic);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: -.012em;
+  color: var(--ink);
+}
+
+/* the title block's field grid at card scale */
+.board-dialog-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.board-field {
+  padding: 9px 12px 10px;
+  background: var(--ground-raise);
+}
+
+.board-field dt {
+  font-family: var(--gothic);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.board-field dd {
+  margin: 0;
+  padding-block-start: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.board-dialog-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
+
+.board-dialog-flag {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--redline);
+}
+
+.board-dialog-note {
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--rule);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.52;
+  color: var(--ink-soft);
+}
+
+.board-dialog-refs {
+  gap: 12px;
+}
+
+.board-dialog-refs a {
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+.board-files {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-files li {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* the relationship rows keep the card's own component, uncapped */
+.board-dialog .board-card-relation { border-block-start-color: var(--rule); }
+
+/* Same link, drawn by where it landed: a chip in the card's relationship row,
+   and in the dialog a path in the file list, which already sets the type it
+   inherits. Only the chip's own box has to be taken back off. */
+.board-files .board-card-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+/* Every event that named this card, in the order the file has them: the fold
+   is a summary of these lines, and this is the lines. */
+.board-log {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--rule-soft);
+  border-block: 1px solid var(--rule-soft);
+}
+
+.board-log-row {
+  display: grid;
+  grid-template-columns: 78px 84px 76px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  background: var(--ground-raise);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-mute);
+}
+
+.board-log-ts {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-log-event {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.board-log-actor { color: var(--ink-faint); }
+
+.board-log-detail {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
 
 /* -- 10 · Colophon ------------------------------------------------------- */
 
@@ -1489,6 +1889,15 @@ button { cursor: pointer; }
     border-inline-start: 0;
   }
   .board-meter > div { padding-inline: 0 16px; }
+  .board-dialog-bar { padding-inline: 16px; }
+  .board-dialog-body { padding-inline: 16px; }
+  /* four narrow columns of mono is unreadable on a phone: stack the line and
+     let the detail have the width */
+  .board-log-row {
+    grid-template-columns: 78px 84px minmax(0, 1fr);
+    row-gap: 3px;
+  }
+  .board-log-detail { grid-column: 1 / -1; }
   /* there is no hover here: the mark is tapped, so give the box the width */
   .eli-body { inline-size: min(38ch, calc(100vw - 44px)); }
 }
@@ -1528,8 +1937,10 @@ button { cursor: pointer; }
   .doc-body { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
 
   /* paper gets the plan whichever view was on screen: the board is a live
-     record of a file that keeps changing, so it has no printed form */
-  .board, .doc-bar-views { display: none; }
+     record of a file that keeps changing, so it has no printed form. The
+     dialog is named beside it because an open modal sits in the top layer,
+     and the top layer is a screen idea. */
+  .board, .board-dialog, .doc-bar-views { display: none; }
 
   .sheet { break-inside: auto; padding-bottom: 30px; }
   .sheet-head { break-after: avoid; }
