@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Update Plan Assets"
+  short_description: "Refresh stale shared QStack plan assets"
+  default_prompt: "Use $qstack-update-plan-assets to refresh this repository's stale shared plan assets from the installed QStack template."
+policy:
+  allow_implicit_invocation: true
