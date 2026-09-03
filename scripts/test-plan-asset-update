@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+PLAN_SKILL = REPO / "skills" / "qstack-plan-to-html"
+UPDATE = PLAN_SKILL / "scripts" / "update-plan-assets"
+SOURCE = REPO / "skills" / "qstack-plan-to-html" / "template" / "v1"
+
+
+class PlanAssetUpdateTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temporary.name)
+        self.target = (
+            self.repo / "qstack" / "compound_engineering" / "plans" / ".template" / "v1"
+        )
+        self.target.mkdir(parents=True)
+        (self.target / "board.js").write_text("older board\n", encoding="utf-8")
+        (self.target / "repo-owned.css").write_text("keep me\n", encoding="utf-8")
+
+        self.plan = (
+            self.repo / "qstack" / "compound_engineering" / "plans" / "atlas-logs"
+        )
+        self.plan.mkdir(parents=True)
+        (self.plan / "plan.html").write_text("authoritative plan\n", encoding="utf-8")
+        (self.plan / "board-events.js").write_text(
+            'qstackBoardEvent({"event":"board","format":1});\n', encoding="utf-8"
+        )
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def run_update(
+        self, *arguments: str, check: bool = True, binary: Path = UPDATE
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(binary), *arguments, "--repo", str(self.repo)],
+            check=check,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_selected_assets_update_without_touching_a_plan(self) -> None:
+        before_plan = (self.plan / "plan.html").read_bytes()
+        before_events = (self.plan / "board-events.js").read_bytes()
+
+        status = self.run_update("status")
+        self.assertIn("qstack: different: board.js", status.stdout)
+        self.assertIn("qstack: missing: plan.css", status.stdout)
+
+        result = self.run_update("apply", "board.js", "plan.css", "README.md")
+        self.assertIn("qstack: updated: board.js", result.stdout)
+        self.assertIn("qstack: added: plan.css", result.stdout)
+        self.assertEqual(
+            (self.target / "board.js").read_bytes(),
+            (SOURCE / "board.js").read_bytes(),
+        )
+        self.assertEqual(
+            (self.target / "plan.css").read_bytes(),
+            (SOURCE / "plan.css").read_bytes(),
+        )
+        self.assertEqual((self.target / "repo-owned.css").read_text(), "keep me\n")
+        self.assertEqual((self.plan / "plan.html").read_bytes(), before_plan)
+        self.assertEqual((self.plan / "board-events.js").read_bytes(), before_events)
+
+    def test_rerun_skips_an_asset_that_is_current(self) -> None:
+        self.run_update("apply", "board.js")
+        target = self.target / "board.js"
+        modified = target.stat().st_mtime_ns
+
+        result = self.run_update("apply", "board.js")
+        self.assertEqual(result.stdout.strip(), "qstack: current: board.js")
+        self.assertEqual(target.stat().st_mtime_ns, modified)
+
+    def test_apply_all_converges_and_preserves_target_only_files(self) -> None:
+        self.run_update("apply", "--all")
+        status = self.run_update("status")
+        self.assertEqual(
+            status.stdout.strip(), "qstack: shared plan assets are current"
+        )
+        self.assertEqual((self.target / "repo-owned.css").read_text(), "keep me\n")
+
+    def test_license_line_endings_and_trailing_space_are_not_drift(self) -> None:
+        name = "fonts/OFL-Archivo.txt"
+        target = self.target / name
+        target.parent.mkdir()
+        normalized = "\n".join(
+            line.rstrip()
+            for line in (SOURCE / name).read_text(encoding="utf-8").splitlines()
+        )
+        target.write_text(f"{normalized}\n", encoding="utf-8")
+
+        status = self.run_update("status")
+        self.assertNotIn(f"different: {name}", status.stdout)
+
+    def test_license_content_change_is_reported_as_drift(self) -> None:
+        name = "fonts/OFL-Archivo.txt"
+        target = self.target / name
+        target.parent.mkdir()
+        target.write_text("different licence\n", encoding="utf-8")
+
+        status = self.run_update("status")
+
+        self.assertIn(f"qstack: different: {name}", status.stdout)
+
+    def test_path_outside_the_template_is_rejected(self) -> None:
+        result = self.run_update("apply", "../plan.html", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid template asset path", result.stderr)
+        self.assertFalse((self.target.parent / "plan.html").exists())
+
+    def test_implicit_repository_is_resolved_from_git(self) -> None:
+        subprocess.run(
+            ["git", "init", "--quiet", str(self.repo)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        result = subprocess.run(
+            [str(UPDATE), "status"],
+            cwd=self.repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("qstack: different: board.js", result.stdout)
+
+    def test_missing_repository_and_source_template_are_reported(self) -> None:
+        missing_repo = subprocess.run(
+            [str(UPDATE), "status", "--repo", str(self.repo / "missing")],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(missing_repo.returncode, 0)
+        self.assertIn("repository directory not found", missing_repo.stderr)
+
+        incomplete_skill = self.repo / "incomplete-skill"
+        incomplete_script = incomplete_skill / "scripts" / "update-plan-assets"
+        incomplete_script.parent.mkdir(parents=True)
+        shutil.copy2(UPDATE, incomplete_script)
+        missing_source = self.run_update(
+            "status", check=False, binary=incomplete_script
+        )
+        self.assertNotEqual(missing_source.returncode, 0)
+        self.assertIn("installed plan template not found", missing_source.stderr)
+
+    def test_symlinked_target_template_is_rejected(self) -> None:
+        shutil.rmtree(self.target)
+        outside = self.repo / "outside-template"
+        outside.mkdir()
+        self.target.symlink_to(outside, target_is_directory=True)
+
+        result = self.run_update("status", check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("target template path contains a symlink", result.stderr)
+
+    def test_symlinked_asset_parent_is_rejected(self) -> None:
+        outside = self.repo / "outside-assets"
+        outside.mkdir()
+        (self.target / "fonts").symlink_to(outside, target_is_directory=True)
+
+        result = self.run_update("apply", "fonts/README.md", check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("target asset parent is a symlink", result.stderr)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_unknown_asset_is_rejected(self) -> None:
+        result = self.run_update("apply", "unknown.js", check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("asset is not in the installed plan template", result.stderr)
+
+    def test_apply_requires_one_selector_style(self) -> None:
+        missing_selector = self.run_update("apply", check=False)
+        conflicting_selectors = self.run_update(
+            "apply", "--all", "board.js", check=False
+        )
+
+        self.assertNotEqual(missing_selector.returncode, 0)
+        self.assertIn(
+            "apply requires --all or at least one asset", missing_selector.stderr
+        )
+        self.assertNotEqual(conflicting_selectors.returncode, 0)
+        self.assertIn("either --all or asset paths", conflicting_selectors.stderr)
+
+    def test_apply_all_reports_an_already_current_template(self) -> None:
+        self.run_update("apply", "--all")
+
+        result = self.run_update("apply", "--all")
+
+        self.assertEqual(
+            result.stdout.strip(), "qstack: shared plan assets are current"
+        )
+
+    def test_failed_replace_removes_its_temporary_file(self) -> None:
+        blocked_target = self.target / "plan.css"
+        blocked_target.mkdir()
+
+        result = self.run_update("apply", "plan.css", check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(blocked_target.is_dir())
+        self.assertEqual(list(self.target.glob(".plan.css.qstack-*")), [])
+
+    def test_plan_to_html_only_copy_contains_working_updater(self) -> None:
+        installed_skill = self.repo / "single-skill" / "qstack-plan-to-html"
+        shutil.copytree(PLAN_SKILL, installed_skill)
+        installed_update = installed_skill / "scripts" / "update-plan-assets"
+        installed_reference = installed_skill / "references" / "update-plan-assets.md"
+        installed_instructions = (installed_skill / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertTrue(installed_update.is_file())
+        self.assertTrue(installed_reference.is_file())
+        self.assertIn("references/update-plan-assets.md", installed_instructions)
+        self.assertNotIn("qstack-update-plan-assets/SKILL.md", installed_instructions)
+
+        result = self.run_update("apply", "board.js", binary=installed_update)
+        self.assertIn("qstack: updated: board.js", result.stdout)
+        self.assertEqual(
+            (self.target / "board.js").read_bytes(),
+            (SOURCE / "board.js").read_bytes(),
+        )
+
+    def test_full_copied_install_uses_plan_to_html_updater(self) -> None:
+        home = self.repo / "agent-home"
+        (home / ".codex").mkdir(parents=True)
+        environment = os.environ.copy()
+        environment["QSTACK_INSTALL_HOME"] = str(home)
+        subprocess.run(
+            [
+                str(REPO / "install"),
+                "--copy",
+                "--without-matt-pocock",
+                "--without-human-review",
+            ],
+            check=True,
+            capture_output=True,
+            env=environment,
+            text=True,
+        )
+        installed_update = (
+            home
+            / ".codex"
+            / "skills"
+            / "qstack-plan-to-html"
+            / "scripts"
+            / "update-plan-assets"
+        )
+
+        result = self.run_update("apply", "board.js", binary=installed_update)
+        self.assertIn("qstack: updated: board.js", result.stdout)
+        self.assertEqual(
+            (self.target / "board.js").read_bytes(),
+            (SOURCE / "board.js").read_bytes(),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

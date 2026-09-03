@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 24 skills into Claude Code, Codex, and any harness that
+result. QStack installs 25 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -78,7 +78,10 @@ renders the document, runs `/qstack-ask-plan-open-questions` against the
 authoritative HTML so material decisions are settled and recorded before anyone
 starts, then breaks the frozen plan into board cards with points and
 dependencies. It never re-renders a plan that already exists, and it adds a
-board to an HTML plan that lacks one.
+board to an HTML plan that lacks one. When the repository has an older copy of
+the shared presentation, it runs the asset update workflow first. The same
+workflow is available directly as `/qstack-update-plan-assets`. Existing plan
+content and board events stay untouched.
 
 Boards are a static `board-events.js` beside the plan, so `plan.html#board`
 works from disk with no server. `/qstack-serve-plans` adds a stable localhost
@@ -120,6 +123,7 @@ are doing. Explicit skills run only when you type them.
 | --- | --- | --- |
 | [`qstack-plan-prior-art`](skills/qstack-plan-prior-art/) | Automatic | Rank earlier plans by overlap with what you are about to write, then report what was decided, deferred, learned, and superseded, plus live board cards touching the same files. Writes nothing. |
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit | Render a plan as a numbered HLD/LLD document, resolve its open questions, and break it into the cards of its execution board. Takes a Markdown draft or the working agreement reached in the conversation. |
+| [`qstack-update-plan-assets`](skills/qstack-update-plan-assets/) | Automatic | Refresh shared plan scripts, styles, and documentation from a clearly newer installed QStack template without changing plan content or execution records. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask the questions whose answers change what gets built, one at a time in plain language, and write each decision and its consequences straight into the plan. |
 | [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and ask how much adversarial review to run. |
 | [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and ask the same review-depth question. |
@@ -180,8 +184,13 @@ agents:
 ```bash
 npx skills add hani-q/qstack                              # everything
 npx skills add hani-q/qstack --list                       # look first
-npx skills add hani-q/qstack --skill qstack-plan-to-html  # just one
+npx skills add hani-q/qstack --skill qstack-plan-to-html  # renderer + asset updater
 ```
+
+The single-skill command installs the renderer and its automatic asset updater,
+not the composed prior-art and open-question passes. Install everything for the
+complete planning workflow. Installing `qstack-update-plan-assets` by itself is
+not useful because the source template lives in `qstack-plan-to-html`.
 
 `./install` links every skill into each harness it finds and skips the ones that
 are absent:
@@ -285,13 +294,15 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 24 in total
+    ├── ...                          ← one directory per skill, 25 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
     └── qstack-plan-to-html/
         ├── SKILL.md
         ├── references/board-breakdown.md   ← epics, cards, points, dependencies
+        ├── references/update-plan-assets.md ← safe shared-template refresh
+        ├── scripts/update-plan-assets      ← deterministic atomic copier
         └── template/v1/             ← "cyanotype & redline" plan template
             ├── board.js  plan.css  plan.js  pretext.js
             ├── plan-template.html

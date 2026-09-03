@@ -24,9 +24,12 @@
 
 - `skills/qstack-plan-to-html/template/v1/` and
   `qstack/compound_engineering/plans/.template/v1/` are byte-identical by
-  contract, apart from the `fonts/OFL-*.txt` licences. `/qstack-plan-to-html`
-  never overwrites an existing copy, so a change to either directory means the
-  same change to both. `scripts/validate-template-sync` checks this in CI.
+  contract, apart from the `fonts/OFL-*.txt` licences. Changes to either
+  directory mean the same change to both. `scripts/validate-template-sync`
+  checks this in CI. In target repositories, `/qstack-plan-to-html` runs its
+  co-located shared-asset workflow, also exposed as
+  `/qstack-update-plan-assets`, which replaces only copies proven older than
+  the installed template.
 
 - Every branch that lands on `main` owns one version claim and one topmost
   `CHANGELOG.md` entry. Run `scripts/qstack-version prepare --bump <level>`

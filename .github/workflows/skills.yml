@@ -27,6 +27,9 @@ jobs:
       - name: Validate plan template sync
         run: scripts/validate-template-sync
 
+      - name: Verify shared plan asset updates
+        run: scripts/test-plan-asset-update
+
       - name: Validate the board fold against its fixture
         run: scripts/validate-board-fold
 

@@ -162,8 +162,8 @@ This is a shell upgrade, not a re-render.
 Run the additive asset setup below without copying `plan-template.html` over the
 plan. The plan's shared `plan.css` must contain the execution-board section and
 its `.doc-bar-views` rules. If the installed template differs from the repo's
-copy, show the diff and ask before replacing it, as the setup rules require. A
-missing `board.js` is additive and can be copied directly. Create the required
+copy, run the shared-asset workflow as the setup rules require. A missing
+`board.js` is additive and can be copied directly. Create the required
 header-only stream when it is absent:
 
 ```bash
@@ -196,11 +196,13 @@ mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/<slug>"
 mkdir -p "$REPO_ROOT/qstack/compound_engineering/plans/.template"
 mkdir -p "$REPO_ROOT/qstack/scripts"
 TEMPLATE="$REPO_ROOT/qstack/compound_engineering/plans/.template/v1"
+TEMPLATE_EXISTED=1
 if [ ! -e "$TEMPLATE" ]; then
+  TEMPLATE_EXISTED=0
   cp -R "$SKILL_DIR/template/v1" "$TEMPLATE"
 fi
-# A repo that already used this skill has an older template. Add what is
-# missing, and name what is stale rather than overwriting it.
+# A repo that already used this skill may have an older template. Add what is
+# missing, and hand differing files to the shared-asset workflow below.
 STALE=
 for asset in board.js plan.js plan.css plan-template.html pretext.js README.md; do
   if [ ! -e "$TEMPLATE/$asset" ]; then
@@ -219,7 +221,36 @@ if [ ! -e "$REPO_ROOT/qstack/scripts/migrate-board-log" ]; then
 fi
 chmod +x "$REPO_ROOT/qstack/scripts/serve.sh"
 chmod +x "$REPO_ROOT/qstack/scripts/migrate-board-log"
-# Full conversion only. Board-only mode upgrades the existing HTML in place.
+```
+
+macOS `readlink` has no `-f` before coreutils 12: if it fails, fall back to
+`cd "$(dirname <path>)" && pwd -P`.
+
+If `qstack/compound_engineering/plans/.template/v1`,
+`qstack/scripts/serve.sh`, or `qstack/scripts/migrate-board-log` already exists,
+do not replace it merely because it differs: the repo may have a newer revision
+or its own behavior. The loop above adds only files the template does not have;
+without it a repo that predates `board.js` renders a stencil whose board script
+is missing.
+
+When `TEMPLATE_EXISTED=1`, resolve
+`references/update-plan-assets.md` relative to this SKILL.md, read it
+completely, and run that workflow against this repository. It checks the
+complete template tree and owns the direction check. A clearly older QStack
+copy is updated without another approval, then setup resumes. A repo-owned,
+newer, or ambiguous difference still stops for the user's choice. This
+reference and its script ship inside `qstack-plan-to-html`, so a single-skill
+install contains the automatic updater. If either is unavailable, report an
+incomplete installation and stop. Do not silently skip the update decision.
+
+This repository keeps its own two copies byte-identical and checks it in CI
+with `scripts/validate-template-sync`; a target repo has made no such promise.
+
+Only after the update workflow finishes, instantiate a new plan from the
+reconciled stencil. Board-only mode upgrades the existing HTML in place and
+skips this copy:
+
+```bash
 if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html" ]; then
   cp "$REPO_ROOT/qstack/compound_engineering/plans/.template/v1/plan-template.html" \
     "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/plan.html"
@@ -229,22 +260,6 @@ if [ ! -e "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/board-events.js" 
     > "$REPO_ROOT/qstack/compound_engineering/plans/<slug>/board-events.js"
 fi
 ```
-
-macOS `readlink` has no `-f` before coreutils 12: if it fails, fall back to
-`cd "$(dirname <path>)" && pwd -P`.
-
-If `qstack/compound_engineering/plans/.template/v1`,
-`qstack/scripts/serve.sh`, or `qstack/scripts/migrate-board-log` already exists,
-**do not overwrite it**: the repo may have a newer revision. Diff and report
-instead. The loop above adds only files the template does not have; without it a
-repo that predates `board.js` renders a stencil whose board script is missing.
-
-A file the loop reports as stale is a decision for the user, not for you. Say
-which files differ and what the difference costs: a `board.js` from before the
-`coordinator` event counts every coordinator line as unreadable, so the board
-shows a red fault on a healthy plan. Then ask before replacing anything. This
-repository keeps its own two copies byte-identical and checks it in CI with
-`scripts/validate-template-sync`; a target repo has made no such promise.
 
 The stencil's asset paths (`../.template/v1/plan.css`) are correct for
 `qstack/compound_engineering/plans/<slug>/plan.html`. The template is inside the

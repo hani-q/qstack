@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path, PurePosixPath
+
+
+def same_contents(name: str, source: Path, target: Path) -> bool:
+    if source.read_bytes() == target.read_bytes():
+        return True
+    if PurePosixPath(name).match("fonts/OFL-*.txt"):
+        source_lines = [
+            line.rstrip() for line in source.read_text(encoding="utf-8").splitlines()
+        ]
+        target_lines = [
+            line.rstrip() for line in target.read_text(encoding="utf-8").splitlines()
+        ]
+        return source_lines == target_lines
+    return False
+
+
+def installed_template() -> Path:
+    skill_dir = Path(__file__).resolve().parents[1]
+    return skill_dir / "template" / "v1"
+
+
+def repository_root(value: Path | None) -> Path:
+    if value is not None:
+        root = value.resolve()
+    else:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise ValueError("not inside a Git repository; pass --repo")
+        root = Path(result.stdout.strip()).resolve()
+
+    if not root.is_dir():
+        raise ValueError(f"repository directory not found: {root}")
+    return root
+
+
+def target_template(repo: Path) -> Path:
+    relative = Path("qstack/compound_engineering/plans/.template/v1")
+    target = repo
+    for part in relative.parts:
+        target = target / part
+        if target.is_symlink():
+            raise ValueError(f"target template path contains a symlink: {target}")
+    return target
+
+
+def source_files(source: Path) -> dict[str, Path]:
+    if not source.is_dir():
+        raise ValueError(f"installed plan template not found: {source}")
+
+    files = {
+        path.relative_to(source).as_posix(): path
+        for path in sorted(source.rglob("*"))
+        if path.is_file()
+    }
+    if not files:
+        raise ValueError(f"installed plan template has no files: {source}")
+    return files
+
+
+def drift(source: dict[str, Path], target: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for name, source_path in source.items():
+        target_path = target / name
+        if not target_path.is_file():
+            result[name] = "missing"
+        elif not same_contents(name, source_path, target_path):
+            result[name] = "different"
+    return result
+
+
+def safe_asset_name(raw: str, source: dict[str, Path]) -> str:
+    path = PurePosixPath(raw)
+    if (
+        path.is_absolute()
+        or not path.parts
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
+        raise ValueError(f"invalid template asset path: {raw}")
+    name = path.as_posix()
+    if name not in source:
+        raise ValueError(f"asset is not in the installed plan template: {raw}")
+    return name
+
+
+def prepare_parent(target_root: Path, relative: PurePosixPath) -> Path:
+    target_root.mkdir(parents=True, exist_ok=True)
+    if target_root.is_symlink():
+        raise ValueError(f"target template is a symlink: {target_root}")
+
+    parent = target_root
+    for part in relative.parts[:-1]:
+        parent = parent / part
+        if parent.is_symlink():
+            raise ValueError(f"target asset parent is a symlink: {parent}")
+        parent.mkdir(exist_ok=True)
+    return parent
+
+
+def atomic_copy(source: Path, target_root: Path, name: str) -> None:
+    relative = PurePosixPath(name)
+    parent = prepare_parent(target_root, relative)
+    target = target_root.joinpath(*relative.parts)
+
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=parent,
+        prefix=f".{relative.name}.qstack-",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as output, source.open("rb") as input_file:
+            shutil.copyfileobj(input_file, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(temporary, source.stat().st_mode & 0o7777)
+        os.replace(temporary, target)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Compare or update a repository's shared QStack plan template."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    status = commands.add_parser("status", help="list missing and differing assets")
+    status.add_argument("--repo", type=Path)
+
+    apply = commands.add_parser(
+        "apply", help="copy selected installed assets atomically"
+    )
+    apply.add_argument("--repo", type=Path)
+    apply.add_argument(
+        "--all", action="store_true", help="copy every missing or differing asset"
+    )
+    apply.add_argument("assets", nargs="*")
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    try:
+        repo = repository_root(args.repo)
+        source_root = installed_template()
+        target_root = target_template(repo)
+        source = source_files(source_root)
+        changes = drift(source, target_root)
+
+        if args.command == "status":
+            if not changes:
+                print("qstack: shared plan assets are current")
+                return 0
+            for name, state in changes.items():
+                print(f"qstack: {state}: {name}")
+            return 0
+
+        if args.all and args.assets:
+            parser.error("apply accepts either --all or asset paths, not both")
+        if not args.all and not args.assets:
+            parser.error("apply requires --all or at least one asset path")
+
+        names = (
+            list(changes)
+            if args.all
+            else [safe_asset_name(raw, source) for raw in args.assets]
+        )
+        names = list(dict.fromkeys(names))
+        if not names:
+            print("qstack: shared plan assets are current")
+            return 0
+        for name in names:
+            state = changes.get(name)
+            if state is None:
+                print(f"qstack: current: {name}")
+                continue
+            atomic_copy(source[name], target_root, name)
+            action = "added" if state == "missing" else "updated"
+            print(f"qstack: {action}: {name}")
+        return 0
+    except (OSError, ValueError) as error:
+        print(f"qstack: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
