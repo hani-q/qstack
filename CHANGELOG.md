@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.6.0.0] - 2026-09-03
+
+### Added
+
+* `/qstack-update-plan-assets` refreshes a repository's shared plan scripts,
+  styles, documentation, and fonts from the installed QStack template. It
+  replaces only files proven older, preserves target-only files, and leaves
+  every plan document and execution record untouched. Its deterministic copier
+  rejects paths outside the template and symlinked destinations, writes each
+  file atomically, and converges when rerun.
+
+### Changed
+
+* `/qstack-plan-to-html` now checks an existing shared template before rendering
+  and applies clearly newer installed assets without asking for another
+  approval. Ambiguous or repository-owned differences still stop for a human
+  decision. The renderer package carries the update workflow and copier, so a
+  `qstack-plan-to-html`-only install can perform the automatic refresh without a
+  second skill package.
+
 ## [2.5.0.0] - 2026-08-31
 
 ### Added
