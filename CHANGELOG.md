@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.6.1.0] - 2026-09-05
+
+### Added
+
+* `/qstack-libero` interrogates finished work against its goal and removes
+  what the goal did not require. It restates the goal, names the assumption
+  behind each file, abstraction, flag, dependency, and test the work added,
+  reports the sorted list, then deletes first, simplifies second, optimizes
+  only against a measurement, and automates last. It never cuts validation at
+  a trust boundary, error handling that prevents data loss, security,
+  accessibility, or a documented repository invariant. Explicit invocation
+  only, because it edits and its natural trigger would match every finished
+  task. Inside a QStack execution loop the implementation ladder and the
+  adversarial reviewer already cover this ground; the skill is for work outside
+  a loop, or a finished branch before a pull request.
+
 ## [2.6.0.1] - 2026-09-05
 
 ### Changed
