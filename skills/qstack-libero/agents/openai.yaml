@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Libero"
+  short_description: "Remove what the goal did not require"
+  default_prompt: "Use $qstack-libero to interrogate this finished work and remove what the goal did not require."
+policy:
+  allow_implicit_invocation: false

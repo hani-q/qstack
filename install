@@ -86,6 +86,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-foundational-thinking` to settle data shape, ownership, concurrency, and shared setup before logic.
 - Use `/qstack-how [subject]` to explain runtime flow, ownership, files, and non-obvious behavior without editing code.
 - Use `/qstack-build-the-lever` to build the smallest rerunnable tool for non-trivial work.
+- Use `/qstack-libero` to interrogate finished work and remove what the goal did not require.
 - Use `/qstack-fix-root-causes` to reproduce and diagnose failures before fixing them.
 - Use `/qstack-prove-it-works` to verify the real artifact and complete feature path.
 <!-- qstack:instructions:end -->'

@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 25 skills into Claude Code, Codex, and any harness that
+result. QStack installs 26 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -42,7 +42,9 @@ check, which is what `/qstack-encode-lessons-in-structure` builds.
 Alongside the lifecycle there are ten engineering-practice skills, adapted from
 Lauren Tan's PStack, that fire on their own when the conversation calls for
 them: diagnose before patching, prove the real artifact runs, separate
-ownership before reaching for a lock.
+ownership before reaching for a lock. An eleventh, `/qstack-libero`, runs only
+when you ask: it interrogates finished work against the goal and removes what
+the goal did not require.
 
 The skills are also deliberately conservative about authority. A diagnosis skill
 diagnoses; it does not fix, commit, push, or deploy. Read-only skills say so in
@@ -147,7 +149,8 @@ are doing. Explicit skills run only when you type them.
 
 ### Engineering practice
 
-Adapted from PStack. These carry no plan-folder dependency and work in any repo.
+The first ten are adapted from PStack. None of these need a plan folder; they
+work in any repo.
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
@@ -161,6 +164,7 @@ Adapted from PStack. These carry no plan-folder dependency and work in any repo.
 | [`qstack-encode-lessons-in-structure`](skills/qstack-encode-lessons-in-structure/) | Automatic | Turn a recurring correction into the strongest practical guardrail: an unrepresentable state, a CI check, one canonical helper. Prose is the last resort, not the first. |
 | [`qstack-foundational-thinking`](skills/qstack-foundational-thinking/) | Explicit | Settle data shape, access paths, ownership, concurrency, and shared setup before feature logic, without deciding more than current requirements justify. |
 | [`qstack-build-the-lever`](skills/qstack-build-the-lever/) | Explicit | For work that is more than a couple of obvious edits, build the smallest rerunnable tool that performs or proves it. A tool, not a framework. |
+| [`qstack-libero`](skills/qstack-libero/) | Explicit | After a task is built, restate the goal, name the assumption behind each part, and remove what the goal did not require: delete, then simplify, then optimize, then automate. Never cuts validation, data-loss guards, security, or a documented invariant. |
 
 ### Writing
 
