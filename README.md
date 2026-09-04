@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 25 skills into Claude Code, Codex, and any harness that
+result. QStack installs 26 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -168,6 +168,7 @@ Adapted from PStack. These carry no plan-folder dependency and work in any repo.
 | --- | --- | --- |
 | [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in far fewer lines and plainer language. Takes a target, as in `/qstack-be-concise 4`. |
 | [`qstack-unslop`](skills/qstack-unslop/) | Explicit | Strip AI writing patterns from the previous answer and restore a human voice, without losing meaning, detail, or technical accuracy. |
+| [`qstack-explain-for`](skills/qstack-explain-for/) | Automatic | Rewrite the previous answer for a named reader, such as a product manager, CEO, or CMO, framed around the product they own. Takes free text, as in `/qstack-explain-for cmo of a fitness app`. Controls the lens, not the length. |
 
 ## Install
 
@@ -294,7 +295,7 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 25 in total
+    ├── ...                          ← one directory per skill, 26 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique

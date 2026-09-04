@@ -78,6 +78,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
 - Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
 - Use `/qstack-unslop` to remove AI writing patterns from the previous answer without losing useful detail.
+- Use `/qstack-explain-for [role] [product]` to rewrite the previous answer for a named reader such as a product manager, CEO, or CMO, optionally framed around a named product.
 - Use `/qstack-blast-radius` to find and prove the critical safety fact behind a change.
 - Use `/qstack-separate-before-serializing-shared-state` to remove shared mutable ownership before adding serialization.
 - Use `/qstack-encode-lessons-in-structure` to turn recurring corrections into enforceable guardrails.
