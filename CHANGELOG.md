@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.6.2.0] - 2026-09-05
+
+### Added
+
+* `/qstack-explain-for [role] [product]` rewrites the previous answer for a
+  named reader, such as a product manager, CEO, CMO, engineering manager, sales,
+  or support, framed around the product that reader owns. The role sets what
+  the rewrite leads with, keeps, and drops; the product sets its vocabulary.
+  When the product is not what the codebase builds, each technical concept is
+  mapped onto that product's nearest feature and the mapping is named once.
+  With no arguments it explains for a product manager of the inferred product.
+  It controls the lens only; chain `/qstack-be-concise` to control length.
+
 ## [2.6.1.0] - 2026-09-05
 
 ### Added

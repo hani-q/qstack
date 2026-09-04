@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Explain For"
+  short_description: "Rewrite the last answer for a named reader and product"
+  default_prompt: "Use $qstack-explain-for to rewrite your last answer for a product manager."
+policy:
+  allow_implicit_invocation: true
