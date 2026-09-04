@@ -18,6 +18,7 @@
   the source of truth instead of copying a command list here.
 - Write like a capable person speaking to another capable person. Prefer plain,
   specific language and a human voice. Keep technical facts exact.
+- Remove all mannered prose.
 
 ### Before sending prose
 

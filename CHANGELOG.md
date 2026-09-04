@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0.1] - 2026-09-05
+
+### Changed
+
+* The shared Claude and Codex instructions now explicitly require removing all
+  mannered prose.
+
 ## [2.6.0.0] - 2026-09-03
 
 ### Added
