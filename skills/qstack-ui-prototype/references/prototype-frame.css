@@ -1,0 +1,42 @@
+/* Prototype plate: paste into qstack/compound_engineering/plans/<slug>/<slug>.css,
+   loaded after plan.css. Never into plan.css itself.
+   Uses only the template's custom properties so it follows the theme toggle. */
+
+.proto .plate-head { align-items: center; }
+
+.proto-open {
+  font-family: var(--gothic);
+  font-size: 13px;
+  letter-spacing: .02em;
+  color: var(--sig, var(--ink-soft));
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.proto-open:hover,
+.proto-open:focus-visible { color: var(--ink); background: var(--rule-soft); }
+
+.proto-frame {
+  display: block;
+  inline-size: 100%;
+  block-size: min(72vh, 820px);
+  border: 1px solid var(--rule);
+  background: #fff;
+  color-scheme: light dark;
+}
+
+.proto figcaption {
+  padding-block-start: 12px;
+  color: var(--ink-mute);
+  font-size: 13.5px;
+  line-height: 1.44;
+}
+
+/* Print: the frame cannot print. Collapse to the caption and the path, so the
+   paper copy says where the prototype is instead of showing a blank box. */
+@media print {
+  .proto-frame { display: none; }
+  .proto-open { border: 0; padding: 0; }
+  .proto-open::after { content: " (" attr(href) ")"; color: var(--ink-mute); }
+}

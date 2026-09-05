@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Report whether the sources vendored into qstack-ui-prototype have moved upstream.
+
+Two kinds of vendored file live under references/:
+
+- frontend-design.md and LICENSE-frontend-design.txt are verbatim copies. They
+  are compared byte for byte against upstream main; any difference is drift.
+- ui-checklist.md is an adaptation, so it cannot be diffed. Instead the two
+  source files it was adapted from are compared at the pinned commit and at
+  upstream main; a difference means the adaptation should be reread.
+
+Network is required. This is a maintainer tool, not part of the skill's runtime,
+and it is deliberately not wired into CI: the skill must work offline and must
+not change behavior because somebody else pushed a commit.
+
+Exit 0 when nothing moved, 1 when something did, 2 when upstream could not be
+fetched.
+"""
+
+import hashlib
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REFERENCES = HERE.parent / "references"
+
+RAW = "https://raw.githubusercontent.com/{repo}/{ref}/{path}"
+
+VERBATIM = [
+    {
+        "local": "frontend-design.md",
+        "repo": "anthropics/skills",
+        "pin": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+        "path": "skills/frontend-design/SKILL.md",
+    },
+    {
+        "local": "LICENSE-frontend-design.txt",
+        "repo": "anthropics/skills",
+        "pin": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+        "path": "skills/frontend-design/LICENSE.txt",
+    },
+]
+
+ADAPTED = [
+    {
+        "local": "ui-checklist.md",
+        "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+        "pin": "f3ac195224eac1eb0dfe1a3059c2a6add78ffbe3",
+        "paths": [
+            ".claude/skills/ui-ux-pro-max/references/quick-reference.md",
+            ".claude/skills/ui-ux-pro-max/references/pro-rules.md",
+        ],
+    },
+]
+
+
+def fetch(repo: str, ref: str, path: str) -> bytes:
+    url = RAW.format(repo=repo, ref=ref, path=path)
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return response.read()
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:12]
+
+
+def main() -> int:
+    moved = 0
+    try:
+        for item in VERBATIM:
+            local = REFERENCES / item["local"]
+            if not local.is_file():
+                print(f"missing: {local}")
+                moved += 1
+                continue
+            local_bytes = local.read_bytes()
+            pinned = fetch(item["repo"], item["pin"], item["path"])
+            if local_bytes != pinned:
+                print(
+                    f"{item['local']}: differs from the pinned upstream commit "
+                    f"{item['pin'][:12]}; the vendored copy was edited"
+                )
+                moved += 1
+            head = fetch(item["repo"], "main", item["path"])
+            if head != local_bytes:
+                print(
+                    f"{item['local']}: upstream main has moved "
+                    f"({digest(local_bytes)} vendored, {digest(head)} upstream). "
+                    f"Review and re-vendor, then update the pin here and in THIRD_PARTY_NOTICES.md."
+                )
+                moved += 1
+            else:
+                print(f"{item['local']}: matches upstream main")
+
+        for item in ADAPTED:
+            for path in item["paths"]:
+                pinned = fetch(item["repo"], item["pin"], path)
+                head = fetch(item["repo"], "main", path)
+                name = path.rsplit("/", 1)[-1]
+                if pinned != head:
+                    print(
+                        f"{item['local']}: source {name} has moved since {item['pin'][:12]} "
+                        f"({digest(pinned)} pinned, {digest(head)} upstream). "
+                        f"Reread the adaptation, then update the pin."
+                    )
+                    moved += 1
+                else:
+                    print(f"{item['local']}: source {name} unchanged since the pin")
+    except urllib.error.URLError as error:
+        print(f"could not reach upstream: {error}", file=sys.stderr)
+        return 2
+
+    return 1 if moved else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

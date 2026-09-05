@@ -553,10 +553,25 @@ Its edits can affect clauses, diagrams, phases, the release matrix, print
 layout, and sheet status. The post-question verification is the one reported to
 the user.
 
+## Add the UI prototype
+
+After the question pass, resolve the sibling `qstack-ui-prototype` relative to
+this skill's installed directory, read its complete `SKILL.md`, and follow it.
+It decides for itself whether the plan changes anything a person will see,
+asks once with a yes default when it does, and returns without ceremony when
+it does not. `--prototype` answers that question yes without asking and
+`--no-prototype` skips the pass; both pass straight through. If the skill is
+unavailable, report that the conversion ran without the prototype pass and
+continue.
+
+Run it after the questions, not before: an answer can change what the screen
+does. Once it returns, repeat the complete HTML verification, since it adds a
+sheet.
+
 ## Break the plan into cards
 
-Once the question pass has returned and the document verifies again, write the
-plan's execution board. This is a mandatory post-render phase. Skip it only when
+Once the question and prototype passes have returned and the document verifies
+again, write the plan's execution board. This is a mandatory post-render phase. Skip it only when
 the user's current request directly says `skip the board`, `no board`, or
 includes `--no-board`. Requests such as `just convert the plan` or `do it
 quickly` do not opt out.
@@ -607,8 +622,9 @@ underneath, clearly marked as your own suggestion, for the user to take or leave
 Lead with the conversion: the path, local URL, serving command, which source the
 plan came from, sheet count, which sheets are HLD vs LLD, what diagrams were
 drawn, whether a playground was built (and if not, why not), which concepts got
-ELI10 asides, and anything in the source you could not verify. Include how many
-open questions were resolved and how many remain. When a board was written,
+ELI10 asides, whether a UI prototype was embedded (and if not, why not), and
+anything in the source you could not verify. Include how many open questions
+were resolved and how many remain. When a board was written,
 give its epic count,
 card count, total points, and its URL: the same page with `#board`; when the
 user opted out, say the board was skipped at their request and that running

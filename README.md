@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 25 skills into Claude Code, Codex, and any harness that
+result. QStack installs 26 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -53,7 +53,7 @@ their own text.
 ```
 plan.md, or just the chat    a written draft, or the shape you talked through
         ↓
-/qstack-plan-to-html          prior art, render, ask the open questions, cut the board
+/qstack-plan-to-html          prior art, render, ask the open questions, prototype the screens, cut the board
         ↓                     (plan.html is authoritative from here; no Markdown is maintained)
 /qstack-loop-no-nonsense      choose review depth, work the cards,
 /qstack-loop-trequartista     keep execution.md current
@@ -125,6 +125,7 @@ are doing. Explicit skills run only when you type them.
 | [`qstack-plan-to-html`](skills/qstack-plan-to-html/) | Explicit | Render a plan as a numbered HLD/LLD document, resolve its open questions, and break it into the cards of its execution board. Takes a Markdown draft or the working agreement reached in the conversation. |
 | [`qstack-update-plan-assets`](skills/qstack-update-plan-assets/) | Automatic | Refresh shared plan scripts, styles, and documentation from a clearly newer installed QStack template without changing plan content or execution records. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask the questions whose answers change what gets built, one at a time in plain language, and write each decision and its consequences straight into the plan. |
+| [`qstack-ui-prototype`](skills/qstack-ui-prototype/) | Automatic | Build a clickable static HTML mock of the one or two screens a plan changes and embed it in `plan.html` through an iframe, with a link to open it in its own tab. Stamped `Reference`: the clauses are the requirement, the mock is one way they could look. Also runs standalone, keeping the mock under `prototypes/<slug>/` until a plan adopts it. Carries Anthropic's `frontend-design` brief and a checklist adapted from ui-ux-pro-max, so every harness reads the same design guidance offline. |
 | [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and ask how much adversarial review to run. |
 | [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and ask the same review-depth question. |
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Build a requirement-to-evidence matrix from the plan, the execution record, and the real diff, then assign a guarded 0 to 5 adherence score. Report-only. |
@@ -294,7 +295,7 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 25 in total
+    ├── ...                          ← one directory per skill, 26 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
@@ -349,9 +350,12 @@ qstack/
 │   ├── .template/v1/
 │   └── <feature>/
 │       ├── plan.html          ← authoritative, frozen once execution starts
+│       ├── prototype/         ← static mock embedded in plan.html, when the plan has a UI
 │       ├── board-events.js    ← append-only card events, written during execution
 │       ├── execution.md       ← decisions, deviations, progress
 │       └── outcome.md         ← written by /qstack-plan-close
+├── compound_engineering/prototypes/
+│   └── <screen>/              ← a standalone mock and its README, until a plan adopts it
 └── scripts/
     ├── serve.sh
     └── migrate-board-log
