@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.1.0] - 2026-09-05
+
+### Changed
+
+* `/qstack-fix-root-causes` also traces a constraint presented as fixed. When
+  a cost, an estimate, a limit, or "we always do it this way" arrives, the
+  skill quotes the claim and its source, breaks it into the parts that produce
+  it, and tags each part as fixed by physics or a measured limit, priced by a
+  contract or policy that can change, or inherited from habit or an old
+  estimate. It computes the floor from the fixed parts, reports what the gap
+  is made of, and names the cheapest test. Inside a plan an inherited
+  constraint becomes an open question, never a requirement. The skill stays
+  read-only; the failure branch is unchanged.
+
 ## [2.7.0.0] - 2026-09-05
 
 ### Added
