@@ -155,7 +155,7 @@ work in any repo.
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
-| [`qstack-fix-root-causes`](skills/qstack-fix-root-causes/) | Automatic | Reproduce the failure and follow the causal chain until direct evidence supports the root cause. Rejects nil guards that only silence a crash. Diagnosis does not authorize the fix. |
+| [`qstack-fix-root-causes`](skills/qstack-fix-root-causes/) | Automatic | Reproduce the failure and follow the causal chain until direct evidence supports the root cause. Rejects nil guards that only silence a crash. Also traces a constraint presented as fixed, such as "too expensive" or "we always do it this way", down to what physics, a contract, or habit actually fixes. Diagnosis does not authorize the fix. |
 | [`qstack-prove-it-works`](skills/qstack-prove-it-works/) | Automatic | Run the real artifact from input through every boundary to output. A clean compile, a fresh timestamp, and an agent's summary are not proof. |
 | [`qstack-blast-radius`](skills/qstack-blast-radius/) | Automatic | Name the one fact the change is safe because of, then prove it with real code or mark it unproven. Follows effects past direct callers into pinned dependency source, wire formats, persisted data, and generated artifacts. |
 | [`qstack-how`](skills/qstack-how/) | Automatic | Explain a subsystem from its real runtime flow, ownership, and boundaries. Critiques architecture only when you ask for it. Read-only. |
