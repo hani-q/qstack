@@ -7,8 +7,9 @@ description: >
   its source and before the HTML document is. Ranks earlier plans by overlap with the
   subject being planned, then reports decisions already settled, questions never
   answered, where plans diverged from reality, live board cards owning the same
-  files, what this plan supersedes, and rules already binding in the instruction
-  files. Read-only: it writes nothing into the plan folder. Use before drafting
+  files, what this plan supersedes, rules already binding in the instruction
+  files, and standalone UI prototypes already drawn for the same screens.
+  Read-only: it writes nothing into the plan folder. Use before drafting
   or converting a plan, when asked whether something was planned before, or when
   new work may overlap work already recorded.
 license: MIT
@@ -67,6 +68,12 @@ With no arguments, read `qstack/compound_engineering/plans/`, then the legacy
 `compound-engineering/plans/` layout. Both are equally valid; when a slug appears
 in both, read both and say so. Never read `.template/`.
 
+Also read `qstack/compound_engineering/prototypes/` when it exists. It holds
+standalone UI prototypes written by `/qstack-ui-prototype` before any plan
+claimed them, one folder per screen, each with a `README.md`. When plan
+directories were supplied as arguments, read the `prototypes/` folder that
+sits beside each supplied directory, and nothing else.
+
 Read `qstack/compound_engineering/README.md` first when it exists: it may extend
 or override everything below. The legacy layout has its own README, same rule.
 
@@ -103,6 +110,20 @@ qstack/compound_engineering/plans/<slug>/
   When only the retired `board.jsonl` exists, fold its raw JSON lines under the
   same rules without mutating it. If both formats exist, report the conflict and
   fold neither.
+
+A standalone prototype folder is read through its README alone:
+
+```
+qstack/compound_engineering/prototypes/<slug>/
+├── index.html     # the mock; do not open it, the README says what it shows
+└── README.md      # the brief, the screens shown, the choices still open, the date
+```
+
+Read every `README.md` in full; they are short by contract. Do not open
+`index.html`: the markup of a mock is not evidence of anything the plan
+decided. A prototype that has already been adopted by a plan lives at
+`plans/<slug>/prototype/` and is part of that plan, so it is read as part of
+that plan's outline, not here.
 
 Later events win a card's status, and its owner follows a different rule. The
 owner is the actor of the `claimed` carrying the earliest `ts`; a second
@@ -155,6 +176,14 @@ Run the last one once per file the new work will touch. It is ranking evidence
 1, and it is the check that catches a settled clause the outline's wording would
 have read past, because that clause never names the subject. It names the file.
 
+One more, for the prototypes, and it costs nothing when the folder is absent:
+
+```bash
+# Standalone prototypes and what each one shows.
+find qstack/compound_engineering/prototypes compound-engineering/prototypes \
+  -name README.md -exec grep -Hn '^#\|^- \|^\*\*' {} + 2>/dev/null
+```
+
 ## How to rank
 
 Overlap with the subject about to be planned, computed in this order:
@@ -172,10 +201,11 @@ with its `file:line`. A vocabulary overlap is stated as a possible relation the
 reader decides on. Ranking a guess above evidence is the failure this order
 exists to prevent.
 
-## The six findings
+## The seven findings
 
-Report all six, in this order, each carrying the plan slug and a path a reader
-can open. Say "none" where there is none; an empty finding is information.
+Report all seven, in this order, each carrying the plan slug and a path a
+reader can open. Say "none" where there is none; an empty finding is
+information.
 
 1. **Decisions already settled here.** Clauses in an earlier plan that decide
    something this one touches. Say which of the two kinds each is, because they
@@ -207,18 +237,29 @@ can open. Say "none" where there is none; an empty finding is information.
 6. **Rules already binding.** Rules in `AGENTS.md`, `CLAUDE.md`, and the
    `compound_engineering` README that already govern this area. Cite the rule
    and its line; do not copy its text into the plan.
+7. **Prototypes already drawn.** Standalone folders under
+   `qstack/compound_engineering/prototypes/` whose README names a screen this
+   plan changes. Cite the README and its date, and say in one line what the
+   mock shows and which choices it left open. This is the finding that saves a
+   prototype from being drawn twice: when `/qstack-plan-to-html` runs its
+   prototype pass, `/qstack-ui-prototype` offers to adopt the folder into the
+   plan instead of building a new one. Overlap is by screen, not by product;
+   a prototype of a different screen in the same product is "none".
 
 ## When there is nothing to compound from
 
 No plan folder in either layout, and no directory supplied: say where you looked,
-name the argument that overrides it, and stop. A project with no earlier plans
-has no prior art, and that is a complete answer rather than a thin one.
+name the argument that overrides it, report finding 7 if a `prototypes/` folder
+exists, and stop. A project with no earlier plans and no prototypes has no prior
+art, and that is a complete answer rather than a thin one.
 
 Plans present but no execution or outcome records anywhere: say plainly that the
 corpus records intent and not results. Findings 1, 2, 5 and 6 come from
 `plan.html` and still hold. Finding 4 holds wherever either board format exists.
 Finding 3 has no source, so report it as unavailable instead of inferring it
-from the plan text.
+from the plan text. Finding 7 depends on the `prototypes/` folder alone, so it
+can hold when no plan exists at all: a project that drew a mock before it wrote
+a plan has prior art, and this is the finding that reports it.
 
 Never write a lesson the corpus does not contain. A plan that predicted correctly
 teaches nothing new, and saying so is worth more than a warning manufactured out
@@ -227,8 +268,9 @@ of it.
 ## Output
 
 The brief: the subject as you understood it, how many plan folders were
-outlined and how many of them were opened past the outline, then the six
-findings, one or two sentences each with the slug and path inline. Saying what
+outlined and how many of them were opened past the outline, how many
+prototype READMEs were read, then the seven findings, one or two sentences
+each with the slug and path inline. Saying what
 was skipped is part of the brief. A reader who knows nine plans were outlined
 and two opened can name the third. No score, no advice on how to write the
 plan, no closing summary. A brief longer than the plan it precedes has failed.
@@ -241,6 +283,7 @@ the citations land in the new plan's `.refs` sheet:
   <div class="ref"><span class="num">R1</span><p><code>plans/label-cache/plan.html:212</code> defers the eviction policy to a later plan; this one decides it.</p></div>
   <div class="ref"><span class="num">R2</span><p><code>plans/label-cache/outcome.md:38</code> records the migration taking 3 days against the 1 planned.</p></div>
   <div class="ref"><span class="num">R3</span><p><code>AGENTS.md:9</code> already requires removing obsolete paths instead of adding a compatibility layer.</p></div>
+  <div class="ref"><span class="num">R4</span><p><code>prototypes/settings-notifications/README.md:1</code> mocks the notifications screen this plan changes, dated 2026-08-30; the empty-state copy was left open.</p></div>
 </div>
 ```
 

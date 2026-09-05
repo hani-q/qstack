@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.7.0.0] - 2026-09-05
+
+### Added
+
+* `/qstack-ui-prototype` builds a clickable static HTML mock of the one or two
+  screens under discussion and keeps it in the repo. Standalone, it lands under
+  `qstack/compound_engineering/prototypes/<slug>/` with a short README. Attached
+  to a plan, it lands in `plans/<slug>/prototype/` and is embedded in
+  `plan.html` as a `Reference` sheet holding an iframe and a link that opens the
+  mock in its own tab. The mock is evidence for the plan's clauses, never a
+  requirement. No framework, no build step, no network: the file opens from
+  disk on a machine that has never heard of QStack. A plan adopts an existing
+  standalone prototype by moving it, so there is never a second copy.
+
+* The skill carries its design guidance on disk so every harness reads the
+  same text offline: Anthropic's `frontend-design` skill, vendored verbatim
+  under Apache-2.0 at a pinned commit, and a checklist adapted from the
+  `quick-reference` and `pro-rules` references of ui-ux-pro-max under MIT.
+  `skills/qstack-ui-prototype/scripts/check-upstream` reports when either
+  source has moved. Both are recorded in `THIRD_PARTY_NOTICES.md`.
+
+### Changed
+
+* `/qstack-plan-to-html` runs the prototype pass after the open questions are
+  answered and before the board is cut. The pass asks once, with a yes default,
+  only when the plan changes something a person will look at. `--prototype`
+  answers without asking and `--no-prototype` skips it. Verification runs again
+  afterwards because the pass adds a sheet.
+
+* `/qstack-plan-prior-art` reads `qstack/compound_engineering/prototypes/*/README.md`
+  and reports a seventh finding, prototypes already drawn for a screen the new
+  plan changes, so the prototype pass can adopt the folder instead of drawing
+  it twice. The finding holds even in a repository with no plans yet.
+
 ## [2.6.2.0] - 2026-09-05
 
 ### Added

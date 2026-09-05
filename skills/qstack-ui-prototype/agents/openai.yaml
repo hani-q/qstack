@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack UI Prototype"
+  short_description: "Build a clickable static prototype, standalone or embedded in a plan"
+  default_prompt: "Use $qstack-ui-prototype to build a static HTML prototype of the screens under discussion and keep it in the repo, attached to the current plan when there is one."
+policy:
+  allow_implicit_invocation: true

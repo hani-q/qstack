@@ -69,6 +69,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-to-html` to turn a plan into reviewable HTML and its execution board.
 - Use `/qstack-update-plan-assets` to refresh a stale shared plan template without changing plan content or events.
 - Use `/qstack-ask-plan-open-questions [plan-path]` to resolve open decisions in a Markdown draft or authoritative HTML plan.
+- Use `/qstack-ui-prototype [plan-path]` to build a clickable static mock of the screens under discussion, standalone or embedded in a plan.
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and choose its adversarial review depth.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and choose its adversarial review depth.
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
