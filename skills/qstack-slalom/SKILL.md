@@ -86,6 +86,41 @@ Do all of this before launching anything.
    conversation, not from the code. If it cannot be stated, ask.
 4. **Read the repository's instruction files** and the files the task names.
    You need to know the ground before you can split it.
+5. **Ask how hard the workers should think.** The arguments name the models,
+   never the reasoning effort, so ask for it every run through the host's
+   structured question tool, in plain text when the host has none. Ask once,
+   after the task is stated and before the split, so the question can say what
+   the work is. Do not carry an answer over from an earlier run or infer one
+   from the task; a cheap model thinking hard and an expensive one thinking
+   little are different bills, and the choice is the user's.
+
+   Ask it in the shape the loops use: the question, a product-manager
+   rephrasing, an ELI10 version, then the options with the recommended one
+   first and its one-sentence reason.
+
+   > How hard should the worker models think on this task?
+   >
+   > For a product manager: this sets how much thinking time each worker
+   > spends before it writes anything. More thinking catches more edge cases
+   > and costs more time and tokens.
+   >
+   > ELI10: you can ask someone to answer straight away, to think it over
+   > first, or to sit with it for a while. All three give an answer; the slow
+   > one is usually better and always costs more.
+   >
+   > - Medium (recommended): the default for ordinary work, and the right
+   >   answer unless the task is mechanical or genuinely hard.
+   > - Low: for a mechanical task such as a rename or a mass edit, where
+   >   thinking buys nothing.
+   > - High: for a task with real design choices inside a unit.
+   > - Maximum: for the hardest units only; slowest and most expensive.
+   >
+   > Recommend from the task you just stated, and say in one line why.
+
+   Carry the answer to every launch: `effort` on each `agent()` call in Claude
+   Code, and the harness's equivalent elsewhere. A unit you relaunch keeps the
+   same effort unless the relaunch is what raises it, and then say so in the
+   report.
 
 ## Split
 
@@ -121,8 +156,9 @@ one place.
 
 In Claude Code that is the `Workflow` tool. Invoking this skill is the
 opt-in that tool requires. Write the script with one `agent()` call per unit,
-`model` set on every call to the unit's worker model, and `pipeline()` for
-units that have a follow-up stage such as a test run or a narrower relaunch.
+`model` set on every call to the unit's worker model, `effort` set to the
+answer from Preflight 5, and `pipeline()` for units that have a follow-up
+stage such as a test run or a narrower relaunch.
 When every unit in a phase runs the same model, set `model` on that
 `meta.phases` entry too, so the progress view shows it; with mixed models in a
 phase, leave the entry unset. Do not leave any `agent()` call without `model`; the
@@ -173,6 +209,7 @@ One block, in this order:
 - the task, in the words from Preflight;
 - a table with one row per unit: id, files, worker model, model it reported,
   result;
+- the reasoning effort the run used, and any unit that differed;
 - what was verified and how, with the commands;
 - anything reverted, relaunched, or left undone, and why;
 - the orchestrator model, confirmed by this session's own report of itself.

@@ -11,7 +11,10 @@
   one of the named worker models, and integrates and verifies the whole
   result itself. In Claude Code that is the `Workflow` tool, and invoking the
   skill is the opt-in that tool requires; elsewhere the same shape is built
-  from the harness's subagent launcher. No subagent
+  from the harness's subagent launcher. The arguments name the models but
+  never the reasoning effort, so the skill asks for that every run through the
+  host's question tool, in the same shape the loops use, and carries the
+  answer to every launch. No subagent
   ever runs on the orchestrator model: every launch names its model, each
   subagent reports the model it ran as, and a unit that comes back on the
   wrong model is reverted and relaunched. It writes no plan, board, or
