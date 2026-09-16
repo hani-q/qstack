@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Ask As Questions"
+  short_description: "Ask the last answer's open questions for a named reader"
+  default_prompt: "Use $qstack-ask-as-questions to ask the open questions from your last answer as a product manager would hear them, with ELI10 and lettered options."
+policy:
+  allow_implicit_invocation: false

@@ -49,21 +49,42 @@ flag:
 Without the flag, reuse that recorded or legacy mode without asking. With the
 flag, it must match that mode as described below. For a new execution without
 the flag, ask one startup question, using the host's structured question tool
-when available and plain text when it is not. With a board, ask:
+when available and plain text when it is not. Ask it in the question shape the
+board protocol sets under Park and continue, and Resolve the board below says
+where that file is. That shape is the product-manager framing, the ELI10
+version, and the options below with the recommended one first and its
+one-sentence reason. No card is parked, so the question carries no card line,
+and nothing beyond that shape is needed. With a board, the options are:
 
   > How much independent adversarial review should this run use?
   >
-  > - Final review only (recommended): one fresh reviewer after all work, balancing coverage and token cost.
+  > For a product manager: this decides how much independent checking the work
+  > gets before it is called done. More checking catches more mistakes and costs
+  > more time and tokens.
+  >
+  > ELI10: after we build something, someone else can read it over to spot
+  > mistakes. They can read every piece, read the finished thing once, or skip
+  > the reading.
+  >
+  > - Final review only (recommended): one fresh reviewer after all work, which balances coverage and token cost.
   > - Full review: review every card and the combined result; highest coverage and token use.
   > - No adversarial review: fastest and lowest token use; rely on validation only.
 
 Without a board, `full` and `final` both launch one whole-plan reviewer, so do
-not present them as different costs. Ask instead:
+not present them as different costs. The question offers two options rather than
+three:
 
-> How much independent adversarial review should this run use?
->
-> - One whole-plan review (recommended, recorded as `final`): balance quality and token cost.
-> - No adversarial review: fastest and lowest token use; rely on validation only.
+  > How much independent adversarial review should this run use?
+  >
+  > For a product manager: this decides whether the finished work gets an
+  > independent check before it is called done. The check catches more mistakes
+  > and costs more time and tokens.
+  >
+  > ELI10: after we build something, someone else can read the finished thing to
+  > spot mistakes. They can read it once, or skip the reading.
+  >
+  > - One whole-plan review (recommended, recorded as `final`): balance quality and token cost.
+  > - No adversarial review: fastest and lowest token use; rely on validation only.
 
 Review mode is fixed once execution starts. On a resume, a `--review` value that
 differs from the recorded or legacy mode is a conflict: stop and name the mode
@@ -131,6 +152,11 @@ incomplete. Then stop.
 The board sections below are this skill's own rules. Where one sharpens
 something the protocol states, it names the rule it sharpens instead of
 restating it.
+
+Name every card you report to a human under the protocol's Naming a card, with
+the line `card-ref` prints. That covers a bad write, the holder of a board or a
+card you cannot claim, a split and its children, the cards a `--tasks`,
+`--epic`, or `--limit` run leaves open, and every card in the final report.
 
 ## Start the execution record
 
@@ -247,12 +273,17 @@ of an answer, and no departure from the plan happens without explicit approval.
 A parked question is still a blocking question, and the run cannot complete
 while one is open.
 
+Ask it in the question shape the protocol's Park and continue sets. Every
+question this loop puts to a human takes that shape, the startup review-mode
+question included.
+
 ## Resume a blocked card
 
 Follow the protocol's Resume a blocked card. Record the answer in `execution.md`
 before the move. If it approves a departure from the plan, it is an approved
 deviation under Obey the plan exactly, and approval does not rewrite the frozen
-plan.
+plan. A further question the resumed card raises parks and is asked in the same
+shape, under Park and continue above.
 
 ## Splitting
 
@@ -274,6 +305,11 @@ Without a board, break the plan into trackable tasks and keep their status
 current. Either way, delegate bounded independent work when agent tools are
 available, but inspect and integrate every result yourself. Preserve unrelated
 user changes.
+
+Report progress in the protocol's Progress voice. Between transitions the run's
+transcript carries one line per transition, plus a wave summary when a wave
+folds, and stops there. What was tried, what the plan says, which tools ran, and
+why a card went the way it did all go in `execution.md`.
 
 Brief each card's subagent under the protocol's Dispatch, and add what this
 skill requires: it obeys the plan exactly as you do, over the `§` clauses in the
@@ -311,16 +347,16 @@ explicit review choice, and launch no reviewer.
 
 The plan-level review in `full` or `final` runs after every other card on the
 board is `done` or `split`, never merely after the last card selected by
-`--tasks`,
-`--epic`, or `--limit`. It catches integration and seams no single card's diff
+`--tasks`, `--epic`, or `--limit`. It catches integration and seams no single card's diff
 showed. Without a board, that is the one whole-plan review. For every enabled
-review, launch a **fresh independent agent**. A self-review does not satisfy the
+review, launch a fresh independent agent. A self-review does not satisfy the
 selected mode.
 
 Give the reviewer raw evidence rather than your conclusions:
 
 - repository root and plan path;
 - `execution.md` path;
+- the `card-ref` line for every card under review;
 - the base reference and the diff. A `full` per-card review gets what What a
   card owns specifies. A plan-level review gets the complete diff including
   untracked files;
@@ -331,9 +367,10 @@ editing files. It must look for missing requirements, unapproved deviations,
 incorrect behavior, regressions, unsafe assumptions, weak tests, unrequested
 code (an abstraction, configuration, dependency, wrapper, or file that no plan
 requirement or its verification calls for), and inaccurate or incomplete
-execution notes. Require
-findings to include severity, evidence, and a concrete remedy; require an
-explicit statement when no blocking findings remain.
+execution notes. Require findings to include severity, evidence, a concrete
+remedy, and the card they trace to, written as `T-99 "title"` from the
+`card-ref` lines you handed over.
+Require an explicit statement when no blocking findings remain.
 
 Before each review, record a content fingerprint for the reviewed state in
 `execution.md`. Include tracked changes, hashes of untracked files, and every
@@ -342,21 +379,21 @@ substantive section of `execution.md`; exclude the append-only
 plan folder's own append-only bookkeeping: `board-events.js`, which the gate
 card's own transitions change during the review it is fingerprinting, and this
 `execution.md`, which enters through its substantive sections and would
-otherwise be hashed twice. A `full`
-per-card fingerprint covers that card's `files` and only the `execution.md`
-entries naming that card. A `full` or `final` plan-level fingerprint covers the
+otherwise be hashed twice. A `full` per-card fingerprint covers that card's
+`files` and only the `execution.md` entries naming that card. A `full` or `final` plan-level fingerprint covers the
 whole change and all of `execution.md`. Scoping the per-card fingerprint this
 way is what lets a wave run: the orchestrator writes every card's decisions into
 one `execution.md`, so a fingerprint over the whole file would be changed by
 every sibling and no card review would ever stay valid. Triage every finding
-yourself. Fix valid findings,
-update `execution.md`, and rerun affected validation. If a fix would depart from
+yourself. Fix valid findings, update `execution.md`, and rerun affected
+validation. If a fix would depart from
 the plan, ask first under Obey the plan exactly.
 
-Launch another fresh reviewer after **any accepted finding changes code, tests,
+Launch another fresh reviewer after any accepted finding changes code, tests,
 configuration, dependencies, migrations, generated artifacts, or any
-fingerprinted execution content**, regardless of why it changed. Merely appending that review's unchanged findings and
-resolution to `execution.md` does not invalidate it. The last review must match
+fingerprinted execution content, regardless of why it changed. Merely appending
+that review's unchanged findings and resolution to `execution.md` does not
+invalidate it. The last review must match
 the final implementation fingerprint.
 
 What the wave changed together is what the plan-level review and its
@@ -425,9 +462,8 @@ Open no remediation card until both agents have reported: triaging the first
 while the second still runs spends rounds on findings the other may answer.
 Triage every finding yourself: a reviewer agent can be wrong, and a finding you
 reject is recorded in `execution.md` with the evidence that refutes it rather
-than discarded. The fix does not happen inline here: every P0 and
-P1 finding you accept becomes a remediation card in the `review` epic, worked
-like any other card. Record P2 findings in `execution.md` and open no card for
+than discarded. The fix does not happen inline here. Every P0 and P1 finding you accept becomes
+a remediation card in the `review` epic, worked like any other card. Record P2 findings in `execution.md` and open no card for
 them, because they block nothing.
 
 Write those cards yourself, under the protocol's Subagents never write. Each is
@@ -436,8 +472,9 @@ a `created` event carrying `epic`, `title`, `points`, `refs`, `files`, and
 has to satisfy the ready set: non-empty `files`, and `points` in the closed set.
 Its `files` are the implementation paths the finding traces to, never
 `execution.md`, which the gate card owns for as long as it is live. Its
-`refs` are the `§` clauses the finding traces to. A finding whose only fix is in
-`execution.md` gets no card: fix it yourself under the gate card and record what
+`refs` are the `§` clauses the finding traces to. The summary that opens the
+card names it under the protocol's Naming a card, with the title its `created`
+event carries. A finding whose only fix is in `execution.md` gets no card: fix it yourself under the gate card and record what
 changed in that card's own `note`, because a remediation card naming that path
 could never satisfy ready-set condition 3.
 
@@ -449,9 +486,8 @@ fingerprint carries a pass from both.
 
 The gate card's only other route to `done` is an explicit human override.
 Nothing else closes it, and the protocol's The transitions is where that is
-stated, including why it is never split. Write
-one when a human instruction tells you to close the gate with findings
-outstanding: append a `note` on the card naming who overrode it, why, and every
+stated, including why it is never split. Write one when a human instruction
+tells you to close the gate with findings outstanding: append a `note` on the card naming who overrode it, why, and every
 finding accepted unfixed, then the `moved` to `done` from whichever status the
 card is in, `review` if the round is still open and `blocked` if it was already
 parked, and record the same three facts in `execution.md`.
@@ -480,8 +516,14 @@ Set `execution.md` to `complete` and report completion only when:
 - `execution.md` accurately reflects all decisions and approved deviations.
 
 Otherwise leave the status `in-progress` or `blocked`, append `stood-down`
-anyway, and state exactly what remains. In the final response, summarize the
-implementation, validation, selected review mode and outcome, approved
-deviations, open questions, and execution file. With a board, report the waves
-too: which cards ran together, and where the board held the run to one card. A
-run that was serial because every card depended on the last says so.
+anyway, and state exactly what remains.
+
+Write the final response in the report shape the protocol gives, whether the
+run completed or not: the counts line, then the table under the protocol's
+Standing down, then one line each for the rest. This skill's lines are the
+implementation, approved deviations, open questions, validation, the selected
+review mode and its outcome, the waves, and the execution file. The waves line says which cards ran together and where the
+board held the run to one card, and a run that was serial because every card
+depended on the last says so.
+Without a board there is no counts line, no table and no waves line; the
+remaining lines carry the whole report.

@@ -33,7 +33,7 @@
 
 ## Deviations
 
-- Approved 2026-08-19: after revision 1 implementation and the first adversarial review, the user explicitly directed “change the plan.” Revision 2 replaces the frozen plan's exact global Unslop copies with one QStack-owned general-instructions source, harmonizes Agent behavior with the writing rules, and synchronizes concise gstack routing across Claude and Codex. No skill-directory or publication scope changed.
+- Approved 2026-08-19: after revision 1 implementation and the first adversarial review, the user explicitly directed "change the plan." Revision 2 replaces the frozen plan's exact global Unslop copies with one QStack-owned general-instructions source, harmonizes Agent behavior with the writing rules, and synchronizes concise gstack routing across Claude and Codex. No skill-directory or publication scope changed.
 
 ## Tradeoffs
 

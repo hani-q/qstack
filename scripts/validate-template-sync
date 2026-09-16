@@ -15,6 +15,11 @@ from pathlib import Path
 # including the five .woff2 files, is still compared.
 EXCLUDED = ("fonts/OFL-*.txt",)
 
+# The helper scripts ship next to the template rather than inside it, and the
+# install block in skills/qstack-plan-to-html/SKILL.md copies each one into
+# qstack/scripts/ under the same name. They are compared by that pairing.
+HELPER_SCRIPTS = ("serve.sh", "migrate-board-log", "card-ref")
+
 
 def collect_files(root: Path) -> tuple[set[str], set[str]]:
     compared: set[str] = set()
@@ -54,6 +59,16 @@ def main() -> int:
         type=Path,
         default=repo / "qstack" / "compound_engineering" / "plans" / ".template" / "v1",
     )
+    parser.add_argument(
+        "--scripts-source",
+        type=Path,
+        default=repo / "skills" / "qstack-plan-to-html" / "template",
+    )
+    parser.add_argument(
+        "--scripts-instance",
+        type=Path,
+        default=repo / "qstack" / "scripts",
+    )
     args = parser.parse_args()
 
     source_label = display(args.source, repo)
@@ -84,6 +99,26 @@ def main() -> int:
         else:
             failures.append(f"{name}: contents differ")
 
+    helpers_identical = 0
+    for name in HELPER_SCRIPTS:
+        source_script = args.scripts_source / name
+        instance_script = args.scripts_instance / name
+        source_script_label = display(source_script, repo)
+        instance_script_label = display(instance_script, repo)
+        if not source_script.is_file():
+            failures.append(f"{name}: missing from {source_script_label}")
+            continue
+        if not instance_script.is_file():
+            failures.append(
+                f"{name}: in {source_script_label}, missing from {instance_script_label}"
+            )
+            continue
+        if source_script.read_bytes() == instance_script.read_bytes():
+            print(f"qstack: {name}: identical")
+            helpers_identical += 1
+        else:
+            failures.append(f"{name}: contents differ")
+
     excluded = sorted(source_excluded | instance_excluded)
     if excluded:
         print(f"qstack: licence text, not compared: {', '.join(excluded)}")
@@ -99,7 +134,11 @@ def main() -> int:
         )
         return 1
 
-    print(f"qstack: validated {identical} template files in {source_label} and {instance_label}")
+    print(
+        f"qstack: validated {identical} template files in {source_label} and "
+        f"{instance_label}, and {len(HELPER_SCRIPTS)} helper scripts in "
+        f"{display(args.scripts_source, repo)} and {display(args.scripts_instance, repo)}"
+    )
     return 0
 
 

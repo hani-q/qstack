@@ -12,7 +12,7 @@ review, and every section carries a status stamp so a reader knows what is
 settled before they read a word of it.
 
 The print is blue and white: a cyanotype, the ancestor of the blueprint. The
-only warm colour on the page is the **redline**: the reviewer's pencil. It marks
+only warm colour on the page is the **redline**, the reviewer's pencil. It marks
 reading position, hover intent, and anything that blocks a ship. Spend it
 nowhere else, and the document stays legible at a glance.
 
@@ -58,6 +58,17 @@ Serve every plan in the repository with:
 
 Then open `http://127.0.0.1:8000/plans/<slug>/plan.html`. Pass a port as the
 first argument when 8000 is unavailable.
+
+Every board card carries the element id `board-card-<id>`, so
+`plan.html#board-card-T-01` opens the board on that card over HTTP and over
+`file://`. Build that line for a human with:
+
+```bash
+./qstack/scripts/card-ref <slug> T-01
+```
+
+It prints `T-01 "title" <link>`, taking the title from the card's `created`
+event and the link from the running server when there is one.
 
 ## The authoring contract
 
@@ -156,13 +167,14 @@ one board.
 | `note` | Comment, no state change. | `card`, `actor`, `note` |
 
 Any event about a card may also carry `note`, and any event after `created` may
-carry `entry`. The two divide the work of saying what happened, and the protocol's
-The ledger entry owns the rule: `note` is the one line that belongs to the board,
-`entry` is an anchor slug pointing at the section of `execution.md` where the
-reasoning was actually written. The board builds `execution.md#<slug>` from the
-slug, so an event cannot put a scheme, a path or a `javascript:` URL into a link;
-a slug that is not lowercase letters, digits and hyphens is a bad write and the
-card says so. Most cards carry no entry, because most cards close in one line.
+carry `entry`. The two divide the work of saying what happened, and the
+protocol's "The ledger entry" section owns the rule. `note` is the one line that
+belongs to the board, and `entry` is an anchor slug pointing at the section of
+`execution.md` where the reasoning was actually written. The board builds
+`execution.md#<slug>` from the slug, so an event cannot put a scheme, a path or
+a `javascript:` URL into a link; a slug that is not lowercase letters, digits
+and hyphens is a bad write and the card says so. Most cards carry no entry,
+because most cards close in one line.
 
 Six live columns plus one terminal. `full` review mode uses `backlog` →
 `claimed` → `in-progress` → `review` → `done`; `final` and `none` move validated
@@ -171,8 +183,8 @@ live status, and `split` is terminal for the parent of a split. A card whose
 `depends_on` are unfinished waits in `backlog`; `blocked` is the stall only a
 human can clear, and the blocking question goes in `note`. The Review column
 shows the gate card in `final`, any card between
-`in-progress` and `done` in `full`, and nothing under `none`. The protocol's The
-transitions owns that rule.
+`in-progress` and `done` in `full`, and nothing under `none`. The protocol's
+"The transitions" section owns that rule.
 
 A `depends_on` naming a card that later splits resolves to that split's children
 and stays unsatisfied until every one of them closes. The parent closed the

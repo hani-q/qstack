@@ -347,8 +347,7 @@ mid-line and leave a board that `node --check` rejects.
   plan-level one rather than a per-card one. In `none` it moves directly to
   `done` carrying `gate review omitted: review mode none`, which names the
   review it skipped rather than the per-card one it never had. What the loop
-does while it sits there belongs to
-  the loops.
+  does while it sits there belongs to the loops.
 - any live status → `blocked` when the card stops on something a human must
   answer, with the question in `note`.
 - the gate card is never split. Children would each satisfy condition 5 the
@@ -416,6 +415,62 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"moved","
 A card can earn more than one over its life, and one section cited twice is one
 entry, not two. `created` carries none: breakdown writes no ledger sections.
 
+## Naming a card
+
+Every card named in text a human reads is named the same way. The first mention
+in a message is the id, the title in straight quotes, and the link:
+
+```
+T-05 "Retry policy and backfill for the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-05
+```
+
+Later mentions in the same message are the bare id.
+
+Link form, in order of preference:
+
+1. the served URL while a plan server is running,
+   `http://<bind>:<port>/plans/<slug>/plan.html#board-card-T-05`. `serve.sh`
+   writes `qstack/.serve` holding the bind address, port and pid while it runs
+   and removes it on exit, so read the link's host and port from that file and
+   treat it as absent when its pid is dead;
+2. otherwise the repository path,
+   `qstack/compound_engineering/plans/<slug>/plan.html#board-card-T-05`.
+
+The title comes from the card's `created` event, so read it rather than recall
+it. `qstack/scripts/card-ref <slug> <id>...` does all of this: it folds
+`board-events.js`, resolves each card's current title, picks the link form
+above, and prints one line per card in exactly the form above. It exits non-zero
+on an unknown id, which means the id is wrong and needs fixing rather than a
+line retyped from memory while the helper is there to print it. A board created
+before the helper shipped has no `qstack/scripts/card-ref`, and there the line
+is built by hand from the title in the card's `created` event and the link forms
+above; running `/qstack-plan-to-html` on the plan installs the helper.
+
+This applies to progress lines, parked questions, split reports, bad-write
+reports, stand-down, and the final report.
+
+## Progress voice
+
+While the run is in progress, the output between board transitions is one line
+per transition, naming every card under Naming a card above, in this shape:
+
+```
+T-07 "Retry policy on the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-07 → in-progress   running: T-09 "Backfill the rows written before it" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-09
+T-05 "Retry policy and backfill for the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-05 → done   running: T-07 "Retry policy on the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-07, T-09 "Backfill the rows written before it" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-09
+```
+
+Every transition prints a line, not only the ones reaching `done`. A card moving
+to `claimed`, to `in-progress`, to `review`, to `blocked`, to `released` or to
+`split` gets its own line in that shape, as the two lines above show.
+
+The `running:` suffix appears on every line and lists the other cards still in
+flight, each named under Naming a card. Omit it only when nothing else is
+running, and then the line ends at the status.
+
+Write a wave-level summary when a wave folds, and nothing else while the wave
+runs. Everything a human needs later goes in `execution.md`: what was tried,
+what the plan says, which tools ran, and why a card went the way it did.
+
 ## Park and continue
 
 A card that stops on something a human must answer moves to `blocked` with the
@@ -446,6 +501,81 @@ Ask every question still parked in a `blocked` card before you append
 `stood-down`, whatever the ready set holds at that point. A `--limit` or
 `--tasks` run reaches its budget with cards still ready, so waiting for an empty
 ready set would end the run with questions nobody was ever shown.
+
+A round of parked questions is one message in this shape:
+
+1. an index line: `3 questions: T-05 "…", T-07 "…", T-09 "…"`;
+2. one block per question, in this order:
+   - the card line, from `card-ref` or built by hand where that helper is
+     absent, under Naming a card above;
+   - the engineer's question in one sentence, as the card `note` holds it;
+   - `For a product manager:` what stopped, what changes for users, what it
+     costs, what the tradeoff is, and which other cards wait on this one.
+     Write it under the product-manager row of
+     `skills/qstack-explain-for/SKILL.md` and follow that row where it sits
+     rather than copying it here. Assume the reader has not seen the loop, the
+     board, or the code;
+   - `ELI10:` the same question in two or three sentences a ten-year-old
+     follows. A concrete comparison works, plain words throughout. Write this on
+     every question;
+   - `Options:` each option in product-manager language with what happens if it
+     is picked, what it costs, and which cards it unblocks or leaves parked.
+     Mark one recommended, list it first, and give it a one-sentence reason.
+     Recommend an option the plan permits;
+   - a last line: `Technical detail: the card note and execution.md.`;
+3. when the host has a structured question tool, the header is the card id, the
+   question text opens with the title, and the options are the ones above with
+   the recommended one first.
+
+In plain-text output the labels `For a product manager:`, `ELI10:`, `Options:`
+and `Technical detail:` are written out literally, exactly as spelled here, each
+opening its own part of the block. Where the host has a structured question tool,
+those same four labels are the tool's fields instead and the label text is not
+printed. The last line is literal in full: `Technical detail: the card note and
+execution.md.` Nothing is substituted into it, so it does not name a section, a
+slug or a path.
+
+The product-manager and ELI10 versions carry the same facts, options and
+recommendation the engineer's question carries, and add none of their own. They
+change the altitude, not the content.
+
+This shape holds for every question the loop asks a human, including the startup
+review-mode question, and not only for a question parked on a card. The startup
+question belongs to no card, so it prints no card line and no technical-detail
+line. Its index line names the question rather than a card, and the
+product-manager, ELI10 and options parts hold as written.
+
+A worked block, for the `T-05` card parked above:
+
+```
+1 question: T-05 "Retry policy and backfill for the writer"
+
+T-05 "Retry policy and backfill for the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-05
+§4.2 gives retries to the writer, but the client already retries. Which one keeps them?
+
+For a product manager: work on the write path has stopped. Two parts of the
+system would each retry a failed write, so one failure can be sent twice and a
+row can land twice. Picking which part retries costs about an hour either way.
+Two other cards touch the same file and cannot start until this is answered.
+
+ELI10: when a message does not get through, someone tries sending it again.
+Right now two different helpers would both try again for the same message, so it
+could arrive twice. We need to pick which helper is in charge of trying again.
+
+Options:
+- Recommended: the client keeps the retries and the writer does not add them.
+  §4.2 reads as a description of what the client already does, so the plan
+  permits it, and it unblocks
+  T-07 "Retry policy on the writer" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-07
+  and T-09 "Backfill the rows written before it" http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-09
+  today.
+- The writer keeps the retries and the client drops them. Same hour of work,
+  but it changes the client too, and T-07 stays parked until that lands.
+- Leave the card parked for a human to decide later. T-07 and T-09 stay parked
+  with it.
+
+Technical detail: the card note and execution.md.
+```
 
 ## Resume a blocked card
 
@@ -549,13 +679,18 @@ own rule decides what happens next.
 Append `stood-down` when the run ends, on every exit path: the completion gate
 passed, the run was abandoned, or it stopped on a question.
 
+Stopping with questions parked is an ordinary exit path, not a failure and not
+something a human has to authorise. Ask the parked questions, empty the wave,
+append `stood-down`, and write the report with `Status: blocked` on its counts
+line. Waiting for an answer before standing down leaves the board held against
+every later run.
+
 Empty the wave first. Every card you claimed reaches `done`, `split`, `blocked`,
 or `released` under your own slug before you stand down. A card left `claimed`,
 `in-progress`, or `review` by a run that has ended is unclaimable by every later
 run, and nothing takes it back automatically. `review` is on that list for the
 same reason as the other two: only `blocked` has a documented way back, so a
-card
-still under review when a run ends is parked rather than left where it is.
+card still under review when a run ends is parked rather than left where it is.
 
 ```bash
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"stood-down","actor":"adelaide"});' \
@@ -565,3 +700,50 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"stood-do
 Never release a card another actor holds to close your own run out. Report the
 holder and the card instead. An incomplete run that keeps the board holds it
 against every later run of either loop, and no loop takes a board over.
+
+The stand-down message and the final report are the same shape, in this order:
+
+1. one line of counts: cards total, done, split, blocked, open, and the run's
+   status. Open is every card that is neither `done` nor `split` nor `blocked`,
+   so it covers `backlog`, `claimed`, `in-progress` and `review`. A card whose
+   last event is `released` is back in the ready set, so count it as open under
+   its current status. The status takes one of three values, matching the gate
+   the loops stand down against: `Status: blocked` when any card is `blocked`,
+   `Status: complete` when every card is `done` or `split`, and
+   `Status: in-progress` otherwise;
+2. a table of the cards this run touched: every card it claimed, moved,
+   blocked, released or split, one row each, with the id, title, status, a
+   one-line note, and the link. Take the id, title and link from `card-ref`, or
+   build them as Naming a card says where that helper is absent.
+   Add a row for every `blocked` card on the board whichever actor holds it,
+   since an answer is owed on it either way. Open cards this run never touched
+   get no rows: they are the open count above, plus one last row in the table
+   reading `N open cards untouched by this run` with the count in place of `N`.
+   A 400-card board would otherwise print hundreds of rows nobody read, and the
+   rows that matter would be lost among them. Leave that row out when the count
+   is zero;
+3. bad writes, deviations, and anything else the run wants to be straight about:
+   one row or one line each;
+4. waves, review mode and its outcome, validation, and the execution file: one
+   line each.
+
+```
+64 cards: 41 done, 2 split, 1 blocked, 20 open. Status: blocked.
+
+| Card | Title | Status | Note | Link |
+| --- | --- | --- | --- | --- |
+| T-03 | Writer schema and the first row | done | closed this run, cited t-03-schema | http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-03 |
+| T-05 | Retry policy and backfill for the writer | blocked | parked on the retry question, held by adelaide | http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-05 |
+| T-11 | Write the rows the importer skipped | backlog | claimed, then released when the run hit its --limit | http://127.0.0.1:8000/plans/board-file/plan.html#board-card-T-11 |
+| | 19 open cards untouched by this run | | | |
+
+Bad writes: T-14 carries an empty files array, left for a human.
+Deviations: none.
+Waves: four, at --parallel 4.
+Review: mode full, gate not passed with T-05 blocked, two remediation cards
+opened and closed.
+Validation: node --check board-events.js, repository test suite.
+Execution record: qstack/compound_engineering/plans/board-file/execution.md
+```
+
+Prose after the table carries what the table cannot, and stops there.

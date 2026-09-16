@@ -49,10 +49,10 @@ name this argument, rather than concluding the project has no plans.
 
 Do not enumerate directories looking for sibling checkouts, and do not compare
 remote URLs to decide which belong. An earlier version did both. It missed
-checkouts living outside the directory convention it knew: nine against five
-on the first project it ran against: while the URL comparison it needed to
-screen out strangers had to reason about protocols, ports and absent remotes,
-none of which it got right. Git already knows where its worktrees are.
+checkouts living outside the directory convention it knew, nine against five
+on the first project it ran against. The URL comparison it needed to screen
+out strangers had to reason about protocols, ports and absent remotes, none of
+which it got right. Git already knows where its worktrees are.
 
 ## Evidence
 
@@ -83,11 +83,11 @@ git -C "$path" status --porcelain | wc -l
 
 Report: how many checkouts exist, how many carry no unmerged commits, how many
 Git marks prunable, and idle time. A prunable entry is a checkout Git still
-tracks whose directory is gone: worth listing, since it is work that was
-started and abandoned without being cleaned up.
+tracks whose directory is gone. List it, since it is work that was started and
+abandoned without being cleaned up.
 
 Two worktrees cannot share a branch; Git refuses. So there is no duplication to
-detect here, and no aliasing either: `git worktree list` reports canonical
+detect here, and no aliasing either. `git worktree list` reports canonical
 paths, so a symlinked shortcut to a checkout never appears as a second entry.
 
 **B. Momentum.** Commits per month across the span, plus weekday distribution.
@@ -148,7 +148,8 @@ outcome record, and a `board-events.js`. Do not apply that completeness check
 elsewhere; those plans were never promised those files.
 
 An execution record is `execution.md`, `executor.md`, or the legacy
-`implementation-notes.md`: the three names the other qstack skills read.
+`implementation-notes.md`. Those are the three names the other qstack skills
+read.
 Any one of them counts, and the report names which was found. Counting only
 `execution.md` reports an executed plan as never executed, which is the same
 false-negative as missing its directory.
@@ -176,8 +177,8 @@ recognised layouts. A project with plan documents but no execution or outcome
 records is a finding in itself, and a different finding from having no plans.
 
 Count `execution.md` and `outcome.md` wherever they sit, and say where. Never
-report zero outcomes while outcome files exist elsewhere in the tree,
-completeness records are routinely left behind when a plan moves.
+report zero outcomes while outcome files exist elsewhere in the tree. Records
+of completeness are routinely left behind when a plan moves.
 
 Do not attempt to detect rules restated in different words. It was tested
 against a 507-line instruction file and returned one match, which was a false
@@ -246,7 +247,7 @@ a `created` event is the declaration.
 
 Cards per actor: the distinct cards each actor moved, claimed, released, split,
 or noted. `created` events are excluded, because the actor that ran the
-breakdown declared every card on the board and worked none of them: counting
+breakdown declared every card on the board and worked none of them. Counting
 `created` puts that actor at the top of a list meant to show who did the work.
 Report the count as cards touched after breakdown, which is what it is:
 
@@ -467,7 +468,7 @@ findings.
 A refusal withholds the finding, never the count. Always print what was found
 and where it was looked for before saying the evidence is too thin. A reader
 must never be able to mistake "not enough evidence for a trend" for "you have
-no plans": that misreading is the exact failure this skill exists to avoid.
+no plans". That misreading is the exact failure this skill exists to avoid.
 
 When plan discovery returns nothing, that is a statement about this skill's
 guesses, not about the project. Say which directories and filenames were
@@ -506,8 +507,8 @@ so every claim stays traceable to a count.
 
 ## Prior art
 
-The method: declare the corpus boundary first, ground every claim in cited
-evidence, refuse rather than pad: is adapted from
+The method, which is to declare the corpus boundary first, ground every claim
+in cited evidence, and refuse rather than pad, is adapted from
 [Reflection Engine](https://github.com/kropdx/reflection-engine) by Kevin Rose
 ([@kevinrose](https://x.com/kevinrose)), v1.3, commit `1a3301c`, retrieved
 2026-08-07. That prompt reads personal conversation history in a chat

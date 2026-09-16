@@ -29,7 +29,7 @@ qstack/compound_engineering/plans/<feature-slug>/
 └── outcome.md                 # AFTER: this skill writes it.
 ```
 
-If the repo has `qstack/compound_engineering/README.md`, read it first: it may
+If the repo has `qstack/compound_engineering/README.md`, read it first. It may
 extend or override what follows. Also support the legacy
 `compound-engineering/plans/<feature-slug>/` layout and its README. Prefer the
 QStack layout when both contain the requested feature. If neither plan root
@@ -78,16 +78,16 @@ same state rules and name the legacy source in `outcome.md`. If both board files
 exist, stop because the execution record has two sources of truth.
 
 Check whether the plan's artifacts were ever committed at all. Work done in a
-gitignored directory leaves no recoverable design record: worth stating plainly
-in the outcome when it happened.
+gitignored directory leaves no recoverable design record, which is worth stating
+plainly in the outcome when it happened.
 
 ### 3. Extract the delta
 
 Read `plan.html` in either plan-root layout, falling back to legacy `plan.md`,
-especially any "Locked decisions" and "Open questions" sections. Read every execution record that exists beside it:
-prefer `execution.md`, but also read `implementation-notes.md` because it may
-contain earlier history. State legacy sources in the outcome. Compare all of
-them against the tree. Produce:
+especially any "Locked decisions" and "Open questions" sections. Then read every
+execution record that exists beside it. Prefer `execution.md`, but also read
+`implementation-notes.md` because it may contain earlier history. State legacy
+sources in the outcome. Compare all of them against the tree. Produce:
 
 - **Where it diverged**: decisions the implementation reversed or refined, and
   why. Include names that changed (a plan calling a file `CONTRACT.json` when the
@@ -167,8 +167,8 @@ remain open. State clearly that nothing was committed.
 Once the plan folder holds a few dozen plans, opening every folder to find prior
 art costs more than it returns. At that point this skill should append one line
 per closed plan to `plans/INDEX.md`: slug, start and close dates, the outcome in
-one sentence, and the files touched: so `/qstack-plan-prior-art` reads the index
-for closed plans and opens folders only for the live ones.
+one sentence, and the files touched, so that `/qstack-plan-prior-art` reads the
+index for closed plans and opens folders only for the live ones.
 
 It is deliberately not built yet. Below about 30 plans, reading the folders is
 cheaper than keeping a second record honest, and an index that drifts from the

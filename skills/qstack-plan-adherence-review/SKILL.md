@@ -36,8 +36,9 @@ otherwise report in the final response.
    skip its required format header and fold the remaining
    `qstackBoardEvent({...});` calls in file order for each card's final status,
    owner, `refs`, and `files`. Stop on broken JavaScript. Agents write
-   the board while they work, so it has the standing `execution.md` already has
-   here: evidence to be checked against the code, never trusted on its own.
+   the board while they work, so it has the same standing `execution.md` already
+   has here. It is evidence to be checked against the code, never trusted on its
+   own.
    When only the retired `board.jsonl` exists, fold its raw JSON lines without
    editing it. If both board files exist, report the conflict and trust neither.
 
@@ -94,10 +95,10 @@ and from a test that was not run.
 
 With a board present, every card whose `refs` cite an obligation's clause is
 part of that obligation's evidence trail. Read `Review mode` from
-`execution.md`: exactly one `full` value says a `done` card passed per-card
-review, while exactly one `final` or `none` value deliberately omits that
-review. In every mode, `done` says only that the loop closed the card, not that
-the obligation holds, so verify the code exactly as above. When a legacy record
+`execution.md`. Exactly one `full` value says a `done` card passed per-card
+review. Exactly one `final` or `none` value deliberately omits that review. In
+every mode, `done` says only that the loop closed the card, not that the
+obligation holds, so verify the code exactly as above. When a legacy record
 has no `Review mode`, state that and treat it as the loops' former implicit
 `full` mode without penalizing the missing field; still verify its recorded
 reviews and board transitions. A duplicated, malformed, or unknown value is

@@ -5,7 +5,7 @@
 # The interesting case is the *second* install: the first run creates
 # CLAUDE.md and AGENTS.md with a hardcoded mode, while every later run has to
 # read the existing file's permission bits and reapply them to the temporary
-# file it swaps in. Reading a file mode portably is the part that broke — GNU
+# file it swaps in. Reading a file mode portably is the part that broke. GNU
 # stat and BSD stat spell it differently, and GNU stat fails dirtily when given
 # the BSD spelling, so the mode came back as filesystem statistics and chmod
 # rejected it.
@@ -57,9 +57,9 @@ SHIM
 }
 
 # A stat that only speaks GNU, including its habit of reading -f as
-# --file-system: the format string becomes a path, so it reports on the real
-# file, complains about the bogus one, and exits non-zero. That combination —
-# junk on stdout with a non-zero exit — is the original bug.
+# --file-system. The format string becomes a path, so it reports on the real
+# file, complains about the bogus one, and exits non-zero. That combination,
+# junk on stdout with a non-zero exit, is the original bug.
 make_gnu_stat() {
   local dir="$1"
   mkdir -p "$dir"
@@ -107,7 +107,7 @@ install_args=(--copy --without-matt-pocock --without-human-review)
 
 # Only harnesses whose config directory already exists are installed to, and a
 # symlinked CLAUDE.md is the dotfile-manager layout resolve_instruction_storage_path
-# exists to support: the mode lives on the target, not on the link.
+# exists to support. The mode lives on the target, not on the link.
 prepare_home() {
   local home="$1"
   mkdir -p "$home/.claude" "$home/.codex" "$home/dotfiles"

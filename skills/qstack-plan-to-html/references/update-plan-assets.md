@@ -7,9 +7,10 @@ new controls and fixes without changing `plan.html`, `board-events.js`,
 
 ## Boundary
 
-Write only beneath `qstack/compound_engineering/plans/.template/v1/`. Copy
-files from this skill's `template/v1/`, leave target-only files in place, and
-never commit.
+Write only beneath `qstack/compound_engineering/plans/.template/v1/` and to the
+helper scripts `qstack/scripts/serve.sh`, `qstack/scripts/migrate-board-log`,
+and `qstack/scripts/card-ref`. Copy files from this skill's `template/v1/` and
+`template/`, leave target-only files in place, and never commit.
 
 A shared asset change affects every plan that loads it. Name those plans in the
 report and describe the presentation change. Plan content, decisions, clause
@@ -72,6 +73,27 @@ Use `--all` only after every reported difference has passed the same direction
 check. The script copies atomically and skips files that are already current,
 so rerunning the operation converges.
 
+## Refresh the helper scripts
+
+`qstack/scripts/serve.sh`, `qstack/scripts/migrate-board-log`, and
+`qstack/scripts/card-ref` ship in the owning skill's `template/` directory
+rather than in `template/v1/`, so the update script does not touch them. These
+are the same three names `scripts/validate-template-sync` compares. Compare each
+one by name and apply the same direction check used above:
+
+```bash
+for helper in serve.sh migrate-board-log card-ref; do
+  cmp -s "$PLAN_SKILL_DIR/template/$helper" "$REPO_ROOT/qstack/scripts/$helper" \
+    || echo "differs: $helper"
+done
+```
+
+Copy a missing helper in, and copy a stale one over only once the diff shows the
+source is newer. `chmod +x` each one afterwards. serve.sh and card-ref travel
+together: card-ref reads the `qstack/.serve` file serve.sh writes while it runs,
+so refreshing one without the other can leave card links pointing at the
+repository path while a server is up.
+
 ## Verify and report
 
 Run `status` again. Every applied file must disappear from its output. Inspect
@@ -80,7 +102,7 @@ event stream changed.
 
 Report:
 
-- files added or updated;
+- files added or updated, including any helper script;
 - the behavior those changes add or fix;
 - which existing plans load the shared assets; and
 - any difference left unresolved.

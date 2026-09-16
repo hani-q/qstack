@@ -12,8 +12,8 @@ from pathlib import Path
 # The board fold is written out six times over: once in board.js, once as
 # instructions in each execution loop, once in prior-art, plan-close and
 # adherence-review, and several times as awk in qstack-reflect. They have
-# already been caught disagreeing: board.js broke a claim race on `ts`, the
-# reflect awk broke it on file order: and nothing in a JavaScript file, an awk
+# already been caught disagreeing: board.js broke a claim race on `ts`, and the
+# reflect awk broke it on file order. Nothing in a JavaScript file, an awk
 # program and a Markdown instruction can share code to stop it happening again.
 #
 # They can share a fixture. scripts/fixtures/board-fold-events.js exercises every
@@ -37,7 +37,7 @@ from pathlib import Path
 # Extracting the fold from board.js, which exports nothing and expects a DOM.
 #
 # board.js is one arrow IIFE. `fold` is a const inside that closure, so loading
-# loading the file as a script, module, or in a vm reaches nothing. Rather than
+# the file as a script, module, or in a vm reaches nothing. Rather than
 # edit board.js to suit its test, this harness takes the IIFE's body as text and
 # rebuilds it as a function whose last statement is `return { fold };`.
 #

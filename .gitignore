@@ -2,3 +2,4 @@
 .playwright-mcp/
 __pycache__/
 .scratch/
+qstack/.serve

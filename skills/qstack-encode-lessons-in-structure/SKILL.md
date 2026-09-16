@@ -29,10 +29,11 @@ mechanism applies the lesson without relying on memory.
 5. Exercise the known failure and show that the mechanism catches it.
 
 Route recurring fixes to a local skill or tool and systemic rules to the
-smallest shared layer that can enforce them. Recording without enforcement does
-not close the loop. Do not invent recurrence; cite the correction or failure
-that shows the pattern. Analysis alone does not authorize edits, commits,
-pushes, publishing, deployment, or external messages.
+smallest shared layer that can enforce them. Recording a lesson without a
+mechanism that enforces it does not stop the next occurrence. Do not invent
+recurrence; cite the correction or failure that shows the pattern. Analysis
+alone does not authorize edits, commits, pushes, publishing, deployment, or
+external messages.
 
 Adapted from Lauren Tan's PStack
 [`principle-encode-lessons-in-structure`](https://github.com/cursor/plugins/blob/60c641e4fad674784b30abcf9f8915dea39df38d/pstack/skills/principle-encode-lessons-in-structure/SKILL.md)

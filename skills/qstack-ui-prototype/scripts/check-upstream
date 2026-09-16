@@ -10,7 +10,7 @@ Two kinds of vendored file live under references/:
   upstream main; a difference means the adaptation should be reread.
 
 Network is required. This is a maintainer tool, not part of the skill's runtime,
-and it is deliberately not wired into CI: the skill must work offline and must
+and it is deliberately not wired into CI. The skill must work offline and must
 not change behavior because somebody else pushed a commit.
 
 Exit 0 when nothing moved, 1 when something did, 2 when upstream could not be

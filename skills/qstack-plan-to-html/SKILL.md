@@ -29,7 +29,7 @@ the time it is precision's opposite, because it lets a vague sentence pass as an
 informed one. If a sentence would survive being read aloud to a smart person
 outside the team, keep it. If it would not, rewrite it.
 
-Cut these on sight: they carry no information:
+Cut these on sight. They carry no information:
 
 > leverage · utilize · synergy · holistic · robust · seamless · paradigm ·
 > best-in-class · surface area (as a metaphor) · first-class citizen ·
@@ -43,12 +43,11 @@ Cut these on sight: they carry no information:
 | "we surface this to the operator" | "the operator sees it" |
 | "simply add a policy rule" | "add a policy rule": if it were simple you would not be writing a plan |
 
-**Precise is not the same as jargon.** A term of art that names a real thing in
-A term already used in the codebase, such as `first-match`, `hot reload`, or
-`run-to-completion`, stays because
-replacing it with a vague paraphrase loses information an implementer needs. The
-rule is: **use the exact word, then explain it once** in an ELI10 box the first
-time it appears.
+**Precise is not the same as jargon.** A term of art that names a real thing
+earns its place. A term already used in the codebase, such as `first-match`,
+`hot reload`, or `run-to-completion`, stays, because replacing it with a vague
+paraphrase loses information an implementer needs. The rule is to **use the
+exact word, then explain it once** in an ELI10 box the first time it appears.
 
 Numbers beat adjectives. "Fast" is an opinion; "16 ms" is a fact. Wherever the
 source markdown has a measurement, use the measurement.
@@ -63,7 +62,7 @@ Both are normal. Resolve the source in this order and say which one you took:
 
 1. **A file the user names.** Use it.
 2. **The most recent plan-mode output**, when the session has one.
-3. **The conversation itself.** No file, no plan mode: the user talked the shape
+3. **The conversation itself.** No file, no plan mode. The user talked the shape
    of the work through with you and then invoked this skill. See below.
 4. **A markdown plan already in the repo**, when nothing above applies. Confirm
    before converting: an old draft lying in the tree is the weakest signal here.
@@ -71,7 +70,7 @@ Both are normal. Resolve the source in this order and say which one you took:
 **Destination.** Always write
 `qstack/compound_engineering/plans/<slug>/plan.html`. Do not copy a Markdown
 source into that folder, and do not write one when the source was the
-conversation: the rendered plan is the canonical plan document, and a second
+conversation. The rendered plan is the canonical plan document, and a second
 copy is a second source of truth that goes stale on the first decision.
 
 ### When the source is the conversation
@@ -89,7 +88,7 @@ reconstruction. So write it down and get it agreed before rendering anything.
    Something the user settled becomes a `locked` clause. Something floated and
    never resolved becomes `open`, and it is a candidate for the question pass
    rather than a decision you make on their behalf. Guessing which side of that
-   line a point falls on is the failure mode of this path: when unsure, mark it
+   line a point falls on is the failure mode of this path. When unsure, mark it
    `open` and let the question pass settle it.
 3. **Say what you are dropping.** Rejected options and abandoned directions are
    worth one line each in the options table with `data-status="deferred"`,
@@ -125,12 +124,12 @@ SKILL_DIR=$(cd "$(dirname <path-of-this-SKILL.md>)" && pwd -P)
 The migration writes `board-events.js` atomically, preserves an unreadable
 legacy line as an unreadable event, and removes `board.jsonl` only after the new
 file is fully written. Then use the marker to choose one of the last two rows.
-If both formats exist, stop: two board logs are two sources of truth, and a
+If both formats exist, stop. Two board logs are two sources of truth, and a
 human must choose one.
 
 Board-only mode exists because every plan rendered before the board did has an
 HTML document and no cards, and those plans still need to be executable. It
-never re-renders: an authoritative `plan.html` is frozen, and regenerating it
+never re-renders. An authoritative `plan.html` is frozen, and regenerating it
 from a stale draft or a later conversation would throw away every decision
 recorded in it.
 
@@ -178,9 +177,10 @@ not as a conversion.
 
 ## Setup: copy the template, don't reference this skill
 
-The template lives at `template/v1/` **next to this SKILL.md**. The serving and
-migration scripts live in `template/serve.sh` and `template/migrate-board-log`.
-Resolve all three relative to wherever you just read this file from: never a
+The template lives at `template/v1/` **next to this SKILL.md**. The serving,
+migration, and card-reference scripts live in `template/serve.sh`,
+`template/migrate-board-log`, and `template/card-ref`.
+Resolve all four relative to wherever you just read this file from: never a
 hardcoded path, since this skill installs into any of ~70 agent directories and
 may be a symlink.
 
@@ -219,19 +219,38 @@ if [ ! -e "$REPO_ROOT/qstack/scripts/migrate-board-log" ]; then
   cp "$SKILL_DIR/template/migrate-board-log" \
     "$REPO_ROOT/qstack/scripts/migrate-board-log"
 fi
+if [ ! -e "$REPO_ROOT/qstack/scripts/card-ref" ]; then
+  cp "$SKILL_DIR/template/card-ref" "$REPO_ROOT/qstack/scripts/card-ref"
+fi
 chmod +x "$REPO_ROOT/qstack/scripts/serve.sh"
 chmod +x "$REPO_ROOT/qstack/scripts/migrate-board-log"
+chmod +x "$REPO_ROOT/qstack/scripts/card-ref"
+# serve.sh writes qstack/.serve while it runs. It is runtime state, not
+# content, so ignore it. Appending only when the exact line is absent keeps a
+# reinstall from stacking duplicates.
+GITIGNORE="$REPO_ROOT/.gitignore"
+if [ ! -e "$GITIGNORE" ] || ! grep -qxF 'qstack/.serve' "$GITIGNORE"; then
+  if [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '%s\n' 'qstack/.serve' >> "$GITIGNORE"
+fi
 ```
 
 macOS `readlink` has no `-f` before coreutils 12: if it fails, fall back to
 `cd "$(dirname <path>)" && pwd -P`.
 
 If `qstack/compound_engineering/plans/.template/v1`,
-`qstack/scripts/serve.sh`, or `qstack/scripts/migrate-board-log` already exists,
-do not replace it merely because it differs: the repo may have a newer revision
+`qstack/scripts/serve.sh`, `qstack/scripts/migrate-board-log`, or
+`qstack/scripts/card-ref` already exists,
+do not replace it merely because it differs. The repo may have a newer revision
 or its own behavior. The loop above adds only files the template does not have;
 without it a repo that predates `board.js` renders a stencil whose board script
 is missing.
+
+The `.gitignore` append is the one edit made to a file the repo already owns.
+It adds the single line `qstack/.serve`, and only when that exact line is
+absent, so a reinstall leaves the file untouched.
 
 When `TEMPLATE_EXISTED=1`, resolve
 `references/update-plan-assets.md` relative to this SKILL.md, read it
@@ -284,7 +303,7 @@ find now.
 Resolve `qstack-plan-prior-art` relative to this skill's installed directory,
 never a hardcoded path, for the same reason the template is resolved that way;
 read its complete `SKILL.md`, and run it against the subject of the plan being
-converted. If it is unavailable, do not silently skip the phase: report that the
+converted. If it is unavailable, do not silently skip the phase. Report that the
 conversion ran with no prior-art pass and the workflow is incomplete.
 
 What it returns lands in the document in three places:
@@ -340,7 +359,7 @@ their half ends.
 
 ## Diagrams
 
-Inline SVG only. **No CDN, no mermaid, no runtime diagram library**: the
+Inline SVG only. **No CDN, no mermaid, no runtime diagram library**. The
 document has to open from a file, offline, forever.
 
 - Use `currentColor` and the template's CSS custom properties (`--sig`,
@@ -360,8 +379,8 @@ Reach for the template's own primitives before drawing SVG:
 | Build phases | `.phases` / `.phase` |
 | Data model | `.ledger` / `.ledger-row` |
 
-Draw SVG for state machines, pipelines with branches, and timelines: things
-those primitives cannot express.
+Draw SVG for state machines, pipelines with branches, and timelines. Those
+primitives cannot express them.
 
 ## ELI10 boxes
 
@@ -388,7 +407,7 @@ the concept is probably not as hard as it looked: say it plainly instead.
 
 ### Markup
 
-`.eli` is **built into the template**: `plan.css` styles it and `plan.js` wires
+`.eli` is **built into the template**. `plan.css` styles it and `plan.js` wires
 it. Write the markup and nothing else. Do not paste CSS for this into `<slug>.css`,
 and do not hand-write `aria-expanded`; `plan.js` manages it.
 
@@ -407,26 +426,26 @@ current-label only.
 ```
 
 Handled for you: hover, keyboard focus, tap, `Escape` to dismiss, flipping a box
-that would run off the end of a line, narrow viewports, and print: where the
+that would run off the end of a line, narrow viewports, and print, where the
 marks vanish and every box prints inline as a footnote. `data-status` on the
 `.eli` sets `--sig`, so an aside about an unsettled concept can carry the open
 colour.
 
 **Never put load-bearing content in an ELI10 box.** It explains what is already
 written; it never adds a fact found nowhere else. A reader who ignores every ⓘ
-must still get the whole plan: which is literally what print does.
+must still get the whole plan. That is literally what print does.
 
 ## The playground
 
 Where the concept has **rules a reader can poke at**, build a small interactive
-model. This is what makes an HLD land: a PM who can type an input and watch a
+model. This is what makes an HLD land. A PM who can type an input and watch a
 rule fire understands the design in a way no paragraph achieves.
 
 Good candidates: a matcher or rule evaluator, a state machine with buttons for
 each transition, a precedence/priority resolver, a latency or cost calculator,
 a before/after toggle on the same input.
 
-**Skip it** when the concept is not interactive: a migration sequence or a
+**Skip it** when the concept is not interactive. A migration sequence or a
 packaging change has nothing to poke. A playground that does not model anything
 is decoration, and decoration in a controlled document is a liability.
 
@@ -443,7 +462,7 @@ Rules:
 - **It must model the real rules.** If the plan says first-match wins and the
   playground evaluates all rules, the playground is now a lie in a controlled
   document. Mirror the specified semantics exactly, and label it
-  `data-status="ref"`: it is material, not a decision.
+  `data-status="ref"`. It is material, not a decision.
 - Wrap in `.plate` + `.breakout`, with a `.plate-head` naming what it models.
 - Respect `prefers-reduced-motion`; the template's motion budget is stamps
   inking in once and the spine tracking position.
@@ -483,13 +502,13 @@ Rules:
 - **Do not invent.** Every `file:line`, metric and benchmark in the output must
   come from the source, whether that is the draft or the conversation. If the
   source asserts something unverified, carry it across as a `.note` marked
-  `open`: do not launder it into a fact. This rule bites hardest on a
+  `open`. Do not launder it into a fact. This rule bites hardest on a
   conversation, where a number you produced earlier in the session reads exactly
   like a number the user gave you. Check which it was.
 - **Do not summarize away the detail.** The LLD half exists so an execution agent
   does not have to re-read the source. Losing the citations defeats the point,
   and when the source was a conversation the document is the only surviving
-  record: detail dropped here is gone.
+  record. Detail dropped here is gone.
 - **Fill the title block**: document id, revision, owner, issue date, sheet
   count, and a real "Ships when" condition.
 - **Colophon** states what the document locks.
@@ -509,10 +528,23 @@ Then open
 `/qstack-serve-plans [address] [port]` instead of running the script directly;
 the skill asks for either value that was not supplied.
 
+Name a board card for a human with `card-ref`, which reads the title from the
+card's `created` event and links it:
+
+```bash
+./qstack/scripts/card-ref <slug> T-01 T-07
+```
+
+It prints one line per card, `T-01 "title" <link>`. The link is
+`http://<bind>:<port>/plans/<slug>/plan.html#board-card-T-01` while `serve.sh`
+is running, and `qstack/compound_engineering/plans/<slug>/plan.html#board-card-T-01`
+otherwise. It exits 1 for an unknown id or a missing board, so never retype a
+title from memory.
+
 Check, and say which you checked:
 
 - Spine builds, clause numbers render, deep links copy.
-- Theme toggle works: the diagrams and playground follow it.
+- Theme toggle works, and the diagrams and playground follow it.
 - Playground behaves, and its static fallback is present.
 - 720px viewport and print preview both hold (both are in `plan.css`; both break
   if the plan hard-codes widths).
@@ -539,7 +571,7 @@ back to a Markdown source, and do not create one.
 
 Resolve the sibling skill relative to this skill's installed directory, read
 its complete `SKILL.md`, and follow it exactly. If it is unavailable, do not
-silently skip the phase: report that the HTML was created but the conversion
+silently skip the phase. Report that the HTML was created but the conversion
 workflow is incomplete.
 
 The question skill asks one material decision at a time and writes every answer
@@ -626,13 +658,13 @@ ELI10 asides, whether a UI prototype was embedded (and if not, why not), and
 anything in the source you could not verify. Include how many open questions
 were resolved and how many remain. When a board was written,
 give its epic count,
-card count, total points, and its URL: the same page with `#board`; when the
+card count, total points, and its URL, the same page with `#board`. When the
 user opted out, say the board was skipped at their request and that running
 `/qstack-plan-to-html` on the same plan adds one later. Say the plan has been
 converted.
 
 Then, under a clear break labeled *"For your consideration"*, give the one addition
-from the accretion pass. Keep the two apart: the user asked for a conversion and
-got one; the idea is extra, and should read as extra.
+from the accretion pass. Keep the two apart. The user asked for a conversion and
+got one. The idea is extra, and should read as extra.
 
 Do not commit.

@@ -41,7 +41,7 @@ implementer to cite something that does not exist.
   deviation adding `install` to the card's files.
 
 Both questions were answered within one exchange each, so neither cost real
-time. They cost credibility instead: two of twelve planned cards could not be
+time. They cost credibility instead. Two of twelve planned cards could not be
 done as written, and both defects were in a plan written by the same agent that
 then executed it.
 
@@ -66,9 +66,9 @@ Four approved deviations, all recorded in `execution.md` with the evidence that
 forced them.
 
 **§7.7's gate-card `refs` are unimplementable as written.** Covered above. The
-tell that this was a plan defect rather than an execution shortcut: the plan's
-own board already broke the rule. T-10 was written with design-clause refs
-before the clause forbidding that was written.
+tell that this was a plan defect rather than an execution shortcut is that the
+plan's own board already broke the rule. T-10 was written with design-clause
+refs before the clause forbidding that was written.
 
 **Build-order phase 04 names the wrong file.** The routing block lives in
 `install`, not `GENERAL_INSTRUCTIONS.md`, and that file's own text forbids
@@ -86,7 +86,7 @@ protocol file was extracted to end.
 Two scope decisions worth naming, neither a deviation. The version claim
 (`version.txt`) was outside every card's declared files, so it was taken as a
 separate card once the user approved it. And `allowed-tools` was removed from
-the new skill after being added on my own instruction: no QStack skill uses it,
+the new skill after being added on my own instruction. No QStack skill uses it,
 and the invocation validator strips exactly one Claude-specific field, so
 Claude-syntax tool scoping would have ridden into the Codex projection.
 
@@ -109,8 +109,9 @@ plan's validator list. Both round-1 reviewers found it independently.
 **Two false verification claims, both mine.** The worse one reported a clean
 privacy scan using a pattern that had the private repository's own name dropped
 from it. Nine occurrences survived in a public repository while the record said
-zero. The lesson the run then adopted as a standard: a wrong verification claim
-is worse than the defect it hides, because it stops the next reader looking.
+zero. The lesson the run then adopted as a standard is that a wrong verification
+claim is worse than the defect it hides, because it stops the next reader
+looking.
 
 **Building the gate found four structural defects in the gate.** All were
 findable only by running it, and this plan was the first thing to run it. The
@@ -141,8 +142,8 @@ blockquotes inside the one section both loops must keep byte-identical. Found by
 diffing removed lines against `HEAD`, reverted, and confirmed by both round-6
 reviewers at a matching sha256. Nobody asked for that fix.
 
-**The plan folder is a public surface and does not feel like one.** Both
-disclosure findings were in the plan and the execution record, not in code.
+**The plan folder is public and does not feel public.** Both disclosure
+findings were in the plan and the execution record, not in code.
 
 ## Open follow-ups
 
@@ -192,7 +193,7 @@ row label fixed, where a ternary produced "one P1" for a row the table calls
 
 1. **The gate card has no identity in the data.** Fifteen rules key on "if it is
    the gate card", and after the first remediation card lands nothing
-   distinguishes it: the fold drops the creating actor and "highest id" stops
+   distinguishes it. The fold drops the creating actor and "highest id" stops
    being true. That is why `board.js` badges it `Ready` when the ready set
    forbids it, why no validator can check condition 5, and why a resuming loop
    must re-derive which card is the gate. A `"gate":true` field on the `created`
@@ -232,8 +233,8 @@ gate's pass as covering the cleanup pass.
 
 ## Contradictions to check
 
-None found between the plan and `AGENTS.md`. The one tension resolved during the
-run: `AGENTS.md` requires a version claim before landing, and the plan's own
-Ships-when requires every repository validator to pass, while
-`scripts/qstack-version check` was never in the plan's validator list and was
-failing. Resolved by claiming 2.4.0.0 as a separate card.
+None found between the plan and `AGENTS.md`. The one tension that came up was
+resolved during the run. `AGENTS.md` requires a version claim before landing,
+and the plan's own Ships-when requires every repository validator to pass,
+while `scripts/qstack-version check` was never in the plan's validator list and
+was failing. Resolved by claiming 2.4.0.0 as a separate card.

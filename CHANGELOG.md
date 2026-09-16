@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.8.0.0] - 2026-09-16
+
+### Added
+
+* `/qstack-ask-as-questions [role]` collects every open question the previous
+  answer left for the user and asks them through the host's structured
+  question tool, one round at a time. Each question is rephrased for the named
+  reader (product manager by default) under the explain-for role table, given
+  an ELI10 version, and offered as lettered options with the recommended one
+  first. It reads the conversation, not the plan; a plan's open questions stay
+  with `/qstack-ask-plan-open-questions`. It writes nothing.
+* `card-ref` ships in `skills/qstack-plan-to-html/template/` and installs into
+  a repository as `qstack/scripts/card-ref`. Given a plan slug and one or more
+  card ids it reads `board-events.js`, resolves each card's current title, and
+  prints `T-401 "title" <link>`. The link is the served board URL when a plan
+  server is running and the repository path otherwise, both anchored at
+  `#board-card-<id>`. An unknown id exits non-zero.
+
+* `serve.sh` writes `qstack/.serve` with its bind address, port, and pid while
+  it runs, and removes the file on exit. `card-ref` reads that file to build
+  served links and ignores it when the pid is dead.
+
+### Changed
+
+* `board-protocol.md` gains a "Naming a card" rule: the first mention of a card
+  in any text a human reads is the id, the quoted title from the card's
+  `created` event, and a link. Later mentions in the same message may use the
+  bare id.
+
+* Both loops ask every parked question in one round, in a fixed shape: a
+  one-line index, then per question the card's `card-ref` line, the engineer's
+  question, a product-manager rephrasing, an ELI10 version in two or three
+  sentences, options that each say what happens, what it costs, and which cards
+  they unblock, with one marked recommended and listed first, and a last line
+  pointing at the card note and `execution.md`.
+
+* Loop progress output is one line per board transition while a run is in
+  progress, with a summary only when a wave folds. Everything else goes in
+  `execution.md`.
+
+* Stand-down and the final report follow a set template: a counts line, a table
+  holding the cards this run touched plus every `blocked` card whichever actor
+  holds it and one last row counting the open cards this run never touched, one
+  row or line for bad writes and deviations, and one line each for waves,
+  review, validation, and the execution file. Adversarial reviewers receive
+  `card-ref` lines and report findings against `T-99 "title"`.
+
 ## [2.7.1.0] - 2026-09-05
 
 ### Changed
@@ -259,7 +306,7 @@
 * resolve open questions in HTML plans ([#5](https://github.com/hani-q/qstack/issues/5)) ([9ccaafc](https://github.com/hani-q/qstack/commit/9ccaafcc29f7290ed62e207469f479f16511becb))
 
 
-### Bug Fixes
+### Bug fixes
 
 * install human-review from its source tag so Codex gets it too ([#14](https://github.com/hani-q/qstack/issues/14)) ([79407d0](https://github.com/hani-q/qstack/commit/79407d0bee83edc90fa7e2bb36a252b52924bdc1))
 * verify the human-review tag instead of pinning a commit npx cannot fetch ([#15](https://github.com/hani-q/qstack/issues/15)) ([a6b872d](https://github.com/hani-q/qstack/commit/a6b872d3c4fb0fc63329c4143edb36830ff20e4a))
