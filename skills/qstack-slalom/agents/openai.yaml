@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Slalom"
+  short_description: "Fan a small task out to cheaper models, orchestrate on the expensive one"
+  default_prompt: "Use $qstack-slalom <orchestrator> <workers> to run this task as parallel subagents on the worker models while this session orchestrates."
+policy:
+  allow_implicit_invocation: false

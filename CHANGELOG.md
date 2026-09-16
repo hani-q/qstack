@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.9.0.0] - 2026-09-16
+
+### Added
+
+* `/qstack-slalom <orchestrator> <workers> [task]` runs a small task that was
+  talked through but never planned. The session must be on the named
+  orchestrator model, which reads, splits the task into units with disjoint
+  files, runs the units as a dynamic workflow with every subagent pinned to
+  one of the named worker models, and integrates and verifies the whole
+  result itself. In Claude Code that is the `Workflow` tool, and invoking the
+  skill is the opt-in that tool requires; elsewhere the same shape is built
+  from the harness's subagent launcher. No subagent
+  ever runs on the orchestrator model: every launch names its model, each
+  subagent reports the model it ran as, and a unit that comes back on the
+  wrong model is reverted and relaunched. It writes no plan, board, or
+  execution record.
+
 ## [2.8.0.0] - 2026-09-16
 
 ### Added

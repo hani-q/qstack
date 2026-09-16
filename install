@@ -72,6 +72,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-ui-prototype [plan-path]` to build a clickable static mock of the screens under discussion, standalone or embedded in a plan.
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and choose its adversarial review depth.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and choose its adversarial review depth.
+- Use `/qstack-slalom <orchestrator> <workers> [task]` to run a small unplanned task as parallel subagents on cheaper named models while the expensive model only orchestrates.
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-review` to review a pull request, a branch, or the working tree against a correctness baseline plus the repository rules in `CODE_REVIEW_RULES.md`, and report findings with a computed score.

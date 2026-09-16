@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 29 skills into Claude Code, Codex, and any harness that
+result. QStack installs 30 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -170,6 +170,7 @@ work in any repo.
 | [`qstack-foundational-thinking`](skills/qstack-foundational-thinking/) | Explicit | Settle data shape, access paths, ownership, concurrency, and shared setup before feature logic, without deciding more than current requirements justify. |
 | [`qstack-build-the-lever`](skills/qstack-build-the-lever/) | Explicit | For work that is more than a couple of obvious edits, build the smallest rerunnable tool that performs or proves it. A tool, not a framework. |
 | [`qstack-libero`](skills/qstack-libero/) | Explicit | After a task is built, restate the goal, name the assumption behind each part, and remove what the goal did not require: delete, then simplify, then optimize, then automate. Never cuts validation, data-loss guards, security, or a documented invariant. |
+| [`qstack-slalom`](skills/qstack-slalom/) | Explicit | Run a small task you talked through but did not plan. Takes the orchestrator model and the worker models, as in `/qstack-slalom fable-5.1 opus-5`, splits the task into units with disjoint files, runs the units as a dynamic workflow with every subagent pinned to a worker model, and integrates and verifies the result itself. No subagent ever runs on the orchestrator model. No plan, board, or execution record. |
 
 ### Writing
 
@@ -307,7 +308,7 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 29 in total
+    ├── ...                          ← one directory per skill, 30 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
