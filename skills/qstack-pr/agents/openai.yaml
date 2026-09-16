@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack PR"
+  short_description: "Write the reviewer handoff for a finished branch, then ask before opening the pull request"
+  default_prompt: "Use $qstack-pr to get this branch ready for review and ask me before opening the pull request."
+policy:
+  allow_implicit_invocation: false

@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.10.0.0] - 2026-09-16
+
+### Added
+
+* `/qstack-pr` gets a finished branch ready for a human reviewer and opens the
+  pull request only on the user's word. It resolves the scope the way
+  `/qstack-review` does, stops when the branch has uncommitted work, an open
+  board card, or an unmet landing rule read from the repository's own
+  instruction files, and otherwise writes the handoff a reviewer reads before
+  the diff: reading order, a change map in pseudocode, a Mermaid diagram only
+  where a sequence, ownership, or state changed, test evidence taken from the
+  git log and a real run, and plan clause links with the adherence score when
+  the work had a plan. Nothing in the body is claimed; each line traces to the
+  diff, the log, or a command run in the session. It shows the title and body,
+  asks one structured question, and on "Open it" creates or updates the pull
+  request and registers it with the host. It never pushes, rebases, or merges.
+  Prompted by Matt Pocock's question about making AI-authored pull requests
+  easier to review.
+
 ## [2.9.1.0] - 2026-09-16
 
 ### Changed
