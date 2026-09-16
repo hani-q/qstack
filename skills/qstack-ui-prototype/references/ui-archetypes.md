@@ -2,7 +2,7 @@
 
 Find the row closest to the product before making a visual choice. The row
 sets three dials and names the mistakes that product type usually makes. It is
-a starting position, not a rule: the brief and the existing design override it.
+a starting position, not a rule. The brief and the existing design override it.
 
 The dials:
 

@@ -18,8 +18,8 @@
 # Link installs must run from the primary Git worktree. Global links into a
 # linked worktree would break as soon as that temporary worktree is removed.
 #
-# Linking is the default on purpose: the repo stays the single source of truth,
-# so `git pull` updates every harness at once with nothing to re-run.
+# Linking is the default on purpose. The repo stays the one source of truth, so
+# `git pull` updates every harness at once with nothing to re-run.
 
 set -euo pipefail
 
@@ -35,7 +35,7 @@ QSTACK_BUILD="$QSTACK_VERSION"
 [ -n "$QSTACK_REVISION" ] && QSTACK_BUILD="$QSTACK_BUILD+$QSTACK_REVISION"
 
 # Harness skill directories. A harness is installed to only if its parent
-# directory already exists: we never create a config dir for a tool that is
+# directory already exists. We never create a config dir for a tool that is
 # not on this machine.
 HARNESSES=(
   "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/skills:Claude Code"
@@ -80,6 +80,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
 - Use `/qstack-unslop` to remove AI writing patterns from the previous answer without losing useful detail.
 - Use `/qstack-explain-for [role] [product]` to rewrite the previous answer for a named reader such as a product manager, CEO, or CMO, optionally framed around a named product.
+- Use `/qstack-ask-as-questions [role]` to ask the open questions from the previous answer through the question tool, rephrased for a named reader with an ELI10 version, lettered options, and a recommendation.
 - Use `/qstack-blast-radius` to find and prove the critical safety fact behind a change.
 - Use `/qstack-separate-before-serializing-shared-state` to remove shared mutable ownership before adding serialization.
 - Use `/qstack-encode-lessons-in-structure` to turn recurring corrections into enforceable guardrails.
@@ -153,7 +154,7 @@ require_durable_link_source
 # layout skills.sh discovers (skills/<name>/SKILL.md), so the same tree works
 # for `./install` and for `npx skills add hani-q/qstack`.
 #
-# A skill's directory name IS its name: it matches the SKILL.md frontmatter
+# A skill's directory name IS its name. It matches the SKILL.md frontmatter
 # `name:`, which is what the agent invokes. The qstack- prefix lives in both,
 # so nothing here derives or appends it.
 skills=()
@@ -344,16 +345,17 @@ append_named_block() {
 }
 
 # Read a file's permission bits. GNU stat spells this -c '%a', BSD stat -f '%Lp'.
-# The order matters and is not arbitrary: BSD stat rejects -c and exits, but GNU
-# stat reads -f as --file-system and takes no format argument, so it treats the
-# format as a second path, prints filesystem statistics for the real one, and
-# exits non-zero. Trying GNU first means the only flavour that can fail dirtily
-# is never reached on the platform where it misbehaves.
+# The order matters. BSD stat rejects -c and exits, but GNU stat reads -f as
+# --file-system and takes no format argument, so it treats the format as a
+# second path, prints filesystem statistics for the real one, and exits
+# non-zero. Trying GNU first means the only flavour that can fail dirtily is
+# never reached on the platform where it misbehaves.
 #
 # There is deliberately no fallback mode. This is only ever called to carry an
 # existing file's permissions onto its replacement, so guessing would quietly
 # widen a file the user had kept private. The answer is also checked to be octal
-# rather than trusted: that is what a stat failing dirtily looks like from here.
+# rather than trusted, because that is what a stat failing dirtily looks like
+# from here.
 file_mode() {
   local mode
   mode=$(stat -c '%a' "$1" 2>/dev/null) || mode=$(stat -f '%Lp' "$1" 2>/dev/null) || {
@@ -507,9 +509,10 @@ remove_instruction_file_block() {
   echo "      removed qstack general and command instructions ($label)"
 }
 
-# qstack is also a curated shelf: each optional collection below is offered on
-# its own, then handed to that project's own installer. Those projects keep
-# owning what they write, so qstack never updates or uninstalls them.
+# qstack also offers a few outside collections. Each optional collection below
+# is offered on its own, then handed to that project's own installer. Those
+# projects keep owning what they write, so qstack never updates or uninstalls
+# them.
 #
 #   install_optional_collection <choice> <label> <command...>
 #
@@ -601,13 +604,13 @@ install_optional_collections() {
   install_optional_collection "$MATT_POCOCK_SKILLS" "Matt Pocock's skills" \
     npx skills@latest add mattpocock/skills --global || failed=1
 
-  # From the source tag, not the npm package: the published release only installs
-  # a Claude Code skill, while Codex and ~/.agents support exists in the tagged
-  # source and has never been published.
+  # From the source tag, not the npm package. The published release only
+  # installs a Claude Code skill, while Codex and ~/.agents support exists in
+  # the tagged source and has never been published.
   #
-  # npx cannot install a git dependency by commit SHA: it fails with "GitFetcher
-  # requires an Arborist constructor": so the checkout is done here instead,
-  # binding what runs to the reviewed commit.
+  # npx cannot install a git dependency by commit SHA. It fails with "GitFetcher
+  # requires an Arborist constructor", so the checkout is done here instead,
+  # which binds what runs to the reviewed commit.
   install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
     install_human_review || failed=1
 

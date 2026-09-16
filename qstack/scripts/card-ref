@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+
+# Print one reference line per board card, so a human reading loop output can
+# tell what a card id is and open it in one click:
+#
+#   T-401 "Restore retired-dialect refusal tests" <link>
+#
+# The title is read from the card's `created` event in board-events.js, never
+# retyped. When a card was created more than once, the last `created` event
+# wins, which is how board.js resolves it too.
+#
+# The link is the served board when qstack/.serve names a server that is still
+# alive, and the repository path otherwise. serve.sh writes qstack/.serve while
+# it runs and removes it on exit. The file is one key=value pair per line:
+#
+#   bind=127.0.0.1
+#   port=8000
+#   pid=4213
+#
+# A dead pid means a crashed server left the file behind, so it is ignored. A
+# live pid is not enough on its own, because the operating system reuses pids:
+# once serve.sh is gone its number can belong to any unrelated process, and the
+# link would point at nothing. So the port is also opened before the served URL
+# is used, and anything that does not answer falls back to the repository path.
+#
+# The bind address is what the server listens on, which is not always something
+# a browser can open: a wildcard bind (0.0.0.0, ::, or no bind at all) becomes
+# 127.0.0.1 in the link, and an IPv6 literal is bracketed so the port stays
+# readable as a port. The connection test uses that same mapped host, so it
+# checks the address the reader will actually open.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+QSTACK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+usage() {
+  echo "usage: $0 <slug> <card-id>..." >&2
+  exit 2
+}
+
+[ "$#" -ge 2 ] || usage
+
+SLUG="$1"
+shift
+
+case "$SLUG" in
+  ''|-*|*/*) usage ;;
+esac
+
+for card in "$@"; do
+  [ -n "$card" ] || usage
+done
+
+BOARD="$QSTACK_DIR/compound_engineering/plans/$SLUG/board-events.js"
+
+if [ ! -f "$BOARD" ]; then
+  echo "card-ref: no board for $SLUG: qstack/compound_engineering/plans/$SLUG/board-events.js" >&2
+  exit 1
+fi
+
+# python3 is already required by serve.sh, and the event stream is JSON inside a
+# call wrapper, so the parsing is done there rather than with a shell regex.
+exec python3 - "$BOARD" "$SLUG" "$QSTACK_DIR/.serve" "$@" <<'PY'
+import json
+import os
+import re
+import socket
+import sys
+
+board_path, slug, serve_path = sys.argv[1], sys.argv[2], sys.argv[3]
+wanted = sys.argv[4:]
+
+EVENT = re.compile(r"^\s*qstackBoardEvent\((.*)\);\s*$")
+
+titles = {}
+with open(board_path, encoding="utf-8") as handle:
+    for line in handle:
+        match = EVENT.match(line)
+        if not match:
+            continue
+        try:
+            event = json.loads(match.group(1))
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(event, dict):
+            continue
+        if event.get("event") != "created":
+            continue
+        card = event.get("card")
+        if not card:
+            continue
+        titles[str(card)] = str(event.get("title") or card)
+
+
+# A server can listen on an address that names no single machine. Opening
+# http://0.0.0.0:8000/ gets a browser nowhere, so the wildcard binds are printed
+# as the loopback address the same server also answers on.
+WILDCARD_BINDS = {"", "0.0.0.0", "::"}
+
+
+def url_host(bind):
+    """Return the bind address as it should appear in a URL's host position."""
+    host = bind.strip()
+    if host in WILDCARD_BINDS:
+        return "127.0.0.1"
+    if ":" in host:
+        return "[{}]".format(host)
+    return host
+
+
+# Long enough for a server on this machine to accept, short enough that a
+# printed card reference never feels like it stalled.
+PROBE_TIMEOUT_SECONDS = 0.3
+
+
+def answers(host, port):
+    """Return True when something accepts a connection on (host, port) now."""
+    target = host[1:-1] if host.startswith("[") and host.endswith("]") else host
+    try:
+        with socket.create_connection((target, int(port)), PROBE_TIMEOUT_SECONDS):
+            return True
+    except (OSError, ValueError, OverflowError):
+        return False
+
+
+def served_base():
+    """Return the served plan-root URL, or None when no server is running."""
+    try:
+        with open(serve_path, encoding="utf-8") as handle:
+            raw = handle.read()
+    except OSError:
+        return None
+
+    fields = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        fields[key.strip()] = value.strip()
+
+    bind, port, pid = fields.get("bind", ""), fields.get("port"), fields.get("pid")
+    if not port or not pid:
+        return None
+    try:
+        pid = int(pid)
+    except ValueError:
+        return None
+    if pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        pass
+    except OSError:
+        return None
+
+    host = url_host(bind)
+    if not answers(host, port):
+        return None
+
+    return f"http://{host}:{port}/plans"
+
+
+base = served_base()
+if base is None:
+    base = "qstack/compound_engineering/plans"
+
+unknown = [card for card in wanted if card not in titles]
+if unknown:
+    print(
+        "card-ref: unknown card in {}: {}".format(slug, ", ".join(unknown)),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+for card in wanted:
+    print('{} "{}" {}/{}/plan.html#board-card-{}'.format(
+        card, titles[card], base, slug, card
+    ))
+PY

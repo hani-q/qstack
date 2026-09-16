@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+
+"""Regression test for #board-card-<id> deep links in the execution board.
+
+card-ref hands a reader a link like plan.html#board-card-T-401, and for a while
+that link opened the plan view, where no such id exists, so the card the link
+named was the one thing the reader could not see. The board is the view that
+draws cards, so the parts pinned here are the ones that link depends on: the
+hash routes to the board, the card is scrolled to and highlighted once the fold
+holding it has been drawn, a later hash reaches a card already drawn without
+waiting for anything, and every other hash still opens the plan.
+
+board.js runs in the page, so it is run here: node evaluates the real file
+against a fake document that records the view it was put into and the card it
+scrolled to. Nothing is read by regex.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+SOURCE = REPO / "skills" / "qstack-plan-to-html" / "template" / "v1" / "board.js"
+
+EVENTS = [
+    {"event": "board", "format": 1},
+    {"ts": "2026-09-16T09:00:00Z", "event": "epic", "actor": "planner",
+     "epic": "links", "title": "00 . Links"},
+    {"ts": "2026-09-16T09:00:01Z", "event": "created", "actor": "planner",
+     "card": "T-01", "epic": "links", "title": "Open the card a link names",
+     "points": 2, "refs": [], "files": [], "depends_on": []},
+    {"ts": "2026-09-16T09:00:02Z", "event": "created", "actor": "planner",
+     "card": "T-02", "epic": "links", "title": "Reach a drawn card again",
+     "points": 1, "refs": [], "files": [], "depends_on": []},
+]
+
+HARNESS = r"""
+const fs = require('node:fs');
+
+const events = JSON.parse(process.argv[3]);
+const created = [];
+const log = { scrolled: [], focused: [], loads: 0 };
+
+/* Two selector shapes are enough for everything the board asks a node for: a
+   class, and the [data-focused] mark it puts on the card it last lit. */
+const matches = (node, sel) =>
+  sel === '[data-focused]'
+    ? node.dataset.focused !== undefined
+    : String(node.className).split(' ').includes(sel.replace('.', ''));
+
+const descend = (node, sel, found) => {
+  for (const kid of node.children) {
+    if (matches(kid, sel)) found.push(kid);
+    descend(kid, sel, found);
+  }
+  return found;
+};
+
+const makeNode = (tag) => {
+  const node = {
+    tagName: tag,
+    dataset: {},
+    children: [],
+    // The filter hides a column and reads back through the card's ancestors,
+    // so a parent link is part of what is being tested here.
+    parent: null,
+    listeners: {},
+    id: '',
+    className: '',
+    textContent: '',
+    hidden: false,
+    append(...kids) {
+      for (const kid of kids) {
+        if (!kid || typeof kid !== 'object') continue;
+        kid.parent = this;
+        this.children.push(kid);
+      }
+    },
+    replaceChildren(...kids) { this.children.length = 0; this.append(...kids); },
+    insertBefore() {},
+    remove() {},
+    setAttribute() {},
+    addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); },
+    fire(type, event) { for (const fn of this.listeners[type] || []) fn(event); },
+    querySelector(sel) { return descend(this, sel, [])[0] || null; },
+    querySelectorAll(sel) { return descend(this, sel, []); },
+    closest(sel) {
+      for (let at = this; at; at = at.parent) if (matches(at, sel)) return at;
+      return null;
+    },
+    focus() { log.focused.push(this.id); },
+    scrollIntoView(options) { log.scrolled.push([this.id, options && options.block]); },
+  };
+  created.push(node);
+  return node;
+};
+
+const lanes = makeNode('div');
+// .board is where the filter bar is hung, so without it there is no filter to
+// be caught by and the hidden-column case cannot happen at all.
+const board = makeNode('section');
+board.className = 'board';
+board.append(lanes);
+const head = makeNode('head');
+// Appending the event script is the board asking for the stream. Answer it the
+// way a browser does: on a later task, through the global receiver, then load.
+head.append = function (script) {
+  log.loads += 1;
+  setTimeout(() => {
+    for (const event of events) globalThis.qstackBoardEvent(event);
+    script.fire('load');
+  }, 0);
+};
+
+globalThis.document = {
+  documentElement: makeNode('html'),
+  visibilityState: 'visible',
+  head,
+  createElement: makeNode,
+  getElementById: (id) => created.find((node) => node.id === id) || null,
+  querySelector: (sel) => (sel === '[data-board-lanes]' ? lanes : null),
+  querySelectorAll: () => [],
+  addEventListener() {},
+};
+globalThis.location = { hash: process.argv[2], pathname: '/plan.html' };
+// The remembered status filter, as a reader's browser hands it back on the
+// next visit: argv[4] is what the last visit left behind.
+const stored = new Map();
+if (process.argv[4]) stored.set('qstack-board-filter:/plan.html', process.argv[4]);
+globalThis.localStorage = {
+  getItem: (key) => (stored.has(key) ? stored.get(key) : null),
+  setItem: (key, value) => stored.set(key, String(value)),
+};
+globalThis.history = { pushState() {} };
+const pageListeners = {};
+globalThis.addEventListener = (type, fn) => { (pageListeners[type] ||= []).push(fn); };
+globalThis.removeEventListener = (type, fn) => {
+  pageListeners[type] = (pageListeners[type] || []).filter((other) => other !== fn);
+};
+
+new Function('document', fs.readFileSync('./board.js', 'utf8'))(globalThis.document);
+
+// Copied, not referenced: three snapshots of one growing log are one log.
+const report = () => {
+  const card = globalThis.document.getElementById('board-card-T-01');
+  const column = card && card.closest('.board-col');
+  return {
+    view: globalThis.document.documentElement.dataset.view,
+    lit: created.filter((node) => node.dataset.focused === 'true').map((n) => n.id),
+    scrolled: log.scrolled.map((entry) => entry.slice()),
+    focused: log.focused.slice(),
+    loads: log.loads,
+    filter: board.dataset.filter || '',
+    remembered: stored.get('qstack-board-filter:/plan.html') || '',
+    columnHidden: column ? column.hidden : null,
+    laneHidden: column ? column.closest('.board-lane').hidden : null,
+  };
+};
+
+// Two tasks: one for the stream, one for the load event the board finishes on.
+setTimeout(() => {
+  const first = report();
+  globalThis.location.hash = '#board-card-T-02';
+  for (const fn of pageListeners.hashchange || []) fn();
+  const second = report();
+  globalThis.location.hash = '#s7-3';
+  for (const fn of pageListeners.hashchange || []) fn();
+  console.log(JSON.stringify({ first, second, third: report() }));
+  process.exit(0);
+}, 50);
+"""
+
+
+class BoardDeepLinkTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not shutil.which("node"):
+            raise unittest.SkipTest("node is not installed")
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.home = Path(cls.temporary.name)
+        shutil.copy(SOURCE, cls.home / "board.js")
+        (cls.home / "harness.js").write_text(HARNESS, encoding="utf-8")
+        cls.result = cls.run_board("#board-card-T-01")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary.cleanup()
+
+    @classmethod
+    def run_board(cls, hash_: str, remembered: str = "") -> dict:
+        done = subprocess.run(
+            ["node", "harness.js", hash_, json.dumps(EVENTS), remembered],
+            cwd=cls.home,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(done.stdout)
+
+    def test_a_card_hash_opens_the_board_rather_than_the_plan(self) -> None:
+        self.assertEqual(self.result["first"]["view"], "board")
+
+    def test_the_linked_card_is_scrolled_to_once_the_fold_is_drawn(self) -> None:
+        first = self.result["first"]
+        self.assertEqual(first["scrolled"], [["board-card-T-01", "center"]])
+        self.assertEqual(first["focused"], ["board-card-T-01"])
+        self.assertEqual(first["lit"], ["board-card-T-01"])
+
+    def test_a_later_card_hash_reaches_a_drawn_card_in_the_same_tick(self) -> None:
+        # Reported straight after the hashchange, so nothing the reload folds
+        # later can be what moved the board.
+        second = self.result["second"]
+        self.assertEqual(
+            second["scrolled"],
+            [["board-card-T-01", "center"], ["board-card-T-02", "center"]],
+        )
+        # One card is lit at a time, so the first link's highlight is taken back.
+        self.assertEqual(second["lit"], ["board-card-T-02"])
+
+    def test_every_other_hash_still_opens_the_plan(self) -> None:
+        third = self.result["third"]
+        self.assertEqual(third["view"], "plan")
+        self.assertEqual(len(third["scrolled"]), 2)
+
+    def test_a_plain_board_hash_scrolls_to_no_card(self) -> None:
+        plain = self.run_board("#board")
+        self.assertEqual(plain["first"]["view"], "board")
+        self.assertEqual(plain["first"]["scrolled"], [])
+
+    def test_a_remembered_filter_does_not_swallow_the_linked_card(self) -> None:
+        # Both cards are in backlog, so a board left on Done last visit hides
+        # the column the link names. The link is the newer instruction.
+        filtered = self.run_board("#board-card-T-01", "done")["first"]
+        self.assertEqual(filtered["scrolled"], [["board-card-T-01", "center"]])
+        self.assertEqual(filtered["lit"], ["board-card-T-01"])
+        self.assertFalse(filtered["columnHidden"])
+        self.assertFalse(filtered["laneHidden"])
+        # Cleared rather than suspended, so the next redraw does not hide it
+        # again and the reader's next visit starts where the link left them.
+        self.assertEqual(filtered["filter"], "all")
+        self.assertEqual(filtered["remembered"], "all")
+
+    def test_a_remembered_filter_survives_a_visit_with_no_card_link(self) -> None:
+        plain = self.run_board("#board", "done")["first"]
+        self.assertEqual(plain["filter"], "done")
+        self.assertTrue(plain["columnHidden"])
+        self.assertEqual(plain["scrolled"], [])
+
+    def test_the_plan_is_the_view_a_clause_hash_loads_into(self) -> None:
+        clause = self.run_board("#s7-3")
+        self.assertEqual(clause["first"]["view"], "plan")
+        self.assertEqual(clause["first"]["loads"], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

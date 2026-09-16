@@ -144,9 +144,9 @@
 
   /* -- Eli asides -------------------------------------------------------- */
 
-  /* Hover and focus are pure CSS. This adds the tap: a touch reader has no
-     hover: plus Escape to dismiss, and it flips a box that would otherwise
-     run off the end of the line. */
+  /* Hover and focus are pure CSS. This adds the tap, because a touch reader
+     has no hover. It also dismisses on Escape, and it flips a box that would
+     otherwise run off the end of the line. */
 
   const elis = [...doc.querySelectorAll('.eli')];
 

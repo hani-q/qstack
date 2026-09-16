@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 28 skills into Claude Code, Codex, and any harness that
+result. QStack installs 29 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -25,8 +25,12 @@ Every clause has a `§` number, so review feedback is "§4.2 is wrong" rather th
 keep a running `execution.md`, and ask how much independent adversarial review
 to run before they change anything. Pick `/qstack-loop-no-nonsense` when the
 plan is the contract, or `/qstack-loop-trequartista` when the agent may adapt as
-long as it says so in writing. `/qstack-plan-adherence-review` then scores the
-outcome from 0 to 5 against the plan, the execution record, and the actual diff.
+long as it says so in writing. While a loop runs, every card it names carries
+its id, its title, and a link that opens that card on the board, and every
+question it asks you comes with a plain-language rephrasing, a version a
+ten-year-old could follow, and options with one of them recommended.
+`/qstack-plan-adherence-review` then scores the outcome from 0 to 5 against the
+plan, the execution record, and the actual diff.
 `/qstack-review` answers the other question, whether the code is right, against
 a correctness baseline plus whatever `CODE_REVIEW_RULES.md` the repository
 keeps. It runs on a pull request or a branch with no plan behind it, and its
@@ -128,8 +132,8 @@ are doing. Explicit skills run only when you type them.
 | [`qstack-update-plan-assets`](skills/qstack-update-plan-assets/) | Automatic | Refresh shared plan scripts, styles, and documentation from a clearly newer installed QStack template without changing plan content or execution records. |
 | [`qstack-ask-plan-open-questions`](skills/qstack-ask-plan-open-questions/) | Automatic | Ask the questions whose answers change what gets built, one at a time in plain language, and write each decision and its consequences straight into the plan. |
 | [`qstack-ui-prototype`](skills/qstack-ui-prototype/) | Automatic | Build a clickable static HTML mock of the one or two screens a plan changes and embed it in `plan.html` through an iframe, with a link to open it in its own tab. Stamped `Reference`: the clauses are the requirement, the mock is one way they could look. Also runs standalone, keeping the mock under `prototypes/<slug>/` until a plan adopts it. Carries Anthropic's `frontend-design` brief and a checklist adapted from ui-ux-pro-max, so every harness reads the same design guidance offline. |
-| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and ask how much adversarial review to run. |
-| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and ask the same review-depth question. |
+| [`qstack-loop-no-nonsense`](skills/qstack-loop-no-nonsense/) | Explicit | Execute the plan exactly. Stop before any deviation, keep `execution.md` current, and ask how much adversarial review to run. Progress is one line per board transition, and every card it names carries its title and a board link. |
+| [`qstack-loop-trequartista`](skills/qstack-loop-trequartista/) | Explicit | Execute the plan with controlled creative freedom. Preserve its intent, record every adaptation, and ask the same review-depth question. Same progress voice, card references, and report template. |
 | [`qstack-plan-adherence-review`](skills/qstack-plan-adherence-review/) | Automatic | Build a requirement-to-evidence matrix from the plan, the execution record, and the real diff, then assign a guarded 0 to 5 adherence score. Report-only. |
 | [`qstack-plan-close`](skills/qstack-plan-close/) | Explicit | Fold the board, check nothing is still claimed or in flight, and write `outcome.md`: the delta between the plan and what actually happened. |
 | [`qstack-serve-plans`](skills/qstack-serve-plans/) | Explicit | Serve this repository's plan collection over HTTP, asking for the bind address and port instead of guessing your network exposure. |
@@ -174,6 +178,7 @@ work in any repo.
 | [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in far fewer lines and plainer language. Takes a target, as in `/qstack-be-concise 4`. |
 | [`qstack-unslop`](skills/qstack-unslop/) | Explicit | Strip AI writing patterns from the previous answer and restore a human voice, without losing meaning, detail, or technical accuracy. |
 | [`qstack-explain-for`](skills/qstack-explain-for/) | Automatic | Rewrite the previous answer for a named reader, such as a product manager, CEO, or CMO, framed around the product they own. Takes free text, as in `/qstack-explain-for cmo of a fitness app`. Controls the lens, not the length. |
+| [`qstack-ask-as-questions`](skills/qstack-ask-as-questions/) | Explicit | Ask every open question the previous answer left for the user through the host's question tool, rephrased for a named reader (product manager by default) with an ELI10 version, lettered options, and one recommended answer. Takes a role, as in `/qstack-ask-as-questions ceo`. Reads the conversation, not the plan. |
 
 ## Install
 
@@ -294,13 +299,15 @@ qstack/                              ← this repo, anywhere on disk
 ├── scripts/
 │   ├── qstack-version               ← allocate, write, and validate branch versions
 │   ├── test-versioning              ← collision and retry regression tests
+│   ├── test-card-ref                ← card-ref title, link, and exit-code tests
+│   ├── test-board-deeplink          ← board deeplink open, unfilter, and scroll tests
 │   ├── validate-board-fold          ← board event stream folding rules
 │   ├── validate-skill-invocation    ← Claude/Codex policy parity + portable validation
 │   └── validate-template-sync       ← keeps the two template copies byte-identical
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 28 in total
+    ├── ...                          ← one directory per skill, 29 in total
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
@@ -351,6 +358,7 @@ The renderer creates this structure inside each target repository:
 
 ```text
 qstack/
+├── .serve                     ← bind address, port, and pid while serve.sh runs; git-ignored
 ├── compound_engineering/plans/
 │   ├── .template/v1/
 │   └── <feature>/
@@ -363,6 +371,7 @@ qstack/
 │   └── <screen>/              ← a standalone mock and its README, until a plan adopts it
 └── scripts/
     ├── serve.sh
+    ├── card-ref               ← prints `T-401 "title" <link>` for one or more cards
     └── migrate-board-log
 ```
 

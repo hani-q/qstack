@@ -22,7 +22,7 @@ Give an idea a picture before anyone builds it. A clickable mock of one or two
 screens settles layout, hierarchy, copy, and states faster than a page of
 prose, and it is cheap enough to throw away and redo.
 
-The prototype is **evidence, not contract**. On its own it records a
+The prototype is evidence, not a contract. On its own it records a
 direction. Attached to a plan, it illustrates numbered clauses and is stamped
 `Reference` so nobody mistakes it for a decision. A pixel in the mock is never
 a requirement.
@@ -31,13 +31,13 @@ a requirement.
 
 Work out which mode you are in before reading anything else.
 
-**Plan mode** when any of these holds:
+Plan mode when any of these holds:
 
 - a `plan.html` path was supplied, or `--into <plan.html>` was passed;
 - `/qstack-plan-to-html` invoked this skill during a conversion;
 - the conversation is clearly about one specific plan.
 
-**Standalone mode** otherwise. Do not go looking through
+Standalone mode otherwise. Do not go looking through
 `qstack/compound_engineering/plans/` for a plan to attach to. If exactly one
 plan in that folder is unfrozen and its title plainly names the same screen
 the user asked for, ask once, in plain words:
@@ -70,8 +70,8 @@ In plan mode, read the whole plan first. A prototype is warranted when the
 plan adds or changes something a person sees: a page, a screen, a component,
 a form, a dashboard, a CLI's output layout, an email, a document template.
 
-It is not warranted for a migration, a packaging change, an API with no
-rendered surface, a refactor, or an infrastructure change. Do not build one
+It is not warranted for a migration, a packaging change, an API that renders
+nothing, a refactor, or an infrastructure change. Do not build one
 to decorate the plan. An empty prototype in a controlled document is a
 liability.
 
@@ -157,8 +157,8 @@ prototype at `/prototypes/<slug>/index.html` or
 
 Rules:
 
-- **Static HTML and CSS. No framework, no build step, no network, no CDN
-  fonts.** It must open from `file://` on a machine that has never heard of
+- **Static HTML and CSS.** No framework, no build step, no network, no CDN
+  fonts. It must open from `file://` on a machine that has never heard of
   QStack, today and in ten years. Use system font stacks or fonts already in
   the repository.
 - **JavaScript only for state.** Tabs between screens, a toggle between empty

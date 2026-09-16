@@ -10,9 +10,11 @@
    from createElement and text, and nothing is ever handed to innerHTML.
 
    What it does
-     · switches plan ⇄ board on #board, and keeps back and forward working
+     · switches plan ⇄ board on #board and on any #board-card-<id>, and keeps
+       back and forward working
      · scrolls a §ref into view itself, because the plan was hidden when the
        browser went looking for the clause
+     · scrolls a linked card into view once the fold holding it has been drawn
      · folds the log into epics, cards, owners, statuses, and the coordinator
      · resolves a depends_on naming a split parent to that split's children
      · reads related off shared refs and shared files, and stores nothing
@@ -525,6 +527,32 @@
     return node;
   };
 
+  /* Moving to a card on the board: the one highlight-and-centre used by a
+     depends_on jump and by a #board-card-<id> deep link, so the two cannot
+     drift. Reports whether the card was there to move to. */
+  const focusCard = (id) => {
+    const target = doc.getElementById(`board-card-${id}`);
+    if (!target) return false;
+    /* The filter is a view setting left over from an earlier visit, and the
+       link names one card. So the filter is the thing that gives way: a card
+       sitting in a hidden column would take the link and show nothing, and the
+       reader would be looking at a board that answered a question they are not
+       asking this time. Clearing back to `all` is the only state a link sets. */
+    const column = target.closest?.('.board-col');
+    if (column && (column.hidden || column.closest?.('.board-lane')?.hidden)) {
+      filter = 'all';
+      remember('all');
+      applyFilter();
+    }
+    const previous = lanesHost.querySelector('[data-focused]');
+    if (previous) delete previous.dataset.focused;
+    target.dataset.focused = 'true';
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    setTimeout(() => delete target.dataset.focused, 1800);
+    return true;
+  };
+
   lanesHost.addEventListener('click', (event) => {
     const jump = event.target.closest('[data-board-card-jump]');
     if (!jump) {
@@ -538,14 +566,7 @@
       if (card) openDialog(card.dataset.card, card.querySelector('.board-card-id'));
       return;
     }
-    const target = doc.getElementById(`board-card-${jump.dataset.boardCardJump}`);
-    if (!target) return;
-    const previous = lanesHost.querySelector('[data-focused]');
-    if (previous) delete previous.dataset.focused;
-    target.dataset.focused = 'true';
-    target.focus({ preventScroll: true });
-    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    setTimeout(() => delete target.dataset.focused, 1800);
+    focusCard(jump.dataset.boardCardJump);
   });
 
   // A split parent is closed, so it sits in the done column under its own status.
@@ -718,10 +739,10 @@
   /* -- The card dialog ---------------------------------------------------- */
 
   /* A card in a column is a summary, and it has to stay one: the column is 216
-     pixels wide and the board is read across, not down. Everything the fold
-     knows and the column drops — every note rather than the last, every
-     relationship rather than the first three, and the card's own slice of the
-     event stream — is one press away instead of gone. */
+     pixels wide and the board is read across, not down. The fold knows more
+     than the column shows. Every note rather than the last, every relationship
+     rather than the first three, and the card's own slice of the event stream
+     are all one press away instead of gone. */
 
   let dialog = null;
   let dialogCard = '';
@@ -815,7 +836,7 @@
           'dl', 'board-dialog-fields',
           field('Epic', latest?.epics.get(card.epic) || card.epic || 'None'),
           field('Owner', card.owner || 'Unclaimed'),
-          field('Points', card.sized ? String(card.points) : `${card.points} — off the scale`),
+          field('Points', card.sized ? String(card.points) : `${card.points}, off the scale`),
           field('From', card.splitFrom),
         ),
         section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
@@ -960,6 +981,11 @@
       if (!card) dialog?.close();
       else if (dialogState(card) !== dialogShown) fillDialog(card);
     }
+
+    /* A #board-card-<id> link names a card that only exists once a fold has
+       been drawn, and the first load resolves after the page opens. This is
+       where that link is finally spent. */
+    if (pendingCard && focusCard(pendingCard)) pendingCard = '';
   };
 
   /* -- The file ---------------------------------------------------------- */
@@ -1051,9 +1077,16 @@
 
   /* -- Views ------------------------------------------------------------- */
 
-  /* Anything that is not exactly "#board" is the plan, so a deep link like
-     #s7-3 opens the plan and lets the browser scroll to the clause. */
-  const viewOf = (hash) => (hash === '#board' ? 'board' : 'plan');
+  /* "#board" and every "#board-card-<id>" name the board; anything else is the
+     plan, so a deep link like #s7-3 opens the plan and lets the browser scroll
+     to the clause, while a link to a card opens the view the card is drawn in
+     rather than a plan with no such id in it. */
+  const CARD_HASH = '#board-card-';
+  const viewOf = (hash) =>
+    (hash === '#board' || String(hash).startsWith(CARD_HASH) ? 'board' : 'plan');
+
+  // The card a deep link asked for and the board has not drawn yet.
+  let pendingCard = '';
   const switchLinks = [...doc.querySelectorAll('[data-view-switch] a[href^="#"]')];
 
   const applyView = (view) => {
@@ -1080,7 +1113,15 @@
      actually on. scrollIntoView with no argument inherits scroll-behavior from
      the stylesheet, which is smooth and turns instant under reduced motion. */
   const openHash = (hash) => {
-    applyView(viewOf(hash));
+    const view = viewOf(hash);
+    applyView(view);
+    if (view === 'board') {
+      /* The card is already drawn on every visit after the first, and on the
+         first one render() spends what is left here. */
+      pendingCard = hash.startsWith(CARD_HASH) ? hash.slice(CARD_HASH.length) : '';
+      if (pendingCard && focusCard(pendingCard)) pendingCard = '';
+      return;
+    }
     if (viewHashes.has(hash) || hash.length < 2) return;
     const target = doc.getElementById(hash.slice(1));
     if (target) target.scrollIntoView();
@@ -1091,7 +1132,7 @@
       event.preventDefault();
       const hash = link.getAttribute('href');
       if (location.hash !== hash) history.pushState(null, '', hash);
-      applyView(viewOf(link.hash));
+      openHash(link.hash);
     });
   }
 

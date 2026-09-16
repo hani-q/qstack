@@ -1,6 +1,6 @@
 interface:
   display_name: "QStack Loop: Trequartista"
   short_description: "Execute adaptively with chosen review depth"
-  default_prompt: "Use $qstack-loop-trequartista to choose a review depth, execute the current plan, and record adaptations."
+  default_prompt: "Use $qstack-loop-trequartista to choose a review depth, execute the current plan, and record adaptations. Name every card a human reads by id and quoted title with its link, under the board protocol's Naming a card and using the line card-ref prints. Ask every question in the shape its Park and continue sets: index line, card line, product-manager framing, ELI10, and options with one recommended first. While the run is in progress write one line per board transition, and close with the report template in Standing down."
 policy:
   allow_implicit_invocation: false

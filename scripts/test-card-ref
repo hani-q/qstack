@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+
+"""Regression test for the card-ref helper shipped with qstack-plan-to-html.
+
+card-ref is the only thing standing between a loop message and a retyped card
+title, so the parts worth pinning are the ones a reader would notice: the title
+comes out of the `created` event, the link follows a running server only when
+qstack/.serve names a live pid *and* something answers on its port, and an id
+the board never created fails loudly instead of printing a line the reader
+would trust.
+
+The port check is what separates a real server from a recycled pid, so each
+served test opens its own listening socket and hands card-ref that port.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import socket
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+SOURCE = REPO / "skills" / "qstack-plan-to-html" / "template" / "card-ref"
+
+EVENTS = """qstackBoardEvent({"event":"board","format":1});
+qstackBoardEvent({"ts":"2026-09-16T09:00:00Z","event":"epic","actor":"planner","epic":"links","title":"00 . Links"});
+qstackBoardEvent({"ts":"2026-09-16T09:00:01Z","event":"created","actor":"planner","card":"T-401","epic":"links","title":"Restore retired-dialect refusal tests","points":2,"refs":[],"files":[],"depends_on":[]});
+qstackBoardEvent({"ts":"2026-09-16T09:00:02Z","event":"created","actor":"planner","card":"T-402","epic":"links","title":"Name a card the way a human reads it","points":1,"refs":[],"files":[],"depends_on":[]});
+qstackBoardEvent({"ts":"2026-09-16T09:00:03Z","event":"claimed","actor":"adelaide","card":"T-401"});
+this line is not an event and must be skipped
+"""
+
+
+class CardRefTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temporary.name)
+        self.scripts = self.repo / "qstack" / "scripts"
+        self.scripts.mkdir(parents=True)
+        self.binary = self.scripts / "card-ref"
+        shutil.copy(SOURCE, self.binary)
+        self.binary.chmod(0o755)
+
+        self.plan = (
+            self.repo / "qstack" / "compound_engineering" / "plans" / "atlas-logs"
+        )
+        self.plan.mkdir(parents=True)
+        (self.plan / "board-events.js").write_text(EVENTS, encoding="utf-8")
+        self.serve_state = self.repo / "qstack" / ".serve"
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def run_card_ref(
+        self, *arguments: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(self.binary), *arguments],
+            check=check,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_repository_path_link_when_no_server_is_running(self) -> None:
+        result = self.run_card_ref("atlas-logs", "T-401", "T-402")
+        self.assertEqual(
+            result.stdout,
+            'T-401 "Restore retired-dialect refusal tests" '
+            "qstack/compound_engineering/plans/atlas-logs/plan.html#board-card-T-401\n"
+            'T-402 "Name a card the way a human reads it" '
+            "qstack/compound_engineering/plans/atlas-logs/plan.html#board-card-T-402\n",
+        )
+
+    def listen(self, address: str) -> int:
+        """Listen on `address`, port 0, and return the port that was given out."""
+        family = socket.AF_INET6 if ":" in address else socket.AF_INET
+        server = socket.socket(family, socket.SOCK_STREAM)
+        self.addCleanup(server.close)
+        server.bind((address, 0))
+        server.listen(1)
+        return server.getsockname()[1]
+
+    def free_port(self) -> int:
+        """Return a port number nothing is listening on."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            return probe.getsockname()[1]
+
+    def serve_on(self, bind: str, port: int, pid: int | None = None) -> str:
+        """Point the serve file at `bind` and `port` and return the one line."""
+        self.serve_state.write_text(
+            f"bind={bind}\nport={port}\npid={os.getpid() if pid is None else pid}\n",
+            encoding="utf-8",
+        )
+        return self.run_card_ref("atlas-logs", "T-401").stdout
+
+    def test_served_link_when_a_live_pid_has_a_port_that_answers(self) -> None:
+        port = self.listen("127.0.0.1")
+        self.assertEqual(
+            self.serve_on("127.0.0.1", port),
+            'T-401 "Restore retired-dialect refusal tests" '
+            f"http://127.0.0.1:{port}/plans/atlas-logs/plan.html#board-card-T-401\n",
+        )
+
+    def test_live_pid_with_a_dead_port_falls_back_to_the_repository_path(self) -> None:
+        # What a recycled pid looks like: the number belongs to a process that
+        # is alive and is not the plan server, so nothing answers on the port.
+        line = self.serve_on("127.0.0.1", self.free_port())
+        self.assertIn("qstack/compound_engineering/plans/atlas-logs/", line)
+        self.assertNotIn("http://", line)
+
+    def test_a_wildcard_bind_is_linked_as_loopback(self) -> None:
+        port = self.listen("0.0.0.0")
+        self.assertEqual(
+            self.serve_on("0.0.0.0", port),
+            'T-401 "Restore retired-dialect refusal tests" '
+            f"http://127.0.0.1:{port}/plans/atlas-logs/plan.html#board-card-T-401\n",
+        )
+
+    def test_an_ipv6_bind_is_bracketed_so_the_port_stays_readable(self) -> None:
+        port = self.listen("::1")
+        self.assertEqual(
+            self.serve_on("::1", port),
+            'T-401 "Restore retired-dialect refusal tests" '
+            f"http://[::1]:{port}/plans/atlas-logs/plan.html#board-card-T-401\n",
+        )
+
+    def test_a_hostname_bind_is_left_alone(self) -> None:
+        # A name rather than a literal, resolvable so the port check can reach
+        # the socket the test opened on the address it resolves to.
+        port = self.listen("127.0.0.1")
+        self.assertEqual(
+            self.serve_on("localhost", port),
+            'T-401 "Restore retired-dialect refusal tests" '
+            f"http://localhost:{port}/plans/atlas-logs/plan.html#board-card-T-401\n",
+        )
+
+    def test_dead_pid_in_the_serve_file_falls_back_to_the_repository_path(self) -> None:
+        dead = subprocess.Popen(["true"])
+        dead.wait()
+        port = self.listen("127.0.0.1")
+        line = self.serve_on("127.0.0.1", port, pid=dead.pid)
+        self.assertIn("qstack/compound_engineering/plans/atlas-logs/", line)
+        self.assertNotIn("http://", line)
+
+    def test_unknown_card_fails_without_printing_a_line(self) -> None:
+        result = self.run_card_ref("atlas-logs", "T-401", "T-999", check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("T-999", result.stderr)
+
+    def test_missing_board_fails(self) -> None:
+        result = self.run_card_ref("no-such-plan", "T-401", check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no-such-plan", result.stderr)
+
+    def test_bad_arguments_report_usage(self) -> None:
+        result = self.run_card_ref("atlas-logs", check=False)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("usage:", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

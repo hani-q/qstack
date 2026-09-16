@@ -49,21 +49,41 @@ flag:
 Without the flag, reuse that recorded or legacy mode without asking. With the
 flag, it must match that mode as described below. For a new execution without
 the flag, ask one startup question, using the host's structured question tool
-when available and plain text when it is not. With a board, ask:
+when available and plain text when it is not. Ask it in the shape the protocol's
+Park and continue sets for every question a loop asks a human: the
+product-manager version, the ELI10 version, then the options with the
+recommended one first and its one-sentence reason. This question is parked on no
+card, so it carries no card line and no technical-detail line, and one or two
+sentences per part is the whole of it. With a board, the options are:
 
   > How much independent adversarial review should this run use?
+  >
+  > For a product manager: this decides how much independent checking the work
+  > gets before it is called done. More checking catches more mistakes and costs
+  > more time and tokens.
+  >
+  > ELI10: after we build something, someone else can read it over to spot
+  > mistakes. They can read every piece, read the finished thing once, or skip
+  > the reading.
   >
   > - Final review only (recommended): one fresh reviewer after all work, balancing coverage and token cost.
   > - Full review: review every card and the combined result; highest coverage and token use.
   > - No adversarial review: fastest and lowest token use; rely on validation only.
 
 Without a board, `full` and `final` both launch one whole-plan reviewer, so do
-not present them as different costs. Ask instead:
+not present them as different costs. Keep the same shape and offer two options:
 
-> How much independent adversarial review should this run use?
->
-> - One whole-plan review (recommended, recorded as `final`): balance quality and token cost.
-> - No adversarial review: fastest and lowest token use; rely on validation only.
+  > How much independent adversarial review should this run use?
+  >
+  > For a product manager: this decides whether the finished work gets an
+  > independent check before it is called done. The check catches more mistakes
+  > and costs more time and tokens.
+  >
+  > ELI10: after we build something, someone else can read the finished thing to
+  > spot mistakes. They can read it once, or skip the reading.
+  >
+  > - One whole-plan review (recommended, recorded as `final`): balance quality and token cost.
+  > - No adversarial review: fastest and lowest token use; rely on validation only.
 
 Review mode is fixed once execution starts. On a resume, a `--review` value that
 differs from the recorded or legacy mode is a conflict: stop and name the mode
@@ -135,6 +155,12 @@ taking a board over looks.
 The board sections below are this skill's own rules. Where one sharpens
 something the protocol states, it names the rule it sharpens instead of
 restating it.
+
+Name every card in text a human reads under the protocol's Naming a card, and
+let `qstack/scripts/card-ref` do the lookup rather than typing a title from
+memory. That covers the holder of a board you could not claim and the cards it
+owns, progress lines, split reports, bad-write reports, the cards a narrowed or
+limited run leaves open, parked questions, the stand-down, and the final report.
 
 ## Start the execution record
 
@@ -253,12 +279,17 @@ material decisions park. When a card reaches one, move it to `blocked` with the
 question in its `note`, leave the rest of the wave running, and refill it from
 the ready set. The run does not stop.
 
+Ask the round in the protocol's question shape, under its Park and continue.
+Every question this loop puts to a human takes that shape, the startup
+review-mode question included.
+
 A permitted non-material adaptation is still made on the spot and recorded in
 `execution.md`. Parking is for material decisions only.
 
 ## Resume a blocked card
 
-Follow the protocol's Resume a blocked card. Record the answer in `execution.md`
+Follow the protocol's Resume a blocked card, and ask whatever it sends back to a
+human in the protocol's question shape. Record the answer in `execution.md`
 before the move, under the rule this skill already applies to an approved
 material deviation: what the plan says, what you learned, and what was approved.
 The plan stays frozen.
@@ -285,6 +316,12 @@ a wave from the ready set, dispatch one subagent per card, and move each card
 through the protocol's transitions as it gets there. Delegate
 bounded independent work when agent tools are available, but inspect and
 integrate every result yourself. Preserve unrelated user changes.
+
+Report the run in the protocol's Progress voice. Between board transitions the
+transcript carries one line per transition and nothing else, plus a wave summary
+when a wave folds. Everything a human needs later goes to `execution.md`: what
+was tried, what the plan says, which tools ran, and why a card went the way it
+did.
 
 Brief each card's subagent under the protocol's Dispatch, and add what this
 skill requires: it reports a material decision back rather than taking it,
@@ -338,7 +375,12 @@ Give the reviewer raw evidence rather than your conclusions:
 - the base reference and the diff. A `full` per-card review gets what What a
   card owns specifies. A plan-level review gets the complete diff including
   untracked files;
-- validation commands already run.
+- validation commands already run;
+- the `card-ref` lines for the cards under review, under the protocol's Naming
+  a card.
+
+Require every finding to name its card in that same form, `T-99 "title"`, so a
+reader placing a finding needs no board.
 
 Ask the reviewer to read the plan and inspect the actual implementation without
 editing files. It must look for missing requirements, material unapproved or
@@ -426,8 +468,9 @@ remediation card in the same `review` epic: one `created` event you write
 yourself, under the protocol's Subagents never write, carrying the `§` clauses
 the finding traces to as its `refs`, `points` from the closed set, non-empty
 `files` naming the paths the fix will write, and a `depends_on` the protocol
-refuses a card without. Take the next free id under the protocol's Splitting.
-Those `files` never
+refuses a card without. Take the next free id under the protocol's Splitting,
+and name the new card in the summary that opens it under the protocol's Naming a
+card, from the title its own `created` event carries. Those `files` never
 include the gate card's own `execution.md`, which the gate card owns for as
 long as it is live. A finding whose only fix is in
 `execution.md` gets no card: fix it yourself under the gate card and record what
@@ -491,8 +534,13 @@ Set `execution.md` to `complete` and report completion only when:
 - `execution.md` accurately reflects all decisions and deviations.
 
 Otherwise leave the status `in-progress` or `blocked`, append `stood-down`
-anyway, and state exactly what remains. In the final response, summarize the
-implementation, validation, selected review mode and outcome, deviations, open
-questions, and execution file. With a board, report the waves too: which cards
-ran together, and where the board held the run to one card. A run that was
-serial because every card depended on the last says so.
+anyway, and state exactly what remains.
+
+Write the final response in the report shape the protocol gives: the counts
+line, the table under the protocol's Standing down, then the one-line rows.
+Those rows carry this skill's own facts too: the selected review mode and its
+outcome, the deviations, the waves, and the execution file. The
+waves row says which cards ran together and where the board held the run to one
+card, and a run that was serial because every card depended on the last says so.
+Without a board there is no counts line, no table and no waves row, and the
+one-line rows carry the whole report.

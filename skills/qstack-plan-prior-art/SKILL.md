@@ -57,10 +57,10 @@ absolute. Supplied paths are authoritative: read those and skip discovery. This
 is the escape hatch for a project whose plans live in `docs/`, in `rfcs/`, or
 outside the repository.
 
-The subject comes from the conversation rather than the arguments: it is the
-feature the user is about to plan, or, when `/qstack-plan-to-html` is the
-caller, whichever source that skill resolved: the Markdown draft, or the plan
-summary the user just confirmed. When it is not clear, state what you took
+The subject comes from the conversation rather than the arguments. It is the
+feature the user is about to plan. When `/qstack-plan-to-html` is the caller,
+it is whichever source that skill resolved, either the Markdown draft or the
+plan summary the user just confirmed. When it is not clear, state what you took
 it to be in the brief's first line, so a wrong guess is visible before anything
 is read.
 
@@ -267,13 +267,13 @@ of it.
 
 ## Output
 
-The brief: the subject as you understood it, how many plan folders were
-outlined and how many of them were opened past the outline, how many
-prototype READMEs were read, then the seven findings, one or two sentences
-each with the slug and path inline. Saying what
-was skipped is part of the brief. A reader who knows nine plans were outlined
-and two opened can name the third. No score, no advice on how to write the
-plan, no closing summary. A brief longer than the plan it precedes has failed.
+The brief carries the subject as you understood it, how many plan folders were
+outlined and how many of them were opened past the outline, how many prototype
+READMEs were read, then the seven findings, one or two sentences each with the
+slug and path inline. Say what was skipped too. A reader who knows nine plans
+were outlined and two opened can name the third. No score, no advice on how to
+write the plan, no closing summary. A brief longer than the plan it precedes
+has failed.
 
 Then the block the planner pastes, using the template's research-basis markup so
 the citations land in the new plan's `.refs` sheet:
