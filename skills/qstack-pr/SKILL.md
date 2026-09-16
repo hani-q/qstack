@@ -138,9 +138,10 @@ none. Ask it in the shape the loops use:
 > ELI10: the letter is written. Do you want it posted, or kept in a drawer for
 > now?
 >
-> - Open it (recommended when the branch passed every check above): run the
->   host's pull request command with this title and body against the base
->   branch named in the scope line.
+> - Open it (recommended when the branch passed every check above): push
+>   this branch if it is not on the remote yet, then run the host's pull
+>   request command with this title and body against the base branch named
+>   in the scope line.
 > - Save the body only: write it to a file the user names, or
 >   `pr-body.md` beside the plan when there is one, and open nothing.
 > - Change it first: take the edit and show the body again.
@@ -149,16 +150,18 @@ Title in Conventional Commit form when the repository uses it, otherwise in
 the form the repository's history shows. Recommend "Open it" only when step 2
 found nothing unmet; otherwise recommend "Save the body only" and say why.
 
-On "Open it": create the pull request, then register it with the host when the
-host has a tool for that, and report the URL. When the branch already had a
-pull request, update its body instead of creating one. On any other answer,
-do that and stop. Never push, rebase, merge, or enable auto-merge; those are
-separate decisions.
+On "Open it": push the branch to its remote when it is not there yet, a plain
+push of this branch only, then create the pull request, register it with the
+host when the host has a tool for that, and report the URL. When the branch
+already had a pull request, update its body instead of creating one. On any
+other answer, do that and stop. Never force-push, rebase, merge, or enable
+auto-merge; those are separate decisions.
 
 ## Boundaries
 
 This skill reads, runs tests, writes one body, and at most creates or updates
-one pull request on the user's answer. It edits no source file, commits
+one pull request on the user's answer, pushing the branch first when that is
+needed. It edits no source file, commits
 nothing, and fixes nothing it finds unmet. It writes no board event; inside an
 active QStack execution the durable record stays that plan's `execution.md`.
 

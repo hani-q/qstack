@@ -15,7 +15,8 @@
   the work had a plan. Nothing in the body is claimed; each line traces to the
   diff, the log, or a command run in the session. It shows the title and body,
   asks one structured question, and on "Open it" creates or updates the pull
-  request and registers it with the host. It never pushes, rebases, or merges.
+  request and registers it with the host, pushing the branch first when it is
+  not on the remote yet. It never force-pushes, rebases, or merges.
   Prompted by Matt Pocock's question about making AI-authored pull requests
   easier to review.
 
