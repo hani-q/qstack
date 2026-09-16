@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.1.0] - 2026-09-16
+
+### Changed
+
+* `/qstack-slalom` asks how hard the worker models should think. Its arguments
+  name the models but never the reasoning effort, so the skill asks for that
+  every run through the host's structured question tool, after the task is
+  stated and before the split, in the shape both loops use: the question, a
+  product-manager rephrasing, an ELI10 version, and options with the
+  recommended one first. The answer becomes `effort` on every launch and
+  appears in the run's report. An answer is never carried over from an earlier
+  run or inferred from the task.
+
 ## [2.9.0.0] - 2026-09-16
 
 ### Added
