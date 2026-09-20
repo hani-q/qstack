@@ -63,7 +63,7 @@ that choice.
 
 ## Resolving at dispatch
 
-The loop takes two arguments alongside the ones it already has:
+The loop takes two required arguments and one optional alongside the ones it already has:
 
 ```
 --orchestrator <model>            the model this session runs on
@@ -71,7 +71,7 @@ The loop takes two arguments alongside the ones it already has:
 --reasoning low|medium|high       default effort for cards with no hint; medium when absent
 ```
 
-Both are required for a run that dispatches subagents. With neither, the loop
+`--orchestrator` and `--workers` are required for a run that dispatches subagents. With neither, the loop
 runs as it did before these arguments existed: every subagent inherits the
 session model, and the report says so. With one but not the other, stop and
 show the usage line.
