@@ -59,10 +59,10 @@ First hit wins, and the output names it:
 
 1. `QSTACK_MODELS_URL`, an override nobody has to set.
 2. The base URL the CLI already trusts: Codex's `model_providers.<current>.base_url` in `~/.codex/config.toml`, then `ANTHROPIC_BASE_URL`, then `OPENAI_BASE_URL`, each asked `GET /v1/models`. A CLIProxyAPI wired into either CLI is found here with no setup.
-3. The harness's built-in list: Claude Code's Agent tool enum, Codex's provider ids.
+3. The harness's built-in list: Claude Code's Agent tool enum, detected from `CLAUDECODE` in the environment or `QSTACK_HARNESS=claude-code`. Codex has no fixed list of its own, so from Codex this step is empty.
 4. Nothing usable: ask the user for the models that may work, one question, free text, then `resolve` each answer.
 
-No address is hardwired, only where to look.
+No address is hardwired, only where to look. A key is sent only to the host it was issued for: `QSTACK_MODELS_KEY` to the override URL, `OPENAI_API_KEY` to `OPENAI_BASE_URL`, the Anthropic token to `ANTHROPIC_BASE_URL`, and CLIProxyAPI's own key only to the local host and port its config names.
 
 ### Where the scores come from
 

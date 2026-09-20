@@ -18,7 +18,9 @@
   loops call it at startup and for unhinted cards, and slalom uses it to
   resolve and probe `--workers`. Nothing hardcodes an address or a model
   list; without a key the tier map falls back to a static ordering and says
-  so. Prompted by an invented slug reaching a board unchecked.
+  so. Keys are paired to the host they were issued for, score matching is
+  order-free so `claude-haiku-4-5-20251001` meets `claude-4-5-haiku`, and
+  `scripts/test-choose-model` pins the pure functions. Prompted by an invented slug reaching a board unchecked.
 
 ## [2.11.0.1] - 2026-09-20
 
