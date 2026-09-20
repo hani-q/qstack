@@ -222,7 +222,7 @@ entries as superseded rather than deleting history.
 
 ### Arguments
 
-`/qstack-loop-no-nonsense [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...] [--reasoning low|medium|high] [--reviewer <model>]]`
+`/qstack-loop-no-nonsense [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...] [--reasoning low|medium|high]] [--reviewer <model>]`
 
 `--orchestrator` and `--workers` route each card's subagent to a worker model
 under the protocol's [model routing](../qstack-plan-to-html/references/model-routing.md):
@@ -240,9 +240,12 @@ the first wave, resolve and probe every worker through `/qstack-choose-model`
 run before any claim and asks, offering the closest three.
 
 `--reviewer <model>` names the model every adversarial reviewer this run
-launches runs on. Resolve and probe it the same way. It may not be the
-orchestrator model, because a review by the model that coordinated the work
-is the self-review the review mode forbids; refuse the invocation if it is.
+launches runs on. It stands alone: it needs neither `--orchestrator` nor
+`--workers`. Resolve and probe it the same way. It may not be the orchestrator
+model, meaning `--orchestrator` when given and the session model otherwise,
+because a review by the model that coordinated the work is the self-review the
+review mode forbids; refuse the invocation if it is. With `--review none` no
+reviewer is launched, so `--reviewer` is refused too rather than ignored.
 Record `Reviewer` in `execution.md` beside `Review mode` and read it back on a
 resume under the same rule. Absent, reviewers inherit the session model as
 before, and the record says so. A `--reviewer` the harness cannot launch is
