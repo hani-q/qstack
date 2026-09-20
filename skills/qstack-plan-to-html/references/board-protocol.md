@@ -259,6 +259,12 @@ Dispatch one subagent per card in the wave, each given only that card. Tell it
 the paths it may write, which are exactly that card's `files`, and require it to
 report back every path it actually wrote.
 
+Pin every launch to the worker model [model routing](model-routing.md)
+resolves for that card, and pass the card's `reasoning` as the launch effort.
+A launch that inherits the session model runs on the orchestrator, which that
+file forbids once `--workers` is given. Record the resolved `model` on the
+`claimed` event so the record shows which model did the card.
+
 Without agent tools there is no wave. Hold one card, finish it, take the next,
 and name in the report the agent tool you looked for and did not find.
 Interleaving several cards yourself is one card at a time with extra

@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.11.0.0] - 2026-09-20
+
+### Added
+
+* Model routing for planned work. A `created` board event may carry `model`
+  and `reasoning`, a hint the breakdown pass sets when the plan gives a reason
+  (a live target, a gate blocker, a 5-point seam; or, the other way, a
+  mechanical rename). Both execution loops take `--orchestrator <model>
+  --workers <model>[,...]`, the same pair `/qstack-slalom` takes, resolve each
+  card to its hint when the tier allows it and to the first worker otherwise,
+  record the resolved `model` (and any fallback) on the `claimed` event, and
+  never launch an implementation subagent on the orchestrator model.
+  `--reasoning low|medium|high` sets the default effort, `medium` when absent,
+  and both values are recorded in `execution.md` beside the review mode so a
+  resumed run reuses them. Points still size the
+  card; the hint sizes the brain. The board renders the hint on the card and
+  in the dialog. Reference: `skills/qstack-plan-to-html/references/model-routing.md`.
+  Without the two arguments every loop runs exactly as before.
+
 ## [2.10.0.0] - 2026-09-16
 
 ### Added

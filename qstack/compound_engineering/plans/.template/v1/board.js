@@ -205,6 +205,10 @@
           files: list(event.files),
           dependsOn: list(event.depends_on),
           splitFrom: event.split_from || '',
+          /* Routing hint from breakdown, both optional. Rendered as written and
+             never flagged: the loop decides what an unknown slug means. */
+          model: event.model ? String(event.model) : '',
+          reasoning: event.reasoning ? String(event.reasoning) : '',
           // Below this line is fold state rather than a `created` field.
           status: 'backlog', owner: '', claimedAt: '', into: [],
           notes: [], race: '', raceWith: '', drift: [], entries: [],
@@ -492,6 +496,7 @@
     const flags = flagsOf(card);
     const facts = [];
     if (card.files.length) facts.push(count(card.files.length, 'file'));
+    if (card.model) facts.push(card.reasoning ? `${card.model} · ${card.reasoning}` : card.model);
     const notes = [card.notes[card.notes.length - 1]].filter(Boolean);
     const readiness = readinessOf(card, flags);
 
@@ -838,6 +843,7 @@
           field('Owner', card.owner || 'Unclaimed'),
           field('Points', card.sized ? String(card.points) : `${card.points}, off the scale`),
           field('From', card.splitFrom),
+          field('Model', card.model && (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model)),
         ),
         section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
         section(
