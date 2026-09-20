@@ -160,6 +160,10 @@ one board.
 | `stood-down` | Releases the board claim. | `actor` |
 | `epic` | Declares a swimlane. | `epic`, `title` |
 | `created` | Declares a card. | `card`, `epic`, `title`, `points`, `refs`, `files`, `depends_on` |
+
+A `created` event may also carry `model` and `reasoning`, a routing hint the
+execution loops read when `--workers` is given; see the plan-to-html reference
+`model-routing.md`. A `claimed` event records the `model` that was resolved.
 | `claimed` | An actor takes sole ownership. | `card`, `actor`, `reason` |
 | `moved` | Status transition. | `card`, `from`, `to`, `actor` |
 | `released` | Owner gives the card back to `backlog`. | `card`, `actor`, `reason` |
