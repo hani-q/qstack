@@ -141,6 +141,8 @@ for (const card of board.cards.values()) {
   fact(subject, 'related', ids(card.related));
   fact(subject, 'status', card.status);
   fact(subject, 'waiting', ids(card.waiting));
+  // The routing hint after any rehint, `-` when the card has none.
+  fact(subject, 'model', card.model ? `${card.model}/${card.reasoning || '-'}` : '-');
 }
 
 // The fold hands the holders back as the one string the meter shows. Split it

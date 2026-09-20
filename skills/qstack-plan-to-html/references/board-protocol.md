@@ -280,6 +280,24 @@ and pick again the moment one closes. A wave that waits for its slowest card
 before folding again spends most of the run at one live card, which is the
 serial loop with extra steps.
 
+## Changing a hint
+
+A card's `model` and `reasoning` are written on `created` and that line is
+never rewritten. To change them append one event:
+
+```bash
+printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"rehint","card":"T-03","actor":"adelaide","model":"claude-sonnet-5","reasoning":"medium","reason":"acceptance is an existing test; strong was over-provisioned"});' \
+  >> qstack/compound_engineering/plans/<slug>/board-events.js
+```
+
+`model` or `reasoning` may be omitted to leave one unchanged; an event with
+neither is a bad write. Resolve and probe the new model through
+`/qstack-choose-model` before appending, and put the reason in the event. The
+board folds the latest `rehint` over the original hint and marks the card
+"(rehinted)"; the log keeps every earlier hint. The card dialog's "Change
+model" panel produces the prompt a reader pastes to ask a session for exactly
+this; the board itself never writes.
+
 ## What a card owns
 
 A card's `files` are the paths it may write, and the ready set treats them as

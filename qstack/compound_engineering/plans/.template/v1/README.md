@@ -169,6 +169,7 @@ execution loops read when `--workers` is given; see the plan-to-html reference
 | `released` | Owner gives the card back to `backlog`. | `card`, `actor`, `reason` |
 | `split` | Parent closes into children. | `card`, `into`, `actor`, `reason` |
 | `note` | Comment, no state change. | `card`, `actor`, `note` |
+| `rehint` | Replaces the card's `model` and/or `reasoning` hint. | `card`, `actor`, one or both of `model`, `reasoning`; `reason` |
 
 Any event about a card may also carry `note`, and any event after `created` may
 carry `entry`. The two divide the work of saying what happened, and the
@@ -249,7 +250,7 @@ hides the difference between a 1 and a 5. A card whose points are off the scale
 counts in neither total, so the points figure and the card figure can disagree
 about how much is on the board. That gap is the flag doing its job.
 
-`plan.html` carries a `Plan | Board` switch in the document bar, and `#board` in
+The board's filter row also carries a `Lanes: Epic | Model` switch, which regroups the same cards by the model hinted to work them; the card dialog's "Change model" panel writes a prompt for a session to append a `rehint`. `plan.html` carries a `Plan | Board` switch in the document bar, and `#board` in
 the URL selects the board. `board.js` loads `board-events.js` as a classic
 script, so the same page works over HTTP and when opened directly from disk. It
 reloads every 3 s while the board is visible and stops when it is hidden. The

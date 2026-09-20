@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.13.0.0] - 2026-09-21
+
+### Added
+
+* The board answers "who is going to do what". A `Lanes: Epic | Model`
+  switch in the filter row regroups the same cards by the model hinted to
+  work them, heaviest lane first, with reasoning still on each card and the
+  gate card and unhinted cards in their own lane. The card dialog gains a
+  "Change model" panel: pick a model already on the board or type one, pick
+  a reasoning effort, and copy the prompt it composes for the session that
+  owns the board. The board still writes nothing.
+* A `rehint` board event (`card`, `actor`, one or both of `model`,
+  `reasoning`, `reason`) changes a card's routing hint without rewriting the
+  `created` line. The fold applies the latest one and marks the card
+  "(rehinted)"; an event with neither field is a bad write. Documented in the
+  protocol, the template README and `model-routing.md`; the fold fixture
+  gains the case and emits a `model` fact per card.
+
 ## [2.12.0.0] - 2026-09-20
 
 ### Added

@@ -1222,6 +1222,50 @@ button { cursor: pointer; }
    UA one applies. .board-filter is flex, which beats it. */
 .board-filter[hidden] { display: none; }
 
+/* Lanes switch: epic or model. Same chips as the status filter, pushed to the
+   end of the row so the two groups read as two questions. */
+.board-lanes-label { margin-inline-start: auto; }
+.board-lanes-switch .board-chip { padding-inline: 14px; }
+
+/* Change model: the one control on the board that produces something, and
+   what it produces is text for a session to act on, not a board write. */
+.board-rehint-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px 14px;
+  margin-block-end: 10px;
+}
+.board-rehint-label { display: grid; gap: 4px; }
+.board-rehint-model, .board-rehint-effort, .board-rehint-other {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--ground);
+  border: 1px solid var(--rule);
+  padding: 6px 8px;
+  min-block-size: 32px;
+}
+.board-rehint-other { min-inline-size: 22ch; }
+.board-rehint-prompt {
+  inline-size: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-mute);
+  background: var(--ground);
+  border: 1px solid var(--rule);
+  padding: 8px 10px;
+  resize: vertical;
+}
+.board-rehint-model:focus-visible, .board-rehint-effort:focus-visible,
+.board-rehint-other:focus-visible, .board-rehint-prompt:focus-visible {
+  outline: 2px solid var(--redline);
+  outline-offset: -2px;
+}
+@media print { .board-rehint-row, .board-rehint-prompt { display: none; } }
+
 /* One status at a time. board.js hides the other five, because the list of
    statuses is COLUMNS and restating it here as one selector per status would
    mean a seventh column that presses, counts, and hides nothing. The rule is
