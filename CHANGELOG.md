@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.13.1.0] - 2026-09-21
+
+### Fixed
+
+* `/qstack-choose-model` tiers are (model, effort) cells, not a model with an
+  effort label bolted on. Artificial Analysis scores each effort separately
+  and the spread is large (`gpt-5.6-luna` 71.4 at default, 44.2 at `low`), so
+  the old rule could hand the cheap tier the worst cell in the table. The map
+  now carries `reasoning` per tier, `cheap` never lands on a cliff, and the
+  test pins it. On the board, the gate card reads `orchestrator` in its meta
+  line and its lane is titled "Orchestrator · the final review" instead of
+  "No model hint".
+
 ## [2.13.0.0] - 2026-09-21
 
 ### Added

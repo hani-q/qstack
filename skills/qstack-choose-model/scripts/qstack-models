@@ -207,6 +207,20 @@ def tokens(s: str) -> tuple[str, ...]:
     return tuple(sorted(t for t in re.split(r"[^a-z0-9]+", s.replace(".", "-")) if t))
 
 
+EFFORTS = ("xhigh", "high", "medium", "low")
+
+
+def effort_variants(slug: str, scores: dict[str, dict]) -> dict[str, dict]:
+    """The per-effort rows AA publishes for a base slug: {'high': row, ...}.
+    The base row itself is the provider's default effort, keyed 'default'."""
+    out = {"default": scores[slug]} if slug in scores else {}
+    for e in EFFORTS:
+        row = scores.get(f"{slug}-{e}")
+        if row and row.get("coding") is not None:
+            out[e] = row
+    return out
+
+
 def match_score(model_id: str, scores: dict[str, dict]) -> dict | None:
     """Catalogue ids and AA slugs spell differently (gpt-5.6-sol vs gpt-5-6-sol,
     claude-haiku-4-5-20251001 vs claude-4-5-haiku). Three passes: normalised
@@ -239,7 +253,10 @@ def score() -> dict:
         if s is None and not scores:
             rank = next((i for i, x in enumerate(STATIC_ORDER) if norm(x) in norm(mid) or norm(mid) in norm(x)), None)
             s = {"coding": (len(STATIC_ORDER) - rank) if rank is not None else None, "price_out": None, "slug": None}
-        rows.append({"id": mid, **(s or {"coding": None, "price_out": None, "slug": None})})
+        row = {"id": mid, **(s or {"coding": None, "price_out": None, "slug": None})}
+        if s and s.get("slug") and scores:
+            row["efforts"] = {e: v["coding"] for e, v in effort_variants(s["slug"], scores).items()}
+        rows.append(row)
     return {"catalogue": cat, "scores_source": src, "models": rows}
 
 
@@ -250,22 +267,47 @@ def tier(orchestrator: str | None) -> dict:
         rows = [r for r in rows if norm(orchestrator) not in norm(r["id"]) and norm(r["id"]) not in norm(orchestrator)]
     if not rows:
         return {"error": "no scored models", **sc}
-    by_coding = sorted(rows, key=lambda r: -r["coding"])
+    # A tier is a (model, effort) pair. AA scores each effort separately and the
+    # spread is large: a model at `low` can lose 25 index points, so an effort
+    # label bolted onto a model chosen at default effort picks the wrong cell.
+    # Efforts a launcher can name are high/medium/low; a provider's default row
+    # is reported as the nearest of those when it scores better.
+    LAUNCHABLE = ("high", "medium", "low")
+
+    def pairs(r):
+        """One cell per launchable effort for this model, best score each.
+        AA's `default` and `xhigh` rows have no launcher setting of their own;
+        they stand in for `high` when they score better than the high row."""
+        eff = {e: c for e, c in (r.get("efforts") or {"default": r["coding"]}).items() if c is not None}
+        best = {}
+        for e, c in eff.items():
+            name = e if e in LAUNCHABLE else "high"
+            if name not in best or c > best[name]:
+                best[name] = c
+        return [{**r, "reasoning": name, "coding": c} for name, c in best.items()]
+
+    cells = [p for r in rows for p in pairs(r)]
+    if not cells:
+        return {"error": "no scored models", **sc}
+    by_coding = sorted(cells, key=lambda c: -c["coding"])
     strong = by_coding[0]
     top = strong["coding"]
-    # cheap: lowest output price among models within 20 index points of the top,
-    # so "cheap" still means competent; standard: best remaining below strong.
     floor = top - 20
-    priced = [r for r in rows if r.get("price_out") is not None and r["coding"] >= floor and r is not strong]
-    cheap = sorted(priced, key=lambda r: (r["price_out"], -r["coding"]))[0] if priced else by_coding[-1]
-    standard = next((r for r in by_coding if r is not strong and r is not cheap), cheap)
+    # cheap: the least expensive cell within 20 points of the top; ties on price
+    # go to the higher score, so a model's best effort wins over its worst.
+    priced = [c for c in cells if c.get("price_out") is not None and c["coding"] >= floor and c["id"] != strong["id"]]
+    cheap = sorted(priced, key=lambda c: (c["price_out"], -c["coding"]))[0] if priced else by_coding[-1]
+    # standard: best remaining cell on a third model when one exists, else the
+    # best remaining effort of the two already chosen.
+    others = [c for c in by_coding if c["id"] not in (strong["id"], cheap["id"])]
+    standard = others[0] if others else next((c for c in by_coding if c is not strong and c is not cheap), cheap)
     return {
         "orchestrator_excluded": orchestrator,
         "scores_source": sc["scores_source"],
         "catalogue_source": sc["catalogue"]["source"],
-        "tiers": {"strong": strong["id"], "standard": standard["id"], "cheap": cheap["id"]},
+        "tiers": {k: v["id"] for k, v in (("strong", strong), ("standard", standard), ("cheap", cheap))},
+        "reasoning": {k: v["reasoning"] for k, v in (("strong", strong), ("standard", standard), ("cheap", cheap))},
         "detail": {"strong": strong, "standard": standard, "cheap": cheap},
-        "reasoning_default": {"strong": "high", "standard": "medium", "cheap": "low"},
     }
 
 

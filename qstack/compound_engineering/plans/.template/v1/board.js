@@ -507,6 +507,8 @@
     const facts = [];
     if (card.files.length) facts.push(count(card.files.length, 'file'));
     if (card.model) facts.push(card.reasoning ? `${card.model} · ${card.reasoning}` : card.model);
+    // The gate card is the one card the orchestrator works itself, by rule.
+    else if (card.epic === 'review') facts.push('orchestrator');
     const notes = [card.notes[card.notes.length - 1]].filter(Boolean);
     const readiness = readinessOf(card, flags);
 
@@ -951,7 +953,9 @@
           field('Owner', card.owner || 'Unclaimed'),
           field('Points', card.sized ? String(card.points) : `${card.points}, off the scale`),
           field('From', card.splitFrom),
-          field('Model', card.model && (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model) + (card.rehinted ? ' (rehinted)' : '')),
+          field('Model', card.model
+            ? (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model) + (card.rehinted ? ' (rehinted)' : '')
+            : (card.epic === 'review' ? 'orchestrator, by rule' : '')),
         ),
         changeModel(card),
         section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
@@ -1061,7 +1065,9 @@
         const held = all.filter((card) => card.model === model);
         lanesHost.append(drawLane(`model:${model}`, `${model} · ${count(held.length, 'card')}, ${sum(held)} pt`, held));
       }
-      const unhinted = all.filter((card) => !card.model);
+      const gate = all.filter((card) => !card.model && card.epic === 'review');
+      if (gate.length) lanesHost.append(drawLane('model:orchestrator', 'Orchestrator · the final review', gate));
+      const unhinted = all.filter((card) => !card.model && card.epic !== 'review');
       if (unhinted.length) lanesHost.append(drawLane('model:', 'No model hint', unhinted));
     } else {
       for (const [id, title] of board.epics) {

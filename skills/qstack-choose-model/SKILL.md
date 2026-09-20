@@ -80,11 +80,21 @@ Without a key the script uses a static ordering shipped inside it and says
 
 ### Tiers
 
-`strong` is the highest coding index among reachable models that are not the
-orchestrator. `cheap` is the lowest output price among models within 20 index
-points of `strong`, so cheap still means competent. `standard` is the best of
-the rest. Default reasoning is `high`, `medium`, `low` in that order. Print the
-map before using it; a reader should be able to disagree with it.
+A tier is a model *and* an effort, chosen together. Artificial Analysis scores
+each effort separately and the spread is large: on the 2026-09-20 snapshot
+`gpt-5.6-luna` scores 71.4 at its default effort and 44.2 at `low`, and
+`claude-opus-5` drops from 78 to 66.9. A label bolted onto a model chosen at
+default effort therefore picks the wrong cell, which is what this rule
+replaces.
+
+`strong` is the (model, effort) cell with the highest coding index among
+reachable models that are not the orchestrator. `cheap` is the lowest output
+price among cells within 20 index points of `strong`, ties to the higher
+score, so cheap still means competent and never a model at a cliff. `standard`
+is the best remaining cell on a third model. A provider's default row and its
+`xhigh` row have no launcher setting of their own and stand in for `high` when
+they score better than it. The output carries `reasoning` per tier; print the
+map before using it, because a reader should be able to disagree with it.
 
 ## Classify the task
 
