@@ -102,7 +102,7 @@ def cliproxy_key_for(base: str) -> str | None:
     host = urllib.parse.urlsplit(base).hostname or ""
     if host not in ("127.0.0.1", "localhost", "::1"):
         return None
-    if port and urllib.parse.urlsplit(base).port not in (int(port.group(1)), None):
+    if port and urllib.parse.urlsplit(base).port != int(port.group(1)):
         return None
     m = re.search(r"^api-keys:\s*\n\s*-\s*\"?([^\"\s]+)", text, re.M)
     return m.group(1) if m else None
