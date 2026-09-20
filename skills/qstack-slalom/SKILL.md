@@ -33,7 +33,7 @@ use `/qstack-plan-to-html` and a loop.
 - `<orchestrator>` is the model this session must be running on, such as
   `fable-5.1` or `astra-6`.
 - `<workers>` is one model or a comma-separated list, such as `opus-5` or
-  `codex-5.6-seoul,opus-5`. Every subagent runs on one of these.
+  `gpt-5.6-sol,opus-5`. Every subagent runs on one of these.
 - `[task]` is free text. When absent, the task is the one settled in the
   conversation so far.
 
@@ -41,7 +41,7 @@ Examples:
 
 ```
 /qstack-slalom fable-5.1 opus-5
-/qstack-slalom astra-6 codex-5.6-seoul rename the config loader and update its callers
+/qstack-slalom astra-6 gpt-5.6-sol rename the config loader and update its callers
 /qstack-slalom fable-5.1 opus-5,sonnet-5 add the retry helper we discussed
 ```
 
