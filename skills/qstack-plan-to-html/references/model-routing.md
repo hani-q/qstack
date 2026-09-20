@@ -41,6 +41,11 @@ still a hint, and the loop decides what to do with it.
 
 ## Setting the hint at breakdown
 
+`/qstack-choose-model` owns the choice: it discovers the reachable models,
+scores them, and classifies the card from its metadata. Breakdown calls it and
+writes the answer. The rule it applies is restated here so a reader of the
+board can check a hint without running anything.
+
 Set `model` and `reasoning` when the plan gives a reason. Leave both out when it
 does not; a hint with no reason is noise the loop has to read past.
 
@@ -76,13 +81,17 @@ runs as it did before these arguments existed: every subagent inherits the
 session model, and the report says so. With one but not the other, stop and
 show the usage line.
 
-For each card the loop is about to dispatch:
+At startup run `qstack-models tier --orchestrator <model>` (from
+`/qstack-choose-model`), probe every model in the resulting tier and in
+`--workers` with its `probe-brief`, and write the verified map to
+`execution.md`. Then, for each card the loop is about to dispatch:
 
 1. If the card's `model` is in `--workers`, use it.
 2. Otherwise use the first model in `--workers`, and put
    `"model":"<used>","fallback_from":"<hint>"` on the `claimed` event.
-3. If the card has no `model`, use the first in `--workers` and record
-   `"model":"<used>"` on the `claimed` event.
+3. If the card has no `model`, ask `/qstack-choose-model` with the card's
+   metadata; use its answer when it is in `--workers`, else the first worker,
+   and record `"model":"<used>"` on the `claimed` event.
 4. `reasoning` passes straight through to the launch as the effort setting.
    Unset means the run's default effort: `--reasoning low|medium|high` on the
    invocation, or `medium` when absent. No question is asked. The loop writes

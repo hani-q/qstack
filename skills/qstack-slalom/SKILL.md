@@ -70,7 +70,9 @@ Do all of this before launching anything.
    model the session is on and how to switch, such as `/model` in Claude
    Code. Do not run the task on the wrong orchestrator, and do not swap the
    roles around to make the arguments fit.
-2. **Resolve each worker model to an identifier the harness accepts.** In
+2. **Resolve each worker model to an identifier the harness accepts**, using
+   `/qstack-choose-model`'s `resolve` against the discovered catalogue and its
+   `probe-brief` to prove the launch before any unit is dispatched. In
    Claude Code the `Agent` tool takes `model` and the `Workflow` script's
    `agent()` takes `opts.model`; in Codex the subagent launcher takes a model
    in its own form. Map the user's spelling to that form with the same

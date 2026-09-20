@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Choose Model"
+  short_description: "Pick the model and reasoning effort for a task from what this machine can reach"
+  default_prompt: "Use $qstack-choose-model to choose which reachable model and reasoning effort should do this task, with the reason."
+policy:
+  allow_implicit_invocation: true

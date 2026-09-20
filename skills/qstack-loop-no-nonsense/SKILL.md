@@ -234,7 +234,10 @@ says so. `--reasoning` sets the default effort for cards with no hint,
 `medium` when absent; no question is asked. On the first run write `Workers`
 and `Worker effort` into `execution.md` beside `Review mode`, and on a resume
 read them back under the same rule as the review mode. The two slalom rules
-bind implementation subagents only; reviewer agents are unaffected.
+bind implementation subagents only; reviewer agents are unaffected. Before
+the first wave, resolve and probe every worker through `/qstack-choose-model`
+(its `resolve` and `probe-brief`); a name that cannot be launched stops the
+run before any claim and asks, offering the closest three.
 
 `--review` applies with or without a board and supplies the startup review
 choice instead of asking. The remaining arguments narrow a board run.
