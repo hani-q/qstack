@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.13.2.0] - 2026-09-21
+
+### Added
+
+* `--reviewer <model>` on both execution loops pins every adversarial
+  reviewer the run launches to one model, resolved and probed through
+  `/qstack-choose-model` like a worker, recorded as `Reviewer` in
+  `execution.md` beside `Review mode`, and read back on resume. It may not be
+  the orchestrator: that is the self-review the review mode forbids. Absent,
+  reviewers inherit the session model as before. Review is where a model's
+  general Intelligence Index outranks its Coding Index, so a model the tier
+  map passes over for code is the natural reviewer.
+
 ## [2.13.1.0] - 2026-09-21
 
 ### Fixed

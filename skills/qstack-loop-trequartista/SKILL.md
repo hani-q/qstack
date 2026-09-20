@@ -230,7 +230,7 @@ Record approved changes as approved deviations. Do not rewrite the frozen plan.
 
 ### Arguments
 
-`/qstack-loop-trequartista [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...] [--reasoning low|medium|high]]`
+`/qstack-loop-trequartista [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...] [--reasoning low|medium|high] [--reviewer <model>]]`
 
 `--orchestrator` and `--workers` route each card's subagent to a worker model
 under the protocol's [model routing](../qstack-plan-to-html/references/model-routing.md):
@@ -246,6 +246,15 @@ bind implementation subagents only; reviewer agents are unaffected. Before
 the first wave, resolve and probe every worker through `/qstack-choose-model`
 (its `resolve` and `probe-brief`); a name that cannot be launched stops the
 run before any claim and asks, offering the closest three.
+
+`--reviewer <model>` names the model every adversarial reviewer this run
+launches runs on. Resolve and probe it the same way. It may not be the
+orchestrator model, because a review by the model that coordinated the work
+is the self-review the review mode forbids; refuse the invocation if it is.
+Record `Reviewer` in `execution.md` beside `Review mode` and read it back on a
+resume under the same rule. Absent, reviewers inherit the session model as
+before, and the record says so. A `--reviewer` the harness cannot launch is
+a recorded fallback to the session model, never a silent one.
 
 `--review` applies with or without a board and supplies the startup review
 choice instead of asking. With a board present the default is the whole board,
@@ -380,7 +389,8 @@ board is `done` or `split`, never merely after the last card selected by
 `--tasks`,
 `--epic`, or `--limit`. It catches integration and seams no single card's diff
 showed. Without a board, that is the one whole-plan review. For every enabled
-review, launch a **fresh independent agent**. A self-review does not satisfy the
+review, launch a **fresh independent agent**, pinned to `--reviewer` when one
+was given. A self-review does not satisfy the
 selected mode.
 
 Give the reviewer raw evidence rather than your conclusions:
