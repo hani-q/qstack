@@ -23,7 +23,7 @@ Both optional. Both strings. Absent means "whatever the tier gives".
 
 | Field | Values | Meaning |
 | --- | --- | --- |
-| `model` | a model slug as `/qstack-slalom` spells it: `opus-5`, `codex-5.6-seoul`, `sonnet-5` | the worker this card wants |
+| `model` | a model slug as `/qstack-slalom` spells it: `opus-5`, `sonnet-5`, `gpt-5.6-sol` | the worker this card wants. Resolved at dispatch by slalom's Preflight step 2: a normalised containment match against what the harness accepts, a question on no match, and a stop when the harness cannot express it. A Claude Code session can launch Claude models only; a `gpt-*` hint from there is a recorded fallback, never a silent one. |
 | `reasoning` | `low`, `medium`, `high` | how hard that worker should think before writing |
 
 Points size the card; these two fields size the brain. They diverge on

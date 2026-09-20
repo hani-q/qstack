@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.11.0.1] - 2026-09-20
+
+### Fixed
+
+* The model examples in `/qstack-slalom` and `model-routing.md` named a
+  worker slug, `codex-5.6-seoul`, that no harness has. It is now `gpt-5.6-sol`,
+  and `model-routing.md` says how a hint resolves at dispatch and that a
+  Claude Code session records a fallback for a `gpt-*` hint rather than
+  launching it silently. Found while hinting the first board.
+
 ## [2.11.0.0] - 2026-09-20
 
 ### Added
