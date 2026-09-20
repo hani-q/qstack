@@ -52,6 +52,8 @@ Resolve it relative to this SKILL.md's real path; never hardcode a home.
 | `tier --orchestrator M` | the strong / standard / cheap map, M excluded |
 | `resolve NAME` | the id NAME means, or the closest three when it means nothing |
 | `probe-brief ID` | the one-line task that proves ID can be launched |
+| `aliases` | what Claude Code's `fable`/`opus`/`sonnet`/`haiku` resolve to here, from `ANTHROPIC_DEFAULT_*_MODEL` |
+| `codex-agents --orchestrator M [--reviewer R] [--dir D] [--dry-run]` | writes the tier map as custom agent files `qstack_strong`, `qstack_standard`, `qstack_cheap`, `qstack_reviewer` under `~/.codex/agents/` |
 
 ### Where the catalogue comes from
 
@@ -124,10 +126,31 @@ naming a different model means the proxy routed silently: warn, record both,
 continue only on the user's word. Record `Workers verified: ...` in
 `execution.md`.
 
-From Claude Code a subagent can only be one of the Agent tool's names,
-whatever the proxy serves behind them; a `gpt-*` or `grok-*` choice from
-there is a recorded fallback to the first launchable worker, never a silent
-one. From Codex the launcher takes a real id, so a mixed tier is honoured.
+## Launching a tier in each harness
+
+Neither harness takes a bare model id at spawn time, so the tier map has to
+be bridged into the form each one launches by.
+
+**Codex.** Custom agents are TOML files under `~/.codex/agents/` with `name`,
+`description`, `developer_instructions`, and optionally `model` and
+`model_reasoning_effort` (docs: developers.openai.com/codex/subagents). A
+parent spawns one by name. `codex-agents` writes one file per tier from the
+current map, `qstack_strong`, `qstack_standard`, `qstack_cheap`, and
+`qstack_reviewer` when `--reviewer` is given (read-only sandbox). A Codex loop
+then spawns `qstack_<tier>` for a card of that tier. Subagents inherit the
+parent's sandbox and approval overrides. This is the harness that honours a
+mixed tier with any id the proxy serves.
+
+**Claude Code.** The Agent tool names a subagent by one of four aliases,
+`fable`, `opus`, `sonnet`, `haiku`, and maps each to a full id through
+`ANTHROPIC_DEFAULT_FABLE_MODEL`, `_OPUS_`, `_SONNET_`, `_HAIKU_MODEL`
+(docs: code.claude.com/docs/en/model-config). Behind a proxy the id only has
+to be one the proxy serves, so three slots can carry non-Claude models while
+`fable` stays the orchestrator. `aliases` reports the current mapping. Three
+slots, set in the environment that launches the harness, and the harness does
+not know which real model an alias means, which is what the probe is for. A
+tier a Claude Code run cannot express is a recorded fallback to the first
+launchable alias, never a silent one.
 
 ## Callers
 

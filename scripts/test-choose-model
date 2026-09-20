@@ -87,6 +87,30 @@ class TierTests(unittest.TestCase):
         self.assertEqual(t["reasoning"]["strong"], "high")
 
 
+class BridgeTests(unittest.TestCase):
+    def test_aliases_read_the_claude_code_variables(self) -> None:
+        with mock.patch.dict(os.environ, {"ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-6-astra"}, clear=False):
+            a = qm.aliases()["aliases"]
+        self.assertEqual(a["opus"], "gpt-6-astra")
+        self.assertIn("haiku", a)
+
+    def test_codex_agents_writes_one_parseable_file_per_tier(self) -> None:
+        import tempfile, tomllib
+        fake_tier = {"tiers": {}, "reasoning": {"strong": "high", "standard": "high", "cheap": "high"},
+                     "detail": {"strong": {"id": "gpt-5.6-sol"}, "standard": {"id": "claude-opus-5"}, "cheap": {"id": "gpt-5.6-luna"}},
+                     "catalogue_source": "test", "scores_source": "test"}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(qm, "tier", return_value=fake_tier):
+            out = qm.codex_agents("fable-5.1", "gpt-6-astra", Path(d), dry=False)
+            files = {Path(f).name: tomllib.load(open(f, "rb")) for f in out["files"]}
+        self.assertEqual(set(files), {"qstack_strong.toml", "qstack_standard.toml", "qstack_cheap.toml", "qstack_reviewer.toml"})
+        self.assertEqual(files["qstack_reviewer.toml"]["model"], "gpt-6-astra")
+        self.assertEqual(files["qstack_reviewer.toml"]["sandbox_mode"], "read-only")
+        self.assertEqual(files["qstack_cheap.toml"]["model"], "gpt-5.6-luna")
+        for f in files.values():
+            for k in ("name", "description", "developer_instructions"):
+                self.assertTrue(f[k])
+
+
 class KeyPairingTests(unittest.TestCase):
     def test_openai_key_never_goes_to_an_override_url(self) -> None:
         with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-secret"}, clear=False), \

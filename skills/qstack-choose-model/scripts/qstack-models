@@ -8,6 +8,8 @@ Subcommands print JSON on stdout so a skill can read them without parsing prose.
   tier                the strong / standard / cheap map for a run, minus the orchestrator
   resolve NAME        the catalogue id a user's spelling means, or the closest three
   probe-brief ID      the one-line task to send a model to prove it can be launched
+  aliases             what Claude Code's four subagent aliases resolve to on this machine
+  codex-agents        write the tier map as ~/.codex/agents/{strong,standard,cheap,reviewer}.toml
 
 Discovery order, first hit wins: QSTACK_MODELS_URL when set; the base URLs the
 CLIs already trust (Codex model_provider base_url, ANTHROPIC_BASE_URL,
@@ -160,7 +162,70 @@ def discover() -> dict:
     harness = os.environ.get("QSTACK_HARNESS") or ("claude-code" if os.environ.get("CLAUDECODE") else "unknown")
     if harness not in HARNESS_BUILTIN:
         harness = "unknown"
-    return {"source": f"harness builtin ({harness})", "url": None, "models": HARNESS_BUILTIN[harness], "tried": tried}
+    out = {"source": f"harness builtin ({harness})", "url": None, "models": HARNESS_BUILTIN[harness], "tried": tried}
+    if harness == "claude-code":
+        out["aliases"] = aliases()["aliases"]
+    return out
+
+
+# Claude Code's Agent tool names a subagent by one of four aliases and maps each
+# to a full model id through these variables (docs: code.claude.com/docs/en/model-config).
+# Behind a proxy the id only has to be one the proxy serves, so three of the
+# four slots can carry non-Claude models. Reported so a tier a Claude Code run
+# cannot express by name can still be checked against what the aliases mean.
+CLAUDE_ALIASES = ("fable", "opus", "sonnet", "haiku")
+
+
+def aliases() -> dict:
+    out = {}
+    for a in CLAUDE_ALIASES:
+        out[a] = os.environ.get(f"ANTHROPIC_DEFAULT_{a.upper()}_MODEL") or None
+    sub = os.environ.get("CLAUDE_CODE_SUBAGENT_MODEL")
+    return {"aliases": out, "subagent_override": sub,
+            "note": "unset means the alias resolves to Anthropic's current default for that family"}
+
+
+def toml_str(v: str) -> str:
+    return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def codex_agents(orchestrator: str | None, reviewer: str | None, out_dir: Path, dry: bool) -> dict:
+    """One custom agent file per tier, so a Codex loop spawns by agent name.
+    Schema per developers.openai.com/codex/subagents: name, description and
+    developer_instructions required; model and model_reasoning_effort optional
+    and taken from the tier map. The files inherit the parent's sandbox."""
+    t = tier(orchestrator)
+    if "error" in t:
+        return t
+    files = {}
+    plan = {}
+    for k in ("strong", "standard", "cheap"):
+        d = t["detail"][k]
+        plan[k] = (d["id"], t["reasoning"][k],
+                   f"Implements one board card at the {k} tier: {'live targets, security boundaries, 5-point seams' if k == 'strong' else 'ordinary packages with a written contract' if k == 'standard' else 'mechanical work, copies, skeletons, deletions'}.")
+    if reviewer:
+        plan["reviewer"] = (reviewer, "high", "Adversarial reviewer for a QStack loop: reads the plan and the diff, reports findings with path:line, never edits.")
+    for k, (model, effort, desc) in plan.items():
+        body = (
+            f"name = {toml_str(f'qstack_{k}')}\n"
+            f"description = {toml_str(desc)}\n"
+            f"model = {toml_str(model)}\n"
+            f"model_reasoning_effort = {toml_str(effort)}\n"
+            + ("sandbox_mode = \"read-only\"\n" if k == "reviewer" else "")
+            + "developer_instructions = \"\"\"\n"
+            + ("You are one QStack board card's implementer. Obey the plan clauses in the card's refs exactly, write only the card's files, and report every path you wrote.\n"
+               if k != "reviewer" else
+               "You are the independent adversarial reviewer. Read the plan and inspect the implementation; report findings with path:line and the smallest fix. Do not modify files.\n")
+            + "\"\"\"\n"
+        )
+        files[str(out_dir / f"qstack_{k}.toml")] = body
+    if not dry:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for path, body in files.items():
+            Path(path).write_text(body)
+    return {"written": not dry, "dir": str(out_dir), "agents": {k: {"model": v[0], "reasoning": v[1]} for k, v in plan.items()},
+            "files": sorted(files), "tier_source": f"{t['catalogue_source']}; {t['scores_source']}",
+            "spawn": "from a Codex session ask for the agent by name: qstack_strong, qstack_standard, qstack_cheap, qstack_reviewer"}
 
 
 def aa_key() -> str | None:
@@ -341,11 +406,17 @@ def main() -> int:
     t = sub.add_parser("tier"); t.add_argument("--orchestrator")
     r = sub.add_parser("resolve"); r.add_argument("name")
     pb = sub.add_parser("probe-brief"); pb.add_argument("id")
+    sub.add_parser("aliases")
+    ca = sub.add_parser("codex-agents")
+    ca.add_argument("--orchestrator"); ca.add_argument("--reviewer")
+    ca.add_argument("--dir", default=str(Path.home() / ".codex" / "agents")); ca.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     if a.cmd == "discover": out = discover()
     elif a.cmd == "score": out = score()
     elif a.cmd == "tier": out = tier(a.orchestrator)
     elif a.cmd == "resolve": out = resolve(a.name)
+    elif a.cmd == "aliases": out = aliases()
+    elif a.cmd == "codex-agents": out = codex_agents(a.orchestrator, a.reviewer, Path(a.dir).expanduser(), a.dry_run)
     else:
         out = {"model": a.id, "effort": "low",
                "task": f"Reply with exactly two words: PONG and the model id you are running as. Do not read or write any file. Expected id: {a.id}."}

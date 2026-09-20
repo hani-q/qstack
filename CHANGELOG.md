@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.13.3.0] - 2026-09-21
+
+### Added
+
+* `/qstack-choose-model` bridges the tier map into the form each harness
+  launches by. `codex-agents` writes one custom agent file per tier under
+  `~/.codex/agents/` (`qstack_strong`, `qstack_standard`, `qstack_cheap`, and
+  `qstack_reviewer` with a read-only sandbox when `--reviewer` is given), so
+  a Codex loop spawns by agent name and a mixed tier is honoured with any id
+  the proxy serves. `aliases` reports what Claude Code's four subagent
+  aliases resolve to from `ANTHROPIC_DEFAULT_*_MODEL`, the three-slot remap
+  that harness offers. Both loops and slalom point at the new "Launching a
+  tier in each harness" section; tests cover both bridges.
+
 ## [2.13.2.0] - 2026-09-21
 
 ### Added
