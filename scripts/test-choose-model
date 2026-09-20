@@ -22,8 +22,11 @@ loader.exec_module(qm)
 SCORES = {
     "claude-opus-5": {"coding": 78, "price_out": 25},
     "claude-opus-5-high": {"coding": 76.5, "price_out": 25},
+    "claude-opus-5-low": {"coding": 66.9, "price_out": 25},
     "gpt-5-6-sol": {"coding": 77.4, "price_out": 20},
+    "gpt-5-6-sol-medium": {"coding": 76.3, "price_out": 20},
     "gpt-5-6-luna": {"coding": 71.4, "price_out": 1.2},
+    "gpt-5-6-luna-low": {"coding": 44.2, "price_out": 1.2},
     "claude-4-5-haiku": {"coding": 60, "price_out": 5},
     "claude-fable-5-1": {"coding": 81.6, "price_out": 50},
 }
@@ -63,14 +66,25 @@ class ResolveTests(unittest.TestCase):
 
 
 class TierTests(unittest.TestCase):
-    def test_orchestrator_is_excluded_and_cheap_is_competent(self) -> None:
-        cat = {"source": "test", "models": list(SCORES)}
+    def tier(self):
+        cat = {"source": "test", "models": ["claude-opus-5", "gpt-5.6-sol", "gpt-5.6-luna", "claude-haiku-4-5", "claude-fable-5-1"]}
         with mock.patch.object(qm, "discover", return_value=cat), \
              mock.patch.object(qm, "aa_scores", return_value=(SCORES, "test scores")):
-            t = qm.tier("fable-5.1")["tiers"]
+            return qm.tier("fable-5.1")
+
+    def test_orchestrator_is_excluded_and_cheap_is_competent(self) -> None:
+        t = self.tier()["tiers"]
         self.assertEqual(t["strong"], "claude-opus-5")
-        self.assertEqual(t["cheap"], "gpt-5-6-luna")  # within 20 points, cheapest
-        self.assertNotIn("fable", t.values().__str__())
+        self.assertEqual(t["cheap"], "gpt-5.6-luna")  # within 20 points, cheapest
+        self.assertNotIn("fable", str(t.values()))
+
+    def test_tiers_are_model_effort_pairs_and_never_pick_a_cliff(self) -> None:
+        """luna at low scores 44.2, far outside the 20-point floor; the cheap
+        cell must be luna at its default effort (71.4), reported as high."""
+        t = self.tier()
+        self.assertEqual(t["reasoning"]["cheap"], "high")
+        self.assertEqual(t["detail"]["cheap"]["coding"], 71.4)
+        self.assertEqual(t["reasoning"]["strong"], "high")
 
 
 class KeyPairingTests(unittest.TestCase):
