@@ -72,7 +72,10 @@ Do all of this before launching anything.
    roles around to make the arguments fit.
 2. **Resolve each worker model to an identifier the harness accepts**, using
    `/qstack-choose-model`'s `resolve` against the discovered catalogue and its
-   `probe-brief` to prove the launch before any unit is dispatched. In
+   `probe-brief` to prove the launch before any unit is dispatched. Its
+   "Launching a tier in each harness" says what that identifier is: a custom
+   agent name in Codex, an alias whose `ANTHROPIC_DEFAULT_*` mapping is
+   confirmed in Claude Code. In
    Claude Code the `Agent` tool takes `model` and the `Workflow` script's
    `agent()` takes `opts.model`; in Codex the subagent launcher takes a model
    in its own form. Map the user's spelling to that form with the same

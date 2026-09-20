@@ -237,7 +237,11 @@ read them back under the same rule as the review mode. The two slalom rules
 bind implementation subagents only; reviewer agents are unaffected. Before
 the first wave, resolve and probe every worker through `/qstack-choose-model`
 (its `resolve` and `probe-brief`); a name that cannot be launched stops the
-run before any claim and asks, offering the closest three.
+run before any claim and asks, offering the closest three. How a worker is
+launched is the harness's business, under that skill's "Launching a tier in
+each harness": from Codex spawn the `qstack_<tier>` custom agent, written by
+`codex-agents`; from Claude Code pass the alias whose `ANTHROPIC_DEFAULT_*`
+mapping the probe confirmed.
 
 `--reviewer <model>` names the model every adversarial reviewer this run
 launches runs on. It stands alone: it needs neither `--orchestrator` nor
