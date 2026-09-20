@@ -41,6 +41,8 @@ jobs:
 
       - name: Validate branch-scoped versioning
         run: scripts/test-versioning
+      - name: Test the model catalogue script
+        run: scripts/test-choose-model
 
       - name: Verify instruction files survive reinstallation
         run: scripts/test-install-instructions

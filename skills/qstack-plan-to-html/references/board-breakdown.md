@@ -67,8 +67,10 @@ options, or examples into cards.
 
 Every card carries `epic`, `title`, `points`, `refs`, `files`, and `depends_on`.
 It may also carry `model` and `reasoning`, the routing hint
-[model routing](model-routing.md) defines: set them only when the plan gives a
-reason, never on the gate card, and read that file for the sizing rule.
+[model routing](model-routing.md) defines. Do not pick them by hand: run
+`/qstack-choose-model` once per card, passing the card's points, files and
+refs, and write what it returns plus its `why` in the card's `note`. A
+`tier: null` answer means no hint. Never on the gate card.
 
 - `refs`: the clause numbers the card is built from, written without the sign
   (`"4.2"`); the board renders `§4.2` and deep-links it. A card with no `refs`

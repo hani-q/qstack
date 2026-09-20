@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Pin the pure parts of skills/qstack-choose-model/scripts/qstack-models."""
+
+from __future__ import annotations
+
+import importlib.machinery
+import importlib.util
+import os
+import sys
+import unittest
+from pathlib import Path
+from unittest import mock
+
+SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "qstack-choose-model" / "scripts" / "qstack-models"
+loader = importlib.machinery.SourceFileLoader("qstack_models", str(SCRIPT))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+assert spec is not None
+qm = importlib.util.module_from_spec(spec)
+sys.modules[loader.name] = qm
+loader.exec_module(qm)
+
+SCORES = {
+    "claude-opus-5": {"coding": 78, "price_out": 25},
+    "claude-opus-5-high": {"coding": 76.5, "price_out": 25},
+    "gpt-5-6-sol": {"coding": 77.4, "price_out": 20},
+    "gpt-5-6-luna": {"coding": 71.4, "price_out": 1.2},
+    "claude-4-5-haiku": {"coding": 60, "price_out": 5},
+    "claude-fable-5-1": {"coding": 81.6, "price_out": 50},
+}
+
+
+class MatchTests(unittest.TestCase):
+    def test_dotted_and_dashed_versions_are_one_model(self) -> None:
+        self.assertEqual(qm.match_score("gpt-5.6-sol", SCORES)["slug"], "gpt-5-6-sol")
+
+    def test_exact_beats_effort_variant(self) -> None:
+        self.assertEqual(qm.match_score("claude-opus-5", SCORES)["slug"], "claude-opus-5")
+
+    def test_reordered_tokens_and_date_suffix_still_match(self) -> None:
+        self.assertEqual(qm.match_score("claude-haiku-4-5-20251001", SCORES)["slug"], "claude-4-5-haiku")
+
+    def test_unknown_model_is_none_not_a_guess(self) -> None:
+        self.assertIsNone(qm.match_score("grok-4.20-0309-reasoning", SCORES))
+
+
+class ResolveTests(unittest.TestCase):
+    CATALOGUE = ["claude-opus-5", "claude-sonnet-5", "claude-sonnet-4-6", "gpt-5.6-sol", "gpt-5.5"]
+
+    def resolve(self, name: str) -> dict:
+        with mock.patch.object(qm, "discover", return_value={"source": "test", "models": self.CATALOGUE}):
+            return qm.resolve(name)
+
+    def test_containment_resolves_a_short_spelling(self) -> None:
+        self.assertEqual(self.resolve("opus-5")["resolved"], "claude-opus-5")
+
+    def test_ambiguous_names_list_the_candidates_as_closest(self) -> None:
+        r = self.resolve("sonnet")
+        self.assertIsNone(r["resolved"])
+        self.assertEqual(r["closest"], ["claude-sonnet-5", "claude-sonnet-4-6"])
+
+    def test_typo_offers_nearest_ids(self) -> None:
+        self.assertEqual(self.resolve("gpt-5.6-sl")["closest"][0], "gpt-5.6-sol")
+
+
+class TierTests(unittest.TestCase):
+    def test_orchestrator_is_excluded_and_cheap_is_competent(self) -> None:
+        cat = {"source": "test", "models": list(SCORES)}
+        with mock.patch.object(qm, "discover", return_value=cat), \
+             mock.patch.object(qm, "aa_scores", return_value=(SCORES, "test scores")):
+            t = qm.tier("fable-5.1")["tiers"]
+        self.assertEqual(t["strong"], "claude-opus-5")
+        self.assertEqual(t["cheap"], "gpt-5-6-luna")  # within 20 points, cheapest
+        self.assertNotIn("fable", t.values().__str__())
+
+
+class KeyPairingTests(unittest.TestCase):
+    def test_openai_key_never_goes_to_an_override_url(self) -> None:
+        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-secret"}, clear=False), \
+             mock.patch.object(qm, "cliproxy_key_for", return_value=None):
+            self.assertIsNone(qm.api_key_for("QSTACK_MODELS_URL", "https://evil.example/v1"))
+            self.assertEqual(qm.api_key_for("OPENAI_BASE_URL", "https://api.openai.com/v1"), ("Authorization", "Bearer sk-secret"))
+
+    def test_cliproxy_key_only_for_its_own_host(self) -> None:
+        with mock.patch.object(Path, "exists", return_value=True), \
+             mock.patch.object(Path, "read_text", return_value='port: 8317\napi-keys:\n  - "pk"\n'):
+            self.assertEqual(qm.cliproxy_key_for("http://127.0.0.1:8317/v1"), "pk")
+            self.assertIsNone(qm.cliproxy_key_for("http://127.0.0.1:9999/v1"))
+            self.assertIsNone(qm.cliproxy_key_for("http://127.0.0.1/v1"))  # no explicit port is not a match
+            self.assertIsNone(qm.cliproxy_key_for("https://proxy.example/v1"))
+
+
+if __name__ == "__main__":
+    unittest.main()

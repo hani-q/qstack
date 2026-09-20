@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.12.0.0] - 2026-09-20
+
+### Added
+
+* `/qstack-choose-model` picks the model and reasoning effort for one piece of
+  work from the models this machine can actually reach and the scores that
+  exist for them. Its `scripts/qstack-models` discovers the catalogue from
+  the CLI's own proxy settings (`QSTACK_MODELS_URL` override, then Codex's
+  `model_provider` base URL, `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, then
+  the harness built-in list, then a question), scores it with the Artificial
+  Analysis Data API free tier when `ARTIFICIAL_ANALYSIS_API_KEY` is set
+  (cached a day, source and date always named), tiers it strong / standard /
+  cheap with the orchestrator excluded, resolves a typed name to the closest
+  catalogue id, and emits a one-line probe that proves a model launches
+  before any card is claimed. Breakdown now calls it per hinted card, both
+  loops call it at startup and for unhinted cards, and slalom uses it to
+  resolve and probe `--workers`. Nothing hardcodes an address or a model
+  list; without a key the tier map falls back to a static ordering and says
+  so. Keys are paired to the host they were issued for, score matching is
+  order-free so `claude-haiku-4-5-20251001` meets `claude-4-5-haiku`, and
+  `scripts/test-choose-model` pins the pure functions. Prompted by an invented slug reaching a board unchecked.
+
 ## [2.11.0.1] - 2026-09-20
 
 ### Fixed
