@@ -118,9 +118,13 @@ briefed. The board's card dialog produces the prompt for it.
 
 ## Two rules from slalom that never bend
 
-Both bind the subagents that implement cards. The reviewer agents a loop
-launches from its own `agents/` directory run on the session model on purpose,
-as `--review` already says, and neither rule fires on them.
+Both bind the subagents that implement cards. The adversarial reviewers a loop
+launches run on the session model unless `--reviewer <model>` names another,
+and neither rule fires on them; the one rule that does is that the reviewer is
+never the orchestrator, because that is a self-review. Review is where general
+intelligence outranks the coding index, so a model the tier map passes over
+for code (a higher Intelligence Index at a higher price) is the natural pick
+here.
 
 1. **No subagent runs on the orchestrator model.** `--orchestrator` may not
    appear in `--workers`; refuse the invocation if it does. Pin every launch to

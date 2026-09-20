@@ -139,6 +139,9 @@ one. From Codex the launcher takes a real id, so a mixed tier is honoured.
   this skill decides.
 - `/qstack-slalom`, in Preflight step 2: `resolve` each `--workers` name and
   probe it.
+- Both loops, for `--reviewer`: `resolve` and probe the reviewer model, and
+  refuse it when it is the orchestrator. `score` shows the Intelligence Index
+  beside the Coding Index, which is the column a reviewer is chosen on.
 
 ## What this skill never does
 
