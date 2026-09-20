@@ -194,6 +194,8 @@ def codex_agents(orchestrator: str | None, reviewer: str | None, out_dir: Path, 
     Schema per developers.openai.com/codex/subagents: name, description and
     developer_instructions required; model and model_reasoning_effort optional
     and taken from the tier map. The files inherit the parent's sandbox."""
+    if reviewer and orchestrator and (norm(orchestrator) in norm(reviewer) or norm(reviewer) in norm(orchestrator)):
+        return {"error": f"reviewer {reviewer} is the orchestrator; a review by the model that coordinated the work is a self-review"}
     t = tier(orchestrator)
     if "error" in t:
         return t
@@ -219,11 +221,17 @@ def codex_agents(orchestrator: str | None, reviewer: str | None, out_dir: Path, 
             + "\"\"\"\n"
         )
         files[str(out_dir / f"qstack_{k}.toml")] = body
+    # A file this script wrote carries its marker line; one without it was
+    # written or edited by a person and is left alone, named in the output.
+    MARK = "# written by qstack-models codex-agents; edit and this line is removed, then it is yours\n"
+    files = {k: MARK + v for k, v in files.items()}
+    kept = [p for p in files if Path(p).exists() and not Path(p).read_text().startswith(MARK)]
     if not dry:
         out_dir.mkdir(parents=True, exist_ok=True)
         for path, body in files.items():
-            Path(path).write_text(body)
-    return {"written": not dry, "dir": str(out_dir), "agents": {k: {"model": v[0], "reasoning": v[1]} for k, v in plan.items()},
+            if path not in kept:
+                Path(path).write_text(body)
+    return {"written": not dry, "kept_hand_edited": kept, "dir": str(out_dir), "agents": {k: {"model": v[0], "reasoning": v[1]} for k, v in plan.items()},
             "files": sorted(files), "tier_source": f"{t['catalogue_source']}; {t['scores_source']}",
             "spawn": "from a Codex session ask for the agent by name: qstack_strong, qstack_standard, qstack_cheap, qstack_reviewer"}
 

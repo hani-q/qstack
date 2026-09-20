@@ -110,6 +110,24 @@ class BridgeTests(unittest.TestCase):
             for k in ("name", "description", "developer_instructions"):
                 self.assertTrue(f[k])
 
+    def test_codex_agents_refuses_the_orchestrator_as_reviewer(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            out = qm.codex_agents("fable-5.1", "claude-fable-5-1", Path(d), dry=True)
+        self.assertIn("error", out)
+
+    def test_codex_agents_leaves_a_hand_edited_file_alone(self) -> None:
+        import tempfile
+        fake_tier = {"tiers": {}, "reasoning": {"strong": "high", "standard": "high", "cheap": "high"},
+                     "detail": {"strong": {"id": "a"}, "standard": {"id": "b"}, "cheap": {"id": "c"}},
+                     "catalogue_source": "test", "scores_source": "test"}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(qm, "tier", return_value=fake_tier):
+            mine = Path(d) / "qstack_cheap.toml"; mine.write_text('name = "qstack_cheap"\nmodel = "hand-picked"\n')
+            out = qm.codex_agents("fable-5.1", None, Path(d), dry=False)
+            self.assertEqual(out["kept_hand_edited"], [str(mine)])
+            self.assertIn("hand-picked", mine.read_text())
+            self.assertTrue((Path(d) / "qstack_strong.toml").read_text().startswith("# written by qstack-models"))
+
 
 class KeyPairingTests(unittest.TestCase):
     def test_openai_key_never_goes_to_an_override_url(self) -> None:
