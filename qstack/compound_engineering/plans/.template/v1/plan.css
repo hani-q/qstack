@@ -1224,7 +1224,11 @@ button { cursor: pointer; }
 
 /* Lanes switch: epic or model. Same chips as the status filter, pushed to the
    end of the row so the two groups read as two questions. */
-.board-lanes-label { margin-inline-start: auto; }
+.board-lanes-label {
+  margin-inline-start: auto;
+  padding-inline-start: 16px;
+  border-inline-start: 1px solid var(--rule);
+}
 .board-lanes-switch .board-chip { padding-inline: 14px; }
 
 /* Change model: the one control on the board that produces something, and

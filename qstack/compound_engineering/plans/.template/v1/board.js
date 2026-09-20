@@ -838,34 +838,58 @@
      session appends a `rehint` event under the protocol. Models offered are
      the ones already on this board plus a free field, because the board cannot
      see the catalogue; the session can. */
+  /* What a reader had picked or typed, by card, so the 3 s refill of an open
+     dialog does not throw it away while an agent appends to that card. */
+  const rehintDraft = new Map();
+
   const changeModel = (card) => {
     if (!latest || card.epic === 'review') return '';
+    const draft = rehintDraft.get(card.id) || {};
     const models = [...new Set([...latest.cards.values()].map((c) => c.model).filter(Boolean))];
-    const slug = location.pathname.split('/plans/')[1]?.split('/')[0] || '<slug>';
+    /* The plan's own directory, whatever layout serves it: everything before
+       /plan.html, made repo-relative by dropping the part before the plans root. */
+    const dir = location.pathname.replace(/\/plan\.html.*$/, '');
+    const slug = dir.split('/').pop() || '<slug>';
+    /* Served by serve.sh the URL starts at plans/, so the layout is not in it;
+       file:// and other roots show it. Take it when shown, else the canonical one. */
+    const seen = dir.match(/((?:qstack\/)?compound[-_]engineering\/plans\/[^/]+)$/);
+    const boardPath = `${seen ? seen[1] : `qstack/compound_engineering/plans/${slug}`}/board-events.js`;
+    const KEEP = '\u0000keep';
     const pick = el('select', 'board-rehint-model');
     for (const m of [...models, '']) {
       const o = el('option', '', m || 'other (type below)');
       o.value = m;
-      if (m === card.model) o.selected = true;
+      if (m === (draft.model ?? card.model)) o.selected = true;
       pick.append(o);
     }
     const other = el('input', 'board-rehint-other');
-    other.type = 'text'; other.placeholder = 'model id, e.g. claude-sonnet-5'; other.hidden = true;
+    other.type = 'text'; other.placeholder = 'model id, e.g. claude-sonnet-5';
+    other.value = draft.other || '';
+    other.hidden = pick.value !== '';
+    /* `keep` is the default when the card has no reasoning: the prompt then
+       says nothing about effort, so nothing the reader did not choose is sent. */
     const effort = el('select', 'board-rehint-effort');
-    for (const r of ['high', 'medium', 'low']) {
-      const o = el('option', '', r); o.value = r; if (r === card.reasoning) o.selected = true; effort.append(o);
+    for (const [value, text] of [[KEEP, card.reasoning ? `keep ${card.reasoning}` : 'keep unset'], ['high', 'high'], ['medium', 'medium'], ['low', 'low']]) {
+      const o = el('option', '', text); o.value = value;
+      if (value === (draft.effort ?? KEEP)) o.selected = true;
+      effort.append(o);
     }
     const out = el('textarea', 'board-rehint-prompt');
     out.readOnly = true; out.rows = 5;
     const copy = el('button', 'board-chip board-rehint-copy', el('span', 'board-chip-name', 'Copy prompt'));
     copy.type = 'button';
     const compose = () => {
-      const model = pick.value || other.value.trim() || '<model>';
+      rehintDraft.set(card.id, { model: pick.value, other: other.value, effort: effort.value });
+      const model = pick.value || other.value.trim();
+      const modelClause = model && model !== card.model ? ` to model ${model}` : '';
+      const effortClause = effort.value !== KEEP ? ` with reasoning ${effort.value}` : '';
+      const change = modelClause || effortClause
+        ? `Rehint card ${card.id} on the ${slug} board${modelClause}${effortClause}.`
+        : `Rehint card ${card.id} on the ${slug} board: pick a different model or reasoning above.`;
       out.value =
-        `Rehint card ${card.id} on the ${slug} board to model ${model} with reasoning ${effort.value}. ` +
-        `Append one rehint event to qstack/compound_engineering/plans/${slug}/board-events.js ` +
-        `(never rewrite the created line), resolve and probe the model with /qstack-choose-model first, ` +
-        `and put the reason in the event. Current hint: ${card.model || 'none'}${card.reasoning ? ' · ' + card.reasoning : ''}. Reason: `;
+        `${change} Append one rehint event to ${boardPath} (never rewrite the created line), ` +
+        `resolve and probe the model with /qstack-choose-model first, and put the reason in the event. ` +
+        `Current hint: ${card.model || 'none'}${card.reasoning ? ' · ' + card.reasoning : ''}. Reason: `;
     };
     pick.addEventListener('change', () => { other.hidden = pick.value !== ''; compose(); });
     other.addEventListener('input', compose);

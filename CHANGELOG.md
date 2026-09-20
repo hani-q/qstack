@@ -9,8 +9,10 @@
   work them, heaviest lane first, with reasoning still on each card and the
   gate card and unhinted cards in their own lane. The card dialog gains a
   "Change model" panel: pick a model already on the board or type one, pick
-  a reasoning effort, and copy the prompt it composes for the session that
-  owns the board. The board still writes nothing.
+  a reasoning effort or keep the current one, and copy the prompt it composes
+  for the session that owns the board; the prompt names only what the reader
+  changed, and a draft survives the dialog's live refill. The board still
+  writes nothing.
 * A `rehint` board event (`card`, `actor`, one or both of `model`,
   `reasoning`, `reason`) changes a card's routing hint without rewriting the
   `created` line. The fold applies the latest one and marks the card
