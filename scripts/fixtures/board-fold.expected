@@ -1,7 +1,8 @@
 board holders belmont,carlton
-board unreadable 3
+board unreadable 4
 card T-01 blocks T-02,T-03,T-04,T-10,T-11,T-12,T-13,T-14,T-15
 card T-01 flagged no
+card T-01 model -
 card T-01 owner adelaide
 card T-01 points 3
 card T-01 related -
@@ -9,6 +10,7 @@ card T-01 status done
 card T-01 waiting -
 card T-02 blocks T-06
 card T-02 flagged no
+card T-02 model -
 card T-02 owner belmont
 card T-02 points 1
 card T-02 related -
@@ -16,6 +18,7 @@ card T-02 status claimed
 card T-02 waiting -
 card T-03 blocks -
 card T-03 flagged yes
+card T-03 model -
 card T-03 owner adelaide
 card T-03 points 2
 card T-03 related T-08
@@ -23,6 +26,7 @@ card T-03 status claimed
 card T-03 waiting -
 card T-04 blocks -
 card T-04 flagged no
+card T-04 model -
 card T-04 owner -
 card T-04 points 8
 card T-04 related T-05,T-10,T-11,T-12,T-13,T-14,T-15
@@ -30,6 +34,7 @@ card T-04 status split
 card T-04 waiting -
 card T-05 blocks -
 card T-05 flagged no
+card T-05 model -
 card T-05 owner -
 card T-05 points 5
 card T-05 related T-10,T-12,T-13
@@ -37,6 +42,7 @@ card T-05 status backlog
 card T-05 waiting T-11,T-14,T-15
 card T-06 blocks -
 card T-06 flagged no
+card T-06 model -
 card T-06 owner carlton
 card T-06 points 1
 card T-06 related -
@@ -44,6 +50,7 @@ card T-06 status done
 card T-06 waiting -
 card T-07 blocks T-08
 card T-07 flagged no
+card T-07 model -
 card T-07 owner dunedin
 card T-07 points 2
 card T-07 related -
@@ -51,6 +58,7 @@ card T-07 status done
 card T-07 waiting -
 card T-08 blocks -
 card T-08 flagged yes
+card T-08 model -
 card T-08 owner dunedin
 card T-08 points 3
 card T-08 related T-03
@@ -58,6 +66,7 @@ card T-08 status in-progress
 card T-08 waiting -
 card T-09 blocks -
 card T-09 flagged yes
+card T-09 model -
 card T-09 owner -
 card T-09 points 13
 card T-09 related -
@@ -65,6 +74,7 @@ card T-09 status backlog
 card T-09 waiting -
 card T-10 blocks -
 card T-10 flagged no
+card T-10 model -
 card T-10 owner belmont
 card T-10 points 3
 card T-10 related T-04,T-05,T-11,T-12,T-13,T-14,T-15
@@ -72,6 +82,7 @@ card T-10 status split
 card T-10 waiting -
 card T-11 blocks T-05
 card T-11 flagged no
+card T-11 model -
 card T-11 owner -
 card T-11 points 5
 card T-11 related T-04,T-10,T-12,T-13,T-14,T-15
@@ -79,6 +90,7 @@ card T-11 status backlog
 card T-11 waiting -
 card T-12 blocks -
 card T-12 flagged no
+card T-12 model -
 card T-12 owner -
 card T-12 points 2
 card T-12 related T-04,T-05,T-10,T-11,T-13,T-14,T-15
@@ -86,6 +98,7 @@ card T-12 status backlog
 card T-12 waiting -
 card T-13 blocks -
 card T-13 flagged no
+card T-13 model -
 card T-13 owner -
 card T-13 points 1
 card T-13 related T-04,T-05,T-10,T-11,T-12,T-14,T-15
@@ -93,6 +106,7 @@ card T-13 status backlog
 card T-13 waiting -
 card T-14 blocks T-05
 card T-14 flagged no
+card T-14 model -
 card T-14 owner -
 card T-14 points 2
 card T-14 related T-04,T-10,T-11,T-12,T-13,T-15
@@ -100,6 +114,7 @@ card T-14 status backlog
 card T-14 waiting -
 card T-15 blocks T-05
 card T-15 flagged no
+card T-15 model -
 card T-15 owner -
 card T-15 points 1
 card T-15 related T-04,T-10,T-11,T-12,T-13,T-14
@@ -107,6 +122,7 @@ card T-15 status backlog
 card T-15 waiting -
 card T-16 blocks -
 card T-16 flagged yes
+card T-16 model -
 card T-16 owner -
 card T-16 points 3
 card T-16 related -
@@ -114,6 +130,7 @@ card T-16 status backlog
 card T-16 waiting -
 card T-17 blocks -
 card T-17 flagged no
+card T-17 model -
 card T-17 owner -
 card T-17 points 2
 card T-17 related -
@@ -121,8 +138,17 @@ card T-17 status backlog
 card T-17 waiting -
 card T-18 blocks -
 card T-18 flagged yes
+card T-18 model -
 card T-18 owner -
 card T-18 points 2
 card T-18 related -
 card T-18 status backlog
 card T-18 waiting -
+card T-19 blocks -
+card T-19 flagged no
+card T-19 model claude-opus-5/low
+card T-19 owner -
+card T-19 points 2
+card T-19 related -
+card T-19 status backlog
+card T-19 waiting -

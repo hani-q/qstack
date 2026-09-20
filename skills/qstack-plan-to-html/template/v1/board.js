@@ -160,6 +160,15 @@
           return true;
         case 'note':
           return true;
+        /* A hint is written once on `created` and the stream never rewrites a
+           line, so changing it is a later event laid over it. The board shows
+           the latest; the card's log keeps every earlier one. */
+        case 'rehint':
+          if (!event.model && !event.reasoning) return false;
+          if (event.model) card.model = String(event.model);
+          if (event.reasoning) card.reasoning = String(event.reasoning);
+          card.rehinted = true;
+          return true;
         default:
           return false;
       }
@@ -209,6 +218,7 @@
              never flagged: the loop decides what an unknown slug means. */
           model: event.model ? String(event.model) : '',
           reasoning: event.reasoning ? String(event.reasoning) : '',
+          rehinted: false,
           // Below this line is fold state rather than a `created` field.
           status: 'backlog', owner: '', claimedAt: '', into: [],
           notes: [], race: '', raceWith: '', drift: [], entries: [],
@@ -635,6 +645,11 @@
   let filterBar = null;
   let chipHost = null;
   let emptyLine = null;
+  /* Lanes group by epic (the plan's build order) or by model (who is going to
+     do what). Same cards, same columns; only the grouping changes. */
+  const LANES_KEY = `qstack-board-lanes:${location.pathname}`;
+  let laneMode = 'epic';
+  let laneSwitch = null;
 
   /* Storage is off in a Safari file:// window and can be off anywhere else, and
      a board that will not draw because a preference would not load is a worse
@@ -675,7 +690,28 @@
     );
     emptyLine = el('p', 'board-filter-empty');
     emptyLine.hidden = true;
-    filterBar = el('div', 'board-filter', el('span', 'label', 'Show'), chipHost, emptyLine);
+    laneMode = (() => { try { return globalThis.localStorage?.getItem(LANES_KEY) === 'model' ? 'model' : 'epic'; } catch { return 'epic'; } })();
+    laneSwitch = el(
+      'div', 'board-chips board-lanes-switch',
+      ...[['epic', 'Epic'], ['model', 'Model']].map(([key, label]) => {
+        const chip = el('button', 'board-chip', el('span', 'board-chip-name', label));
+        chip.type = 'button';
+        chip.dataset.boardGroup = key;
+        chip.setAttribute('aria-pressed', String(key === laneMode));
+        return chip;
+      }),
+    );
+    laneSwitch.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-board-group]');
+      if (!chip || chip.dataset.boardGroup === laneMode) return;
+      laneMode = chip.dataset.boardGroup;
+      try { globalThis.localStorage?.setItem(LANES_KEY, laneMode); } catch { /* view still switches */ }
+      for (const c of laneSwitch.querySelectorAll('[data-board-group]')) {
+        c.setAttribute('aria-pressed', String(c.dataset.boardGroup === laneMode));
+      }
+      if (latest) render(latest);
+    });
+    filterBar = el('div', 'board-filter', el('span', 'label', 'Show'), chipHost, emptyLine, el('span', 'label board-lanes-label', 'Lanes'), laneSwitch);
     filterBar.setAttribute('role', 'group');
     filterBar.setAttribute('aria-label', 'Filter cards by status');
     boardHost.insertBefore(filterBar, lanesHost);
@@ -797,8 +833,80 @@
      event on this card at all, and a card outside `backlog` has an empty
      `waiting` that cannot stand in for the change. Lengths also miss two edits
      that cancel out inside one poll. */
+  /* The board has no write path, so "change the model" writes a prompt, not a
+     line. The reader pastes it into the session that owns the board; that
+     session appends a `rehint` event under the protocol. Models offered are
+     the ones already on this board plus a free field, because the board cannot
+     see the catalogue; the session can. */
+  /* What a reader had picked or typed, by card, so the 3 s refill of an open
+     dialog does not throw it away while an agent appends to that card. */
+  const rehintDraft = new Map();
+
+  const changeModel = (card) => {
+    if (!latest || card.epic === 'review') return '';
+    const draft = rehintDraft.get(card.id) || {};
+    const models = [...new Set([...latest.cards.values()].map((c) => c.model).filter(Boolean))];
+    /* The plan's own directory, whatever layout serves it: everything before
+       /plan.html, made repo-relative by dropping the part before the plans root. */
+    const dir = location.pathname.replace(/\/plan\.html.*$/, '');
+    const slug = dir.split('/').pop() || '<slug>';
+    /* Served by serve.sh the URL starts at plans/, so the layout is not in it;
+       file:// and other roots show it. Take it when shown, else the canonical one. */
+    const seen = dir.match(/((?:qstack\/)?compound[-_]engineering\/plans\/[^/]+)$/);
+    const boardPath = `${seen ? seen[1] : `qstack/compound_engineering/plans/${slug}`}/board-events.js`;
+    const KEEP = '\u0000keep';
+    const pick = el('select', 'board-rehint-model');
+    for (const m of [...models, '']) {
+      const o = el('option', '', m || 'other (type below)');
+      o.value = m;
+      if (m === (draft.model ?? card.model)) o.selected = true;
+      pick.append(o);
+    }
+    const other = el('input', 'board-rehint-other');
+    other.type = 'text'; other.placeholder = 'model id, e.g. claude-sonnet-5';
+    other.value = draft.other || '';
+    other.hidden = pick.value !== '';
+    /* `keep` is the default when the card has no reasoning: the prompt then
+       says nothing about effort, so nothing the reader did not choose is sent. */
+    const effort = el('select', 'board-rehint-effort');
+    for (const [value, text] of [[KEEP, card.reasoning ? `keep ${card.reasoning}` : 'keep unset'], ['high', 'high'], ['medium', 'medium'], ['low', 'low']]) {
+      const o = el('option', '', text); o.value = value;
+      if (value === (draft.effort ?? KEEP)) o.selected = true;
+      effort.append(o);
+    }
+    const out = el('textarea', 'board-rehint-prompt');
+    out.readOnly = true; out.rows = 5;
+    const copy = el('button', 'board-chip board-rehint-copy', el('span', 'board-chip-name', 'Copy prompt'));
+    copy.type = 'button';
+    const compose = () => {
+      rehintDraft.set(card.id, { model: pick.value, other: other.value, effort: effort.value });
+      const model = pick.value || other.value.trim();
+      const modelClause = model && model !== card.model ? ` to model ${model}` : '';
+      const effortClause = effort.value !== KEEP ? ` with reasoning ${effort.value}` : '';
+      const change = modelClause || effortClause
+        ? `Rehint card ${card.id} on the ${slug} board${modelClause}${effortClause}.`
+        : `Rehint card ${card.id} on the ${slug} board: pick a different model or reasoning above.`;
+      out.value =
+        `${change} Append one rehint event to ${boardPath} (never rewrite the created line), ` +
+        `resolve and probe the model with /qstack-choose-model first, and put the reason in the event. ` +
+        `Current hint: ${card.model || 'none'}${card.reasoning ? ' · ' + card.reasoning : ''}. Reason: `;
+    };
+    pick.addEventListener('change', () => { other.hidden = pick.value !== ''; compose(); });
+    other.addEventListener('input', compose);
+    effort.addEventListener('change', compose);
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(out.value); copy.querySelector('span').textContent = 'Copied'; }
+      catch { out.select(); copy.querySelector('span').textContent = 'Select and copy'; }
+      setTimeout(() => { copy.querySelector('span').textContent = 'Copy prompt'; }, 1600);
+    });
+    compose();
+    const row = el('div', 'board-rehint-row', label('Model', pick), other, label('Reasoning', effort), copy);
+    return section('Change model', row, out);
+  };
+  const label = (text, control) => el('label', 'board-rehint-label', el('span', 'label', text), control);
+
   const dialogState = (card) =>
-    [card.status, card.owner, card.log.length, card.notes.length,
+    [card.status, card.owner, card.log.length, card.notes.length, card.model, card.reasoning,
       card.entries.join(','), card.drift.length, card.waiting.join(','),
       card.needs.join(','), card.blocks.join(','), card.related.join(',')].join('|');
 
@@ -843,8 +951,9 @@
           field('Owner', card.owner || 'Unclaimed'),
           field('Points', card.sized ? String(card.points) : `${card.points}, off the scale`),
           field('From', card.splitFrom),
-          field('Model', card.model && (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model)),
+          field('Model', card.model && (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model) + (card.rehinted ? ' (rehinted)' : '')),
         ),
+        changeModel(card),
         section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
         section(
           'Clauses',
@@ -940,13 +1049,28 @@
     const all = [...board.cards.values()];
     const closed = all.filter((card) => CLOSED.has(card.status));
 
+    // ensureFilter reads the remembered lane mode, so it runs before lanes draw.
+    ensureFilter();
     lanesHost.replaceChildren();
-    for (const [id, title] of board.epics) {
-      lanesHost.append(drawLane(id, title, all.filter((card) => card.epic === id)));
+    if (laneMode === 'model') {
+      /* One lane per model, the one carrying the most points first, and the
+         gate card and anything unhinted last. Reasoning stays on the card. */
+      const models = [...new Set(all.map((card) => card.model).filter(Boolean))]
+        .sort((a, b) => sum(all.filter((c) => c.model === b)) - sum(all.filter((c) => c.model === a)));
+      for (const model of models) {
+        const held = all.filter((card) => card.model === model);
+        lanesHost.append(drawLane(`model:${model}`, `${model} · ${count(held.length, 'card')}, ${sum(held)} pt`, held));
+      }
+      const unhinted = all.filter((card) => !card.model);
+      if (unhinted.length) lanesHost.append(drawLane('model:', 'No model hint', unhinted));
+    } else {
+      for (const [id, title] of board.epics) {
+        lanesHost.append(drawLane(id, title, all.filter((card) => card.epic === id)));
+      }
+      // A card naming an epic nobody declared lands here rather than nowhere.
+      const loose = all.filter((card) => !board.epics.has(card.epic));
+      if (loose.length) lanesHost.append(drawLane('', 'No epic', loose));
     }
-    // A card naming an epic nobody declared lands here rather than nowhere.
-    const loose = all.filter((card) => !board.epics.has(card.epic));
-    if (loose.length) lanesHost.append(drawLane('', 'No epic', loose));
 
     /* A split parent's points leave both totals once it splits: the children
        carry that work now, and counting both counts it twice. This is the rule
@@ -975,7 +1099,6 @@
 
     // The filter is view state, so it is applied again over the lanes that just
     // replaced the ones it was applied to.
-    ensureFilter();
     paintFilter(all);
     applyFilter();
 

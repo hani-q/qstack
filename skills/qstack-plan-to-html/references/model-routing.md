@@ -108,6 +108,12 @@ which model did which card without reading the transcript.
 printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"claimed","card":"T-29","actor":"adelaide","reason":"unblocks both executors","model":"opus-5","reasoning":"high"});' >> board-events.js
 ```
 
+## Changing a hint later
+
+Append a `rehint` event (protocol, "Changing a hint"); never rewrite `created`.
+The loop reads the folded hint, so a rehint before a claim changes who is
+briefed. The board's card dialog produces the prompt for it.
+
 ## Two rules from slalom that never bend
 
 Both bind the subagents that implement cards. The reviewer agents a loop

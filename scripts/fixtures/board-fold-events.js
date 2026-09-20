@@ -60,3 +60,6 @@ qstackBoardEvent({"ts":"2026-08-20T09:33:00Z","event":"created","actor":"planner
 qstackBoardEvent({"ts":"2026-08-20T09:33:10Z","event":"note","actor":"adelaide","card":"T-17","entry":"t-17-why-the-cursor-moved"});
 qstackBoardEvent({"ts":"2026-08-20T09:34:00Z","event":"created","actor":"planner","card":"T-18","epic":"E2","title":"Card citing something that is not an anchor","points":2,"refs":["9.2"],"files":["ledger/uncited.js"],"depends_on":[]});
 qstackBoardEvent({"ts":"2026-08-20T09:34:10Z","event":"note","actor":"adelaide","card":"T-18","entry":"execution.md#T-18 Deviations"});
+qstackBoardEvent({"ts":"2026-08-20T09:35:00Z","event":"created","actor":"planner","card":"T-19","epic":"E2","title":"Card with a routing hint that is later rehinted","points":2,"refs":["4.2"],"files":["src/hint.ts"],"depends_on":[],"model":"gpt-5.6-luna","reasoning":"low"});
+qstackBoardEvent({"ts":"2026-08-20T09:35:10Z","event":"rehint","actor":"adelaide","card":"T-19","model":"claude-opus-5","reason":"touches a live target after all"});
+qstackBoardEvent({"ts":"2026-08-20T09:35:20Z","event":"rehint","actor":"adelaide","card":"T-19"});
