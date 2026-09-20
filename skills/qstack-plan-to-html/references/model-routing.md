@@ -32,7 +32,7 @@ thinking hard. An 8-point rename across twelve files wants the cheapest worker
 thinking little. Folding difficulty into points would lose that.
 
 ```bash
-printf '%s\n' 'qstackBoardEvent({"ts":"2026-09-20T09:41:00Z","event":"created","actor":"planner","card":"T-29","epic":"core","title":"Record the two bash deploys into replay fixtures","points":2,"refs":["13.3"],"files":["at-flowship/tools/record-ssh.sh"],"depends_on":["T-21"],"model":"opus-5","reasoning":"high"});' >> board-events.js
+printf '%s\n' 'qstackBoardEvent({"ts":"2026-08-22T09:41:00Z","event":"created","actor":"planner","card":"T-01","epic":"board-file","title":"Fold board-events.js into cards","points":3,"refs":["4.2"],"files":["skills/qstack-plan-to-html/template/v1/board.js"],"depends_on":[],"model":"opus-5","reasoning":"high"});' >> board-events.js
 ```
 
 `board.js` renders both on the card and in the card dialog. Unknown values
@@ -66,8 +66,9 @@ that choice.
 The loop takes two arguments alongside the ones it already has:
 
 ```
---orchestrator <model>   the model this session runs on
---workers <model>[,<model>...]   the models a subagent may run on
+--orchestrator <model>            the model this session runs on
+--workers <model>[,<model>...]    the models a subagent may run on
+--reasoning low|medium|high       default effort for cards with no hint; medium when absent
 ```
 
 Both are required for a run that dispatches subagents. With neither, the loop
@@ -83,8 +84,12 @@ For each card the loop is about to dispatch:
 3. If the card has no `model`, use the first in `--workers` and record
    `"model":"<used>"` on the `claimed` event.
 4. `reasoning` passes straight through to the launch as the effort setting.
-   Unset means the loop's default for that run, which it asks for once at
-   startup exactly as `/qstack-slalom` does.
+   Unset means the run's default effort: `--reasoning low|medium|high` on the
+   invocation, or `medium` when absent. No question is asked. The loop writes
+   `Worker effort: <value>` and `Workers: <list>` into `execution.md` beside
+   `Review mode` on the first run, and a resumed run reads them back the way
+   it reads the review mode: a flag that disagrees with the recorded value
+   stops preflight, and no flag means reuse.
 
 Record the resolved `model` on every `claimed` event, whether or not it came
 from a hint. The execution record and `/qstack-plan-adherence-review` then know
@@ -95,6 +100,10 @@ printf '%s\n' 'qstackBoardEvent({"ts":"'"$(date -u +%FT%TZ)"'","event":"claimed"
 ```
 
 ## Two rules from slalom that never bend
+
+Both bind the subagents that implement cards. The reviewer agents a loop
+launches from its own `agents/` directory run on the session model on purpose,
+as `--review` already says, and neither rule fires on them.
 
 1. **No subagent runs on the orchestrator model.** `--orchestrator` may not
    appear in `--workers`; refuse the invocation if it does. Pin every launch to

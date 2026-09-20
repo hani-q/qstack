@@ -222,7 +222,7 @@ entries as superseded rather than deleting history.
 
 ### Arguments
 
-`/qstack-loop-no-nonsense [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...]]`
+`/qstack-loop-no-nonsense [plan-path] [--tasks T-03 T-07] [--epic <epic-id>] [--limit N|Npt] [--parallel N] [--review full|final|none] [--orchestrator <model> --workers <model>[,<model>...] [--reasoning low|medium|high]]`
 
 `--orchestrator` and `--workers` route each card's subagent to a worker model
 under the protocol's [model routing](../qstack-plan-to-html/references/model-routing.md):
@@ -230,9 +230,11 @@ a card's own `model` hint when it is in `--workers`, else the first worker, with
 the fallback recorded on the `claimed` event. Give both or neither; the
 orchestrator model may not appear in `--workers`, and no subagent ever runs on
 it. With neither, subagents inherit the session model as before and the report
-says so. When `--workers` is given, ask once at startup how hard the workers
-should think, exactly as `/qstack-slalom` does, and let a card's `reasoning`
-override that default.
+says so. `--reasoning` sets the default effort for cards with no hint,
+`medium` when absent; no question is asked. On the first run write `Workers`
+and `Worker effort` into `execution.md` beside `Review mode`, and on a resume
+read them back under the same rule as the review mode. The two slalom rules
+bind implementation subagents only; reviewer agents are unaffected.
 
 `--review` applies with or without a board and supplies the startup review
 choice instead of asking. The remaining arguments narrow a board run.

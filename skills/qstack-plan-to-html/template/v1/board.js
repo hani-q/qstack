@@ -843,7 +843,7 @@
           field('Owner', card.owner || 'Unclaimed'),
           field('Points', card.sized ? String(card.points) : `${card.points}, off the scale`),
           field('From', card.splitFrom),
-          field('Model', card.model && (card.reasoning ? `${card.model}, ${card.reasoning} reasoning` : card.model)),
+          field('Model', card.model && (card.reasoning ? `${card.model} · ${card.reasoning}` : card.model)),
         ),
         section('Flagged', ...flags.map((text) => el('p', 'board-dialog-flag', text))),
         section(
