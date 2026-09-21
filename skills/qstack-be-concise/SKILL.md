@@ -1,6 +1,6 @@
 ---
 name: qstack-be-concise
-description: Rewrite the immediately previous assistant answer in plain, non-technical language using far fewer lines. Use when the user invokes `/qstack-be-concise`, optionally with a target such as `/qstack-be-concise 4`, or asks to make the last answer shorter and simpler.
+description: Rewrite the immediately previous assistant answer in plain, non-technical language as a short bulleted list, or a numbered list when the content is ordered or counted. Use when the user invokes `/qstack-be-concise`, optionally with a target such as `/qstack-be-concise 4`, or asks to make the last answer shorter and simpler.
 ---
 
 # /qstack-be-concise
@@ -21,6 +21,18 @@ Rewrite the immediately previous assistant answer. Output only the rewrite.
 - Exceed a requested limit only when needed to avoid an unsafe or seriously
   misleading answer.
 
+## Choose the list shape
+
+- Always answer as a list. Never write the rewrite as a paragraph.
+- One bullet counts as one line against the length guide above.
+- Default to a bulleted list with `-`.
+- Use a numbered list only when the content is genuinely ordered or counted:
+  steps that happen in sequence, a ranking, or items the previous answer already
+  numbered or referred to by number.
+- When the order of the items does not matter, use bullets even if there are
+  several of them.
+- Do not mix the two shapes in one rewrite, and do not nest sub-lists.
+
 ## Rewrite rules
 
 - Preserve the important result, decisions, warnings, and next action.
@@ -29,6 +41,6 @@ Rewrite the immediately previous assistant answer. Output only the rewrite.
   narration unless the user must know them to act.
 - Translate any unavoidable technical term immediately into plain language.
 - Do not add new facts, repeat the work, call tools, or change the meaning.
-- Prefer one short sentence per line. Avoid headings, tables, code blocks,
+- Keep each item to one short sentence. Avoid headings, tables, code blocks,
   preambles, apologies, and commentary about shortening the answer.
-- If there is no previous substantive assistant answer, say so in one short line.
+- If there is no previous substantive assistant answer, say so in one bullet.

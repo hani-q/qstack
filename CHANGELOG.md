@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.3.1] - 2026-09-21
+
+### Changed
+
+* `/qstack-be-concise` now always answers as a list. Bullets are the default;
+  a numbered list is used only when the content is genuinely ordered or
+  counted, such as sequential steps, a ranking, or items the previous answer
+  already numbered. One bullet counts as one line against the length guide.
+
 ## [2.13.3.0] - 2026-09-21
 
 ### Added

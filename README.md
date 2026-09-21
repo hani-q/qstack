@@ -178,7 +178,7 @@ work in any repo.
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
-| [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer in far fewer lines and plainer language. Takes a target, as in `/qstack-be-concise 4`. |
+| [`qstack-be-concise`](skills/qstack-be-concise/) | Automatic | Rewrite the previous answer as a short bulleted list in plainer language, numbered when the content is ordered. Takes a target, as in `/qstack-be-concise 4`. |
 | [`qstack-unslop`](skills/qstack-unslop/) | Explicit | Strip AI writing patterns from the previous answer and restore a human voice, without losing meaning, detail, or technical accuracy. |
 | [`qstack-explain-for`](skills/qstack-explain-for/) | Automatic | Rewrite the previous answer for a named reader, such as a product manager, CEO, or CMO, framed around the product they own. Takes free text, as in `/qstack-explain-for cmo of a fitness app`. Controls the lens, not the length. |
 | [`qstack-ask-as-questions`](skills/qstack-ask-as-questions/) | Explicit | Ask every open question the previous answer left for the user through the host's question tool, rephrased for a named reader (product manager by default) with an ELI10 version, lettered options, and one recommended answer. Takes a role, as in `/qstack-ask-as-questions ceo`. Reads the conversation, not the plan. |

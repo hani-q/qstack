@@ -80,7 +80,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-pr` to get a finished branch ready for a human reviewer, write the handoff from evidence, and open the pull request only when asked.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
 - Use `/qstack-reflect [plan-dir ...]` to report how a project is actually being worked, from counts only.
-- Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply; omit the number for automatic length.
+- Use `/qstack-be-concise [lines]` to rewrite the previous answer briefly and simply as a bulleted list; omit the number for automatic length.
 - Use `/qstack-unslop` to remove AI writing patterns from the previous answer without losing useful detail.
 - Use `/qstack-explain-for [role] [product]` to rewrite the previous answer for a named reader such as a product manager, CEO, or CMO, optionally framed around a named product.
 - Use `/qstack-ask-as-questions [role]` to ask the open questions from the previous answer through the question tool, rephrased for a named reader with an ELI10 version, lettered options, and a recommendation.
