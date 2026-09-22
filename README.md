@@ -3,7 +3,7 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 31 skills into Claude Code, Codex, and any harness that
+result. QStack installs 33 skills into Claude Code, Codex, and any harness that
 reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
@@ -144,6 +144,7 @@ are doing. Explicit skills run only when you type them.
 | --- | --- | --- |
 | [`qstack-review`](skills/qstack-review/) | Explicit | Review a pull request, a branch against its base, or the working tree against a correctness baseline plus the repository's own `CODE_REVIEW_RULES.md`. Every finding carries a `path:line`, the consequence, and the smallest fix; the score is arithmetic over the severity counts, not chosen. Report-only. |
 | [`qstack-pr`](skills/qstack-pr/) | Explicit | Get a finished branch ready for a human reviewer. Checks it is shippable against the repository's own landing rules, then writes the handoff a reviewer reads before the diff: reading order, a change map in pseudocode, a diagram only where flow changed, test evidence from git history and a real run, and plan clause links when there was a plan. Shows the title and body, then asks before opening the pull request. Never pushes or merges. |
+| [`qstack-babysit-pr`](skills/qstack-babysit-pr/) | Automatic | Watch an existing PR through review and CI. Verify new bot findings, fix real issues within the original goal, and report when the latest head is green or blocked. Adapted from Theo Browne's "Babysit PR" skill. |
 
 ### Project reflection
 
