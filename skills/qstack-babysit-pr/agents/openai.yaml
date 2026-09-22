@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Babysit PR"
+  short_description: "Watch an existing PR through review and CI"
+  default_prompt: "Use $qstack-babysit-pr to watch this pull request until its latest head is ready or blocked."
+policy:
+  allow_implicit_invocation: true

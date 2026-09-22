@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.4.0] - 2026-09-22
+
+### Added
+
+* `/qstack-babysit-pr` watches an existing pull request through review and CI,
+  verifies bot findings against the source, fixes real issues within the
+  original goal, and reports when the latest head is green or blocked. Adapted
+  from Theo Browne's "Babysit PR" skill with a link to his explanation.
+
 ## [2.13.3.1] - 2026-09-21
 
 ### Changed
