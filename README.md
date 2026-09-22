@@ -39,7 +39,7 @@ score is arithmetic over the findings rather than a number a reviewer picks.
 **Memory that survives the session.** `/qstack-plan-close` writes what the work
 actually cost into `outcome.md`, and `/qstack-plan-prior-art` reads that folder
 before the next plan in the same area is drafted. None of it goes into
-`CLAUDE.md`. An always-loaded instruction file that grows with every shipped
+`AGENTS.md`. An always-loaded instruction file that grows with every shipped
 plan stops being read; a rule strong enough to bind everywhere belongs in a
 check, which is what `/qstack-encode-lessons-in-structure` builds.
 
@@ -212,22 +212,30 @@ are absent:
 
 | Harness | Skill directory | User-wide instructions |
 | --- | --- | --- |
-| Claude Code | `~/.claude/skills/` | `~/.claude/CLAUDE.md` |
-| Codex | `~/.codex/skills/` | `~/.codex/AGENTS.md` |
+| Claude Code | `~/.claude/skills/` | `~/AGENTS.md` |
+| Codex | `~/.codex/skills/` | `~/.codex/AGENTS.md` (same file as `~/AGENTS.md`) |
 | generic `agents` (Cline, Warp, Zed, ...) | `~/.agents/skills/` | N/A |
 
 Those paths match the ones the skills.sh CLI uses, so the two installers agree.
 
-The installer also maintains a `## General instructions` section and a small
-`## qstack` routing section in the user-wide instruction files, both wrapped in
-HTML comment markers. Re-running replaces only the marked block and preserves
-every other line. `./install --version` prints the release and the exact source
+The installer maintains a `## General instructions` section and a small
+`## qstack` routing section in one shared `AGENTS.md`, both wrapped in HTML
+comment markers. Re-running replaces only the marked blocks and preserves
+every other line. It links the file between the home directory and Codex's
+global path, preserving an existing Codex file as the source when present.
+It removes its old blocks from `~/.claude/CLAUDE.md`, deleting that file when
+only those blocks remain. It also sets Claude's project-instruction mode to
+read `AGENTS.md` alongside `CLAUDE.md`, so a project's own `CLAUDE.md` does not
+hide the shared file. It preserves the rest of Claude's settings and restores
+its setting on uninstall. Claude Code reads the home file for projects under
+the home directory. Projects outside the home directory need their own
+instructions. `./install --version` prints the release and the exact source
 revision.
 
 ### Requirements
 
-Bash and Python 3 for the plan renderer, the local plan server, and the
-`/qstack` listing. Node for board-event validation, which every skill that reads
+Bash and Python 3 for the installer, the plan renderer, the local plan server,
+and the `/qstack` listing. Node for board-event validation, which every skill that reads
 a board runs as `node --check` before trusting it. Git throughout;
 `/qstack-reflect` needs a Git repository and says so rather than guessing.
 
@@ -381,7 +389,7 @@ qstack/
 
 No Markdown is maintained after conversion, and none is written when the plan
 came from a conversation. Nothing in the cycle
-writes to `CLAUDE.md`: what a plan taught stays in its folder, where
+writes to `AGENTS.md`: what a plan taught stays in its folder, where
 `/qstack-plan-prior-art` reads it before the next plan in the same area.
 
 Serve the collection with `./qstack/scripts/serve.sh [port] [bind-address]` or

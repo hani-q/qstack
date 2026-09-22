@@ -3,7 +3,7 @@
 # Regression test for instruction-file rewriting in ./install.
 #
 # The interesting case is the *second* install: the first run creates
-# CLAUDE.md and AGENTS.md with a hardcoded mode, while every later run has to
+# AGENTS.md with a hardcoded mode, while every later run has to
 # read the existing file's permission bits and reapply them to the temporary
 # file it swaps in. Reading a file mode portably is the part that broke. GNU
 # stat and BSD stat spell it differently, and GNU stat fails dirtily when given
@@ -105,18 +105,28 @@ SHIM
 
 install_args=(--copy --without-matt-pocock --without-human-review)
 
-# Only harnesses whose config directory already exists are installed to, and a
-# symlinked CLAUDE.md is the dotfile-manager layout resolve_instruction_storage_path
-# exists to support. The mode lives on the target, not on the link.
+# Only harnesses whose config directory already exists are installed to. A
+# symlinked AGENTS.md exercises the dotfile-manager layout. A legacy Claude
+# symlink with personal content must survive while its qstack blocks go away.
 prepare_home() {
   local home="$1"
   mkdir -p "$home/.claude" "$home/.codex" "$home/dotfiles"
-  : > "$home/dotfiles/claude.md"
+  printf '{"theme":"dark"}\n' > "$home/.claude/settings.json"
+  printf '%s\n%s\n%s\n\n%s\n%s\n' \
+    '<!-- qstack:general-instructions:start -->' \
+    'Old general rules' \
+    '<!-- qstack:general-instructions:end -->' \
+    '<!-- qstack:instructions:start -->' \
+    '<!-- qstack:instructions:end -->' > "$home/dotfiles/claude.md"
+  printf '\n## Notes of my own\n\nKeep me.\n' >> "$home/dotfiles/claude.md"
   ln -s "$home/dotfiles/claude.md" "$home/.claude/CLAUDE.md"
+  : > "$home/dotfiles/agents.md"
+  ln -s "$home/dotfiles/agents.md" "$home/.codex/AGENTS.md"
 }
 
 strays_in() {
-  find "$1/.claude" "$1/.codex" -maxdepth 1 -name '*.qstack-*' -print
+  find "$1/.claude" "$1/.codex" -maxdepth 1 -name '*.qstack-*' \
+    ! -name '.qstack-installed-*' -print
 }
 
 run_install() {
@@ -133,6 +143,8 @@ run_case() {
   local claude="$home/.claude/CLAUDE.md"
   local target="$home/dotfiles/claude.md"
   local codex="$home/.codex/AGENTS.md"
+  local codex_target="$home/dotfiles/agents.md"
+  local shared="$home/AGENTS.md"
   local log="$WORK/$label.log"
 
   prepare_home "$home"
@@ -144,13 +156,18 @@ run_case() {
   fi
 
   [ -L "$claude" ] || { fail "[$label] first install replaced the CLAUDE.md symlink"; return; }
-  [ -s "$target" ] || { fail "[$label] first install did not write through to $target"; return; }
-  [ -f "$codex" ] || { fail "[$label] first install did not create $codex"; return; }
+  grep -Fq 'Keep me.' "$target" || { fail "[$label] first install dropped personal Claude content"; return; }
+  ! grep -Fq 'qstack:instructions:start' "$target" || fail "[$label] first install left legacy Claude instructions"
+  [ -f "$codex" ] || { fail "[$label] first install did not write $codex"; return; }
+  [ -L "$codex" ] || fail "[$label] first install replaced the AGENTS.md symlink"
+  [ -L "$shared" ] || fail "[$label] first install did not share AGENTS.md with Claude"
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["pluginConfigs"]["agents-md@builtin"]["options"]["instructionFiles"] == "claude-md-and-agents-md"' \
+    "$home/.claude/settings.json" || fail "[$label] Claude will skip AGENTS.md in projects with CLAUDE.md"
 
   # A user-chosen mode and surrounding content both have to survive a rerun.
   chmod 640 "$target"
-  chmod 600 "$codex"
-  printf '\n## Notes of my own\n\nKeep me.\n' >> "$target"
+  chmod 600 "$codex_target"
+  printf '\n## My Codex notes\n\nKeep this too.\n' >> "$codex_target"
 
   if ! run_install "$label" "$home" "$stat_dir" "$log"; then
     fail "[$label] second install exited non-zero"
@@ -159,6 +176,8 @@ run_case() {
   fi
 
   [ -L "$claude" ] || fail "[$label] second install replaced the CLAUDE.md symlink with a regular file"
+  [ -L "$codex" ] || fail "[$label] second install replaced the AGENTS.md symlink with a regular file"
+  [ -L "$shared" ] || fail "[$label] second install replaced the shared AGENTS.md symlink"
 
   local mode
   mode=$(mode_of "$target")
@@ -166,10 +185,11 @@ run_case() {
   mode=$(mode_of "$codex")
   [ "$mode" = "600" ] || fail "[$label] AGENTS.md mode became $mode, expected 600"
 
-  grep -Fq 'Keep me.' "$target" || fail "[$label] second install dropped user content"
+  grep -Fq 'Keep me.' "$target" || fail "[$label] second install dropped Claude user content"
+  grep -Fq 'Keep this too.' "$codex_target" || fail "[$label] second install dropped Codex user content"
 
   local count file
-  for file in "$target" "$codex"; do
+  for file in "$codex"; do
     count=$(grep -Fxc '<!-- qstack:instructions:start -->' "$file" || true)
     [ "$count" = "1" ] || fail "[$label] $(basename "$file") has $count command blocks, expected 1"
     count=$(grep -Fxc '<!-- qstack:general-instructions:start -->' "$file" || true)
@@ -196,7 +216,11 @@ run_case() {
   done
 
   grep -Fq 'Keep me.' "$target" || fail "[$label] uninstall dropped user content"
+  grep -Fq 'Keep this too.' "$codex_target" || fail "[$label] uninstall dropped Codex user content"
   [ -L "$claude" ] || fail "[$label] uninstall replaced the CLAUDE.md symlink"
+  [ ! -e "$shared" ] || fail "[$label] uninstall left the shared AGENTS.md symlink"
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d == {"theme":"dark"}' \
+    "$home/.claude/settings.json" || fail "[$label] uninstall did not restore Claude settings"
 
   mode=$(mode_of "$target")
   [ "$mode" = "640" ] || fail "[$label] symlink target mode became $mode after uninstall, expected 640"
@@ -246,6 +270,139 @@ run_refusal_case() {
   echo "ok: $label"
 }
 
+run_regular_legacy_case() {
+  local home="$WORK/home regular-legacy" log="$WORK/regular-legacy.log"
+  prepare_home "$home"
+  rm "$home/.claude/CLAUDE.md"
+  printf '%s\n%s\n%s\n' \
+    '<!-- qstack:general-instructions:start -->' \
+    'Old instructions' \
+    '<!-- qstack:general-instructions:end -->' > "$home/.claude/CLAUDE.md"
+  if ! run_install regular-legacy "$home" "" "$log"; then
+    fail '[regular-legacy] install exited non-zero'
+    return
+  fi
+  [ ! -e "$home/.claude/CLAUDE.md" ] \
+    || fail '[regular-legacy] qstack-only CLAUDE.md was not removed'
+}
+
+run_claude_only_case() {
+  local home="$WORK/home claude-only" log="$WORK/claude-only.log"
+  mkdir -p "$home/.claude"
+  if ! run_install claude-only "$home" "" "$log"; then
+    fail '[claude-only] install exited non-zero'
+    return
+  fi
+  [ -f "$home/AGENTS.md" ] || fail '[claude-only] shared AGENTS.md was not created'
+  grep -Fq '<!-- qstack:instructions:start -->' "$home/AGENTS.md" \
+    || fail '[claude-only] qstack instructions were not installed'
+}
+
+run_fresh_shared_case() {
+  local home="$WORK/home fresh-shared" log="$WORK/fresh-shared.log"
+  mkdir -p "$home/.claude" "$home/.codex"
+  if ! run_install fresh-shared "$home" "" "$log"; then
+    fail '[fresh-shared] install exited non-zero'
+    return
+  fi
+  [ -f "$home/AGENTS.md" ] || fail '[fresh-shared] home AGENTS.md was not created'
+  [ -L "$home/.codex/AGENTS.md" ] || fail '[fresh-shared] Codex AGENTS.md was not linked'
+  [ "$(readlink "$home/.codex/AGENTS.md")" = "$home/AGENTS.md" ] \
+    || fail '[fresh-shared] Codex link does not point to the shared file'
+  if ! run_install fresh-shared "$home" "" "$log" --uninstall; then
+    fail '[fresh-shared] uninstall exited non-zero'
+    return
+  fi
+  [ ! -e "$home/.codex/AGENTS.md" ] || fail '[fresh-shared] uninstall left the Codex link'
+}
+
+run_conflict_case() {
+  local home="$WORK/home conflict" log="$WORK/conflict.log"
+  mkdir -p "$home/.claude" "$home/.codex"
+  printf 'Home notes.\n' > "$home/AGENTS.md"
+  printf 'Codex notes.\n' > "$home/.codex/AGENTS.md"
+  if run_install conflict "$home" "" "$log"; then
+    fail '[conflict] installer accepted separate instruction files'
+    return
+  fi
+  [ "$(cat "$home/AGENTS.md")" = 'Home notes.' ] \
+    || fail '[conflict] installer changed home instructions'
+  [ "$(cat "$home/.codex/AGENTS.md")" = 'Codex notes.' ] \
+    || fail '[conflict] installer changed Codex instructions'
+}
+
+run_hard_link_case() {
+  local home="$WORK/home hard-link" log="$WORK/hard-link.log"
+  mkdir -p "$home/.claude" "$home/.codex"
+  printf 'Shared notes.\n' > "$home/AGENTS.md"
+  ln "$home/AGENTS.md" "$home/.codex/AGENTS.md"
+  if run_install hard-link "$home" "" "$log"; then
+    fail '[hard-link] installer accepted links that its atomic rewrite would split'
+    return
+  fi
+  [ "$(cat "$home/AGENTS.md")" = 'Shared notes.' ] \
+    || fail '[hard-link] installer changed home instructions'
+  [ "$(cat "$home/.codex/AGENTS.md")" = 'Shared notes.' ] \
+    || fail '[hard-link] installer changed Codex instructions'
+}
+
+run_relative_link_case() {
+  local home="$WORK/home relative-link" log="$WORK/relative-link.log"
+  prepare_home "$home"
+  rm "$home/.codex/AGENTS.md"
+  ln -s ../dotfiles/agents.md "$home/.codex/AGENTS.md"
+  if ! run_install relative-link "$home" "" "$log" \
+     || ! run_install relative-link "$home" "" "$log"; then
+    fail '[relative-link] installer treated two paths to one file as a conflict'
+  fi
+}
+
+run_generic_only_case() {
+  local home="$WORK/home generic-only" log="$WORK/generic-only.log"
+  mkdir -p "$home/.agents"
+  if ! run_install generic-only "$home" "" "$log"; then
+    fail '[generic-only] install exited non-zero'
+    return
+  fi
+  [ ! -e "$home/AGENTS.md" ] || fail '[generic-only] installer wrote instructions for an absent harness'
+}
+
+run_symlinked_settings_case() {
+  local home="$WORK/home symlinked-settings" log="$WORK/symlinked-settings.log"
+  prepare_home "$home"
+  mv "$home/.claude/settings.json" "$home/dotfiles/settings.json"
+  ln -s "$home/dotfiles/settings.json" "$home/.claude/settings.json"
+  if ! run_install symlinked-settings "$home" "" "$log"; then
+    fail '[symlinked-settings] install exited non-zero'
+    return
+  fi
+  [ -L "$home/.claude/settings.json" ] \
+    || fail '[symlinked-settings] install replaced the settings symlink'
+  if ! run_install symlinked-settings "$home" "" "$log" --uninstall; then
+    fail '[symlinked-settings] uninstall exited non-zero'
+    return
+  fi
+  [ -L "$home/.claude/settings.json" ] \
+    || fail '[symlinked-settings] uninstall replaced the settings symlink'
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"theme":"dark"}' \
+    "$home/dotfiles/settings.json" || fail '[symlinked-settings] uninstall did not restore settings'
+}
+
+run_settings_conflict_case() {
+  local home="$WORK/home settings-conflict" log="$WORK/settings-conflict.log"
+  prepare_home "$home"
+  printf '%s\n' '{"pluginConfigs":{"agents-md@builtin":{"options":{"instructionFiles":"claude-md"}}}}' \
+    > "$home/.claude/settings.json"
+  if run_install settings-conflict "$home" "" "$log"; then
+    fail '[settings-conflict] installer overrode the selected Claude mode'
+    return
+  fi
+  [ ! -e "$home/AGENTS.md" ] \
+    || fail '[settings-conflict] installer created a link before rejecting Claude settings'
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["pluginConfigs"]["agents-md@builtin"]["options"]["instructionFiles"] == "claude-md"' \
+    "$home/.claude/settings.json" || fail '[settings-conflict] installer changed Claude settings'
+}
+
 make_bsd_stat "$WORK/bin-bsd"
 make_gnu_stat "$WORK/bin-gnu"
 make_no_stat "$WORK/bin-none"
@@ -254,6 +411,15 @@ run_case system
 run_case bsd-stat "$WORK/bin-bsd"
 run_case gnu-stat "$WORK/bin-gnu"
 run_refusal_case
+run_regular_legacy_case
+run_claude_only_case
+run_fresh_shared_case
+run_conflict_case
+run_hard_link_case
+run_relative_link_case
+run_generic_only_case
+run_symlinked_settings_case
+run_settings_conflict_case
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures instruction-file check(s) failed." >&2

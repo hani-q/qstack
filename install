@@ -43,11 +43,11 @@ HARNESSES=(
   "$QSTACK_INSTALL_HOME/.agents:$QSTACK_INSTALL_HOME/.agents/skills:agents (generic)"
 )
 
-# User-wide instruction files for harnesses that support them. qstack owns only
-# the marked block inside each file; all surrounding content is preserved.
+# One user-wide instruction file for Claude Code and Codex. Claude reads it as
+# an ancestor of projects under the home directory; Codex reads it through its
+# global ~/.codex/AGENTS.md path. qstack owns only the marked blocks.
 INSTRUCTION_FILES=(
-  "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/CLAUDE.md:Claude Code"
-  "$QSTACK_INSTALL_HOME/.codex:$QSTACK_INSTALL_HOME/.codex/AGENTS.md:Codex"
+  "$QSTACK_INSTALL_HOME:$QSTACK_INSTALL_HOME/AGENTS.md:Shared"
 )
 GENERAL_INSTRUCTIONS_SOURCE="$REPO/GENERAL_INSTRUCTIONS.md"
 GENERAL_INSTRUCTIONS_START='<!-- qstack:general-instructions:start -->'
@@ -376,7 +376,7 @@ file_mode() {
 }
 
 # Update the file a symlink points to instead of replacing the symlink itself.
-# This preserves dotfile-manager layouts such as ~/.claude/CLAUDE.md -> repo/file.
+# This preserves dotfile-manager layouts such as ~/.codex/AGENTS.md -> repo/file.
 resolve_instruction_storage_path() {
   local current="$1" link hops=0
   while [ -L "$current" ]; do
@@ -392,6 +392,13 @@ resolve_instruction_storage_path() {
     esac
   done
   printf '%s\n' "$current"
+}
+
+canonical_instruction_storage_path() {
+  local storage directory
+  storage=$(resolve_instruction_storage_path "$1") || return 1
+  directory=$(cd -P "$(dirname "$storage")" && pwd -P) || return 1
+  printf '%s/%s\n' "$directory" "$(basename "$storage")"
 }
 
 update_instruction_file() {
@@ -511,6 +518,80 @@ remove_instruction_file_block() {
   chmod "$mode" "$final_temp"
   mv "$final_temp" "$storage"
   echo "      removed qstack general and command instructions ($label)"
+}
+
+remove_legacy_claude_instructions() {
+  local file="$QSTACK_INSTALL_HOME/.claude/CLAUDE.md" storage
+  [ -d "$QSTACK_INSTALL_HOME/.claude" ] || return 0
+  storage=$(resolve_instruction_storage_path "$file") || return 1
+  [ -f "$storage" ] || return 0
+  if ! grep -Fqx "$GENERAL_INSTRUCTIONS_START" "$storage" \
+     && ! grep -Fqx "$INSTRUCTIONS_START" "$storage"; then
+    return 0
+  fi
+  remove_instruction_file_block "$file" "retired Claude Code instructions" || return 1
+  # A regular file containing only qstack's old blocks belongs to qstack.
+  # Leave symlinks and any personal content in place.
+  if [ "$DRY" -eq 0 ] && [ ! -L "$file" ] \
+     && ! grep -q '[^[:space:]]' "$storage"; then
+    rm -f "$file"
+    echo "      removed empty $file"
+  fi
+}
+
+ensure_shared_agents_file() {
+  local shared="$QSTACK_INSTALL_HOME/AGENTS.md" shared_storage codex_storage
+  local codex="$QSTACK_INSTALL_HOME/.codex/AGENTS.md"
+  local home_marker="$QSTACK_INSTALL_HOME/.qstack-installed-home-agents-link"
+  local codex_marker="$QSTACK_INSTALL_HOME/.codex/.qstack-installed-agents-link"
+  [ -d "$QSTACK_INSTALL_HOME/.claude" ] || [ -d "$QSTACK_INSTALL_HOME/.codex" ] || return 0
+
+  if [ "$MODE" = uninstall ]; then
+    if [ ! -e "$shared" ] && [ -f "$codex" ]; then
+      remove_instruction_file_block "$codex" "Codex" || return 1
+    fi
+    if [ -f "$home_marker" ] && [ -L "$shared" ] \
+       && [ "$(readlink "$shared")" = "$codex" ]; then
+      run rm "$shared" "$home_marker"
+    fi
+    if [ -f "$codex_marker" ] && [ -L "$codex" ] \
+       && [ "$(readlink "$codex")" = "$shared" ]; then
+      run rm "$codex" "$codex_marker"
+    fi
+    return 0
+  fi
+
+  [ -d "$QSTACK_INSTALL_HOME/.codex" ] || return 0
+  if { [ -e "$shared" ] || [ -L "$shared" ]; } \
+     && { [ -e "$codex" ] || [ -L "$codex" ]; }; then
+    shared_storage=$(canonical_instruction_storage_path "$shared") || return 1
+    codex_storage=$(canonical_instruction_storage_path "$codex") || return 1
+    if [ "$shared_storage" != "$codex_storage" ]; then
+      echo "qstack: $shared and $codex are separate files; merge them before installing shared instructions" >&2
+      return 1
+    fi
+  elif { [ -e "$codex" ] || [ -L "$codex" ]; } \
+       && [ ! -e "$shared" ] && [ ! -L "$shared" ]; then
+    run ln -s "$codex" "$shared"
+    run touch "$home_marker"
+  elif { [ -e "$shared" ] || [ -L "$shared" ]; } \
+       && [ ! -e "$codex" ] && [ ! -L "$codex" ]; then
+    run ln -s "$shared" "$codex"
+    run touch "$codex_marker"
+  fi
+}
+
+manage_claude_instruction_mode() {
+  local action
+  [ -d "$QSTACK_INSTALL_HOME/.claude" ] || return 0
+  if [ "$MODE" = uninstall ]; then
+    action=uninstall
+  else
+    action=install
+  fi
+  [ "$DRY" -eq 0 ] || action="dry-$action"
+  python3 "$REPO/scripts/manage-claude-instruction-mode" \
+    "$action" "$QSTACK_INSTALL_HOME/.claude"
 }
 
 # qstack also offers a few outside collections. Each optional collection below
@@ -706,8 +787,20 @@ done
 
 echo
 echo "instructions"
+if [ "$MODE" != uninstall ] && [ -d "$QSTACK_INSTALL_HOME/.claude" ]; then
+  python3 "$REPO/scripts/manage-claude-instruction-mode" \
+    dry-install "$QSTACK_INSTALL_HOME/.claude" >/dev/null
+fi
+[ "$MODE" = uninstall ] || ensure_shared_agents_file
+[ "$MODE" = uninstall ] || manage_claude_instruction_mode
+remove_legacy_claude_instructions
 for entry in "${INSTRUCTION_FILES[@]}"; do
   IFS=: read -r home file label <<<"$entry"
+  if [ ! -d "$QSTACK_INSTALL_HOME/.claude" ] \
+     && [ ! -d "$QSTACK_INSTALL_HOME/.codex" ]; then
+    echo "     Shared instructions  no Claude Code or Codex, skipping"
+    continue
+  fi
   if [ ! -d "$home" ]; then
     printf '     %-18s not installed, skipping\n' "$label"
     continue
@@ -719,6 +812,8 @@ for entry in "${INSTRUCTION_FILES[@]}"; do
     *)         update_instruction_file "$file" "$label" ;;
   esac
 done
+ensure_shared_agents_file
+[ "$MODE" != uninstall ] || manage_claude_instruction_mode
 
 echo
 if [ "$installed" -eq 0 ]; then

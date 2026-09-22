@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.5.0] - 2026-09-22
+
+### Changed
+
+* The installer now gives Claude Code and Codex one shared `AGENTS.md`, removes
+  QStack's retired blocks from `~/.claude/CLAUDE.md`, and enables Claude to read
+  `AGENTS.md` alongside project `CLAUDE.md` files. General and repository
+  instructions are shorter while keeping the requested writing rules.
+
 ## [2.13.4.0] - 2026-09-22
 
 ### Added
