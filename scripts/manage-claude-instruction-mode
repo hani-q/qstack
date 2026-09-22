@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Keep Claude's AGENTS.md loader enabled when projects also have CLAUDE.md."""
+
+import json
+import os
+import stat
+import sys
+import tempfile
+from pathlib import Path
+
+MODE = "claude-md-and-agents-md"
+PLUGIN = "agents-md@builtin"
+
+
+def write_json(path: Path, data: dict) -> None:
+    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644
+    fd, temp = tempfile.mkstemp(prefix=f".{path.name}.qstack-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as output:
+            json.dump(data, output, indent=2)
+            output.write("\n")
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
+
+
+def main() -> int:
+    action, config_dir = sys.argv[1:3]
+    if action not in {"install", "uninstall", "dry-install", "dry-uninstall"}:
+        raise ValueError(f"unknown action: {action}")
+    # Replace the symlink target, not a dotfile manager's link in ~/.claude.
+    settings_link = Path(config_dir) / "settings.json"
+    settings = settings_link.resolve()
+    marker = Path(config_dir) / ".qstack-installed-agents-md-mode"
+    had_path = settings_link.exists() or settings_link.is_symlink()
+    data = json.loads(settings.read_text()) if settings.exists() else {}
+    if not isinstance(data, dict):
+        raise ValueError(f"settings must be an object in {settings}")
+    plugins = data.get("pluginConfigs", {})
+    if not isinstance(plugins, dict):
+        raise ValueError(f"pluginConfigs is not an object in {settings}")
+    plugin = plugins.get(PLUGIN, {})
+    if not isinstance(plugin, dict):
+        raise ValueError(f"{PLUGIN} is not an object in {settings}")
+    options = plugin.get("options", {})
+    if not isinstance(options, dict):
+        raise ValueError(f"{PLUGIN}.options is not an object in {settings}")
+    current = options.get("instructionFiles")
+
+    if action in {"install", "dry-install"}:
+        legacy = options.get("projectInstructions")
+        if current not in (None, MODE) or (current is None and legacy not in (None, "both")):
+            raise ValueError(
+                f"{settings} already selects a different Claude instruction mode; "
+                "set it to claude-md-and-agents-md to share QStack's AGENTS.md"
+            )
+        if current == MODE:
+            return 0
+        if action == "dry-install":
+            print(f"      would: enable Claude AGENTS.md alongside CLAUDE.md in {settings}")
+            return 0
+        options["instructionFiles"] = MODE
+        plugin["options"] = options
+        plugins[PLUGIN] = plugin
+        data["pluginConfigs"] = plugins
+        write_json(settings, data)
+        marker.write_text("created\n" if not had_path else "existing\n")
+        print("      enabled Claude AGENTS.md alongside CLAUDE.md")
+        return 0
+
+    if not marker.exists():
+        return 0
+    if action == "dry-uninstall":
+        print(f"      would: remove QStack's Claude instruction mode from {settings}")
+        return 0
+    if current == MODE:
+        del options["instructionFiles"]
+        if not options:
+            plugin.pop("options", None)
+        if not plugin:
+            plugins.pop(PLUGIN, None)
+        if not plugins:
+            data.pop("pluginConfigs", None)
+        if marker.read_text().strip() == "created" and not data:
+            settings.unlink()
+        else:
+            write_json(settings, data)
+        print("      removed QStack's Claude instruction mode")
+    marker.unlink()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"qstack: {error}", file=sys.stderr)
+        raise SystemExit(1)
