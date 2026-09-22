@@ -311,7 +311,7 @@ qstack/                              ← this repo, anywhere on disk
 └── skills/                          ← the layout skills.sh discovers
     ├── qstack/SKILL.md
     ├── qstack-next/SKILL.md
-    ├── ...                          ← one directory per skill, 31 in total
+    ├── ...                          ← one directory per skill
     ├── qstack-how/
     │   ├── SKILL.md
     │   └── references/              ← exploration, explanation, critique
