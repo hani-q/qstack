@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.13.6.0] - 2026-10-02
+
+### Added
+
+* `/qstack-ste [level]` rewrites the previous answer in ASD-STE100 Simplified
+  Technical English, keeping every fact, the same reader, and roughly the same
+  length. The level from 1 to 100 snaps to three tiers: light applies the seven
+  rules that matched real confusion in a week of transcripts, standard adds the
+  sentence limits and verb rules, full adds the approved-word dictionary. It
+  fires on its own when the user quotes the last answer back or says they do
+  not understand it without asking anything new, and steps aside when the gap
+  is in the idea rather than the wording.
+
 ## [2.13.5.0] - 2026-09-22
 
 ### Changed

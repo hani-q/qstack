@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack STE"
+  short_description: "Rewrite the last answer in Simplified Technical English"
+  default_prompt: "Use $qstack-ste to rewrite your last answer in ASD-STE100 Simplified Technical English at level 80, keeping every fact, the same reader, and roughly the same length."
+policy:
+  allow_implicit_invocation: true

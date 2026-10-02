@@ -1,6 +1,6 @@
 ---
 name: qstack-explain-for
-description: Rewrite the immediately previous assistant answer for a named reader, such as a product manager, CEO, or CMO, optionally framed around a named product. Use when the user invokes `/qstack-explain-for [role] [product]`, says the last answer is too technical, too low level, or too narrow, says they do not understand it, or asks for it at a higher level, in simpler words, or from a role's or product's point of view.
+description: Rewrite the immediately previous assistant answer for a named reader, such as a product manager, CEO, or CMO, optionally framed around a named product. Use when the user invokes `/qstack-explain-for [role] [product]`, says the last answer is too technical, too low level, or too narrow, or asks for it at a higher level, in simpler words, or from a role's or product's point of view. A plain "I don't understand" with no reader, level, or length named belongs to `/qstack-ste`.
 ---
 
 # /qstack-explain-for
