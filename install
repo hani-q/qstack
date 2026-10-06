@@ -12,6 +12,10 @@
 #   ./install --without-matt-pocock   skip that optional installation
 #   ./install --with-human-review     install human-review too
 #   ./install --without-human-review  skip that optional installation
+#   ./install --with-security-audit     install Cloudflare's security-audit skill too
+#   ./install --without-security-audit  skip that optional installation
+#   ./install --with-trail-of-bits      install the Trail of Bits security skills too
+#   ./install --without-trail-of-bits   skip that optional installation
 #   ./install --yes, -y    accept every optional collection without prompting
 #   ./install --version    print the release version and exact Git revision
 #
@@ -77,6 +81,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
 - Use `/qstack-review` to review a pull request, a branch, or the working tree against a correctness baseline plus the repository rules in `CODE_REVIEW_RULES.md`, and report findings with a computed score.
+- Use `/qstack-security-review` to review a change, a directory, or the repository for exploitable security defects, choosing which installed security skills to run, and report findings with a computed score.
 - Use `/qstack-pr` to get a finished branch ready for a human reviewer, write the handoff from evidence, and open the pull request only when asked.
 - Use `/qstack-babysit-pr` when asked to watch an existing pull request through review and CI.
 - Use `/qstack-serve-plans [address] [port]` to serve the current repository plan collection locally.
@@ -103,6 +108,8 @@ MODE=link
 DRY=0
 MATT_POCOCK_SKILLS=ask
 HUMAN_REVIEW_SKILL=ask
+SECURITY_AUDIT_SKILL=ask
+TRAIL_OF_BITS_SKILLS=ask
 
 for arg in "$@"; do
   case "$arg" in
@@ -113,9 +120,14 @@ for arg in "$@"; do
     --without-matt-pocock)   MATT_POCOCK_SKILLS=no ;;
     --with-human-review)     HUMAN_REVIEW_SKILL=yes ;;
     --without-human-review)  HUMAN_REVIEW_SKILL=no ;;
-    -y|--yes)                MATT_POCOCK_SKILLS=yes; HUMAN_REVIEW_SKILL=yes ;;
+    --with-security-audit)   SECURITY_AUDIT_SKILL=yes ;;
+    --without-security-audit) SECURITY_AUDIT_SKILL=no ;;
+    --with-trail-of-bits)    TRAIL_OF_BITS_SKILLS=yes ;;
+    --without-trail-of-bits) TRAIL_OF_BITS_SKILLS=no ;;
+    -y|--yes)                MATT_POCOCK_SKILLS=yes; HUMAN_REVIEW_SKILL=yes
+                             SECURITY_AUDIT_SKILL=yes; TRAIL_OF_BITS_SKILLS=yes ;;
     --version)               echo "qstack $QSTACK_BUILD"; exit 0 ;;
-    -h|--help)               sed -n '3,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)               sed -n '3,/^# Link installs/{/^# Link installs/!p}' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
     *)                       echo "qstack: unknown option '$arg'" >&2; exit 2 ;;
   esac
 done
@@ -682,13 +694,68 @@ install_human_review() {
   return "$rc"
 }
 
+# Security skills from outside collections, each pinned to a reviewed commit.
+# The skills CLI accepts a GitHub tree URL at a commit, so a commit that does
+# not exist upstream fails the clone rather than silently installing main. It
+# records the repository as `source` in ~/.agents/.skill-lock.json, which is
+# how the listing script in skills/qstack recognises the skills afterwards.
+#
+# Without a terminal the CLI is told which harnesses to write to, from the same
+# directories this installer found, and told not to prompt. Left to itself it
+# asks, and a scripted run would hang or cancel after QStack had already
+# accepted the collection. With a terminal its own prompts stay, so the
+# interactive path is unchanged. The result lands in SKILLS_CLI_ARGS, which
+# may be empty; callers expand it with the ${a[@]+"${a[@]}"} form so that an
+# empty array is no error under set -u on Bash 3.2, which macOS still ships.
+SKILLS_CLI_ARGS=()
+skills_cli_args() {
+  SKILLS_CLI_ARGS=()
+  [ -t 0 ] && return 0
+  SKILLS_CLI_ARGS+=(--yes)
+  [ -d "$QSTACK_INSTALL_HOME/.claude" ] && SKILLS_CLI_ARGS+=(--agent claude-code)
+  [ -d "$QSTACK_INSTALL_HOME/.codex" ] && SKILLS_CLI_ARGS+=(--agent codex)
+  [ -d "$QSTACK_INSTALL_HOME/.agents" ] && SKILLS_CLI_ARGS+=(--agent universal)
+  return 0
+}
+
+install_matt_pocock() {
+  skills_cli_args
+  npx skills@latest add mattpocock/skills --global ${SKILLS_CLI_ARGS[@]+"${SKILLS_CLI_ARGS[@]}"}
+}
+
+#   install_pinned_skills <owner/repo> <commit> <skill...>
+install_pinned_skills() {
+  local repo="$1" commit="$2" args=() name
+  shift 2
+  for name in "$@"; do
+    args+=(--skill "$name")
+  done
+  skills_cli_args
+  npx skills@latest add "https://github.com/$repo/tree/$commit" --global \
+    "${args[@]}" ${SKILLS_CLI_ARGS[@]+"${SKILLS_CLI_ARGS[@]}"}
+}
+
+SECURITY_AUDIT_COMMIT=c1c8a8c1471069fb0e188eeaff69b8e8db6564a8
+TRAIL_OF_BITS_COMMIT=82fe8226252622fa807643bdca1710901198553a
+# The skills from that repository that review application code and run from
+# their own directory alone. The rest are smart-contract scanners, research
+# tooling, or Claude Code plugins whose SKILL.md dispatches to agents and
+# workflows outside the skill directory, which the skills CLI does not copy:
+# audit-context-building, differential-review, fp-check, variant-analysis,
+# semgrep, and codeql are in that last group at the pinned commit.
+TRAIL_OF_BITS_SKILLS_LIST=(
+  entry-point-analyzer
+  supply-chain-risk-auditor
+  sarif-parsing
+)
+
 # One collection failing must not cancel the ones after it, but the installer
 # still exits non-zero so a scripted run can see that something was missed.
 install_optional_collections() {
   local failed=0
 
   install_optional_collection "$MATT_POCOCK_SKILLS" "Matt Pocock's skills" \
-    npx skills@latest add mattpocock/skills --global || failed=1
+    install_matt_pocock || failed=1
 
   # From the source tag, not the npm package. The published release only
   # installs a Claude Code skill, while Codex and ~/.agents support exists in
@@ -699,6 +766,12 @@ install_optional_collections() {
   # which binds what runs to the reviewed commit.
   install_optional_collection "$HUMAN_REVIEW_SKILL" "human-review (browser editing and comments)" \
     install_human_review || failed=1
+
+  install_optional_collection "$SECURITY_AUDIT_SKILL" "Cloudflare's security-audit skill (whole-codebase audits)" \
+    install_pinned_skills cloudflare/security-audit-skill "$SECURITY_AUDIT_COMMIT" security-audit || failed=1
+
+  install_optional_collection "$TRAIL_OF_BITS_SKILLS" "Trail of Bits security skills (${#TRAIL_OF_BITS_SKILLS_LIST[@]} of the set, CC BY-SA 4.0)" \
+    install_pinned_skills trailofbits/skills "$TRAIL_OF_BITS_COMMIT" "${TRAIL_OF_BITS_SKILLS_LIST[@]}" || failed=1
 
   return "$failed"
 }

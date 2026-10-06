@@ -103,7 +103,9 @@ SHIM
   chmod +x "$dir/stat"
 }
 
-install_args=(--copy --without-matt-pocock --without-human-review)
+# Closed stdin is the scripted-install path: ask mode then installs no
+# optional collection, so no --without- flag is needed per collection.
+install_args=(--copy)
 
 # Only harnesses whose config directory already exists are installed to. A
 # symlinked AGENTS.md exercises the dotfile-manager layout. A legacy Claude
@@ -134,7 +136,7 @@ run_install() {
   local path="$PATH"
   [ -n "$stat_dir" ] && path="$stat_dir:$PATH"
   shift 4
-  PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${install_args[@]}" "$@" >"$log" 2>&1
+  PATH="$path" QSTACK_INSTALL_HOME="$home" "$REPO/install" "${install_args[@]}" "$@" >"$log" 2>&1 </dev/null
 }
 
 run_case() {

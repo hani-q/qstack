@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""Print every skill QStack manages, one per line.
+
+Columns, tab-separated: collection, name, path to SKILL.md, description.
+Reads the skills directories and the skills.sh lock file at the moment it
+runs, so nothing here goes stale.
+"""
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+
+HOME = os.path.expanduser("~")
+SKILL_DIRS = (".claude/skills", ".codex/skills", ".agents/skills")
+UNIVERSAL = os.path.join(HOME, ".agents", "skills")
+
+# Source recorded in the skills.sh lock file by that CLI, which is how
+# QStack's installer adds these collections, mapped to the label shown.
+COLLECTIONS = {
+    "mattpocock/skills": "Matt Pocock",
+    "cloudflare/security-audit-skill": "Cloudflare",
+    "trailofbits/skills": "Trail of Bits",
+}
+
+ORDER = {"qstack": 0, "human-review": 1}
+
+
+def lock_path():
+    """Where the skills.sh CLI keeps its lock file: its own rule, copied."""
+    xdg = os.environ.get("XDG_STATE_HOME")
+    if xdg:
+        return os.path.join(xdg, "skills", ".skill-lock.json")
+    return os.path.join(HOME, ".agents", ".skill-lock.json")
+
+
+def description(path):
+    lines = open(path, encoding="utf-8").read().splitlines()
+    if not lines or lines[0] != "---":
+        return ""
+    out, folded = [], False
+    for line in lines[1:]:
+        if line == "---":
+            break
+        if folded:
+            if line[:1].isspace():
+                out.append(line.strip())
+                continue
+            break
+        m = re.match(r"^description:\s*(.*)$", line)
+        if m:
+            value = m.group(1).strip()
+            if value in ("", ">", "|", ">-", "|-"):
+                folded = True
+            else:
+                return value.strip('"')
+    return " ".join(out)
+
+
+# The skills.sh CLI sorts paths with JavaScript's localeCompare, which is ICU
+# root collation. Node reproduces it exactly, so it is used when present; the
+# CLI itself runs on Node, so a machine that wrote the lock file has it.
+NODE_FOLDER_HASH = r"""
+const { createHash } = require("node:crypto");
+const { readdirSync, readFileSync } = require("node:fs");
+const { join, relative } = require("node:path");
+function collect(base, dir, out) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) { if (e.name !== ".git" && e.name !== "node_modules") collect(base, full, out); }
+    else if (e.isFile()) out.push({ rel: relative(base, full).split("\\").join("/"), data: readFileSync(full) });
+  }
+}
+const files = []; collect(process.argv[1], process.argv[1], files);
+files.sort((a, b) => a.rel.localeCompare(b.rel));
+const h = createHash("sha256");
+for (const f of files) { h.update(f.rel); h.update(f.data); }
+process.stdout.write(h.digest("hex"));
+"""
+
+# Without Node, an approximation of ICU root collation for ASCII paths:
+# punctuation in DUCET order, then digits, then letters case-insensitively,
+# lower case first on a tie. Every candidate ordering is hashed, because a
+# match on any ordering still proves the same paths and bytes.
+ICU_PUNCTUATION = " \t_-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$"
+
+
+def icu_key(path):
+    primary = []
+    for ch in path:
+        if ch in ICU_PUNCTUATION:
+            primary.append((0, ICU_PUNCTUATION.index(ch)))
+        elif ch.isdigit():
+            primary.append((1, ord(ch)))
+        else:
+            primary.append((2, ord(ch.lower())))
+    return (primary, path.swapcase())
+
+
+def folder_sha256_candidates(directory):
+    """The skills.sh CLI's fallback skillFolderHash: SHA-256 over every file
+    under the directory, skipping .git and node_modules, each as its relative
+    path then its bytes, in localeCompare order."""
+    if shutil.which("node"):
+        run = subprocess.run(["node", "-e", NODE_FOLDER_HASH, directory],
+                             capture_output=True, text=True)
+        if run.returncode == 0:
+            return {run.stdout.strip()}
+    files = []
+    for root, dirs, names in os.walk(directory):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
+        for name in names:
+            full = os.path.join(root, name)
+            if os.path.isfile(full):
+                rel = os.path.relpath(full, directory).replace(os.sep, "/")
+                files.append((rel, open(full, "rb").read()))
+    out = set()
+    for key in (lambda f: icu_key(f[0]), lambda f: f[0], lambda f: f[0].lower()):
+        h = hashlib.sha256()
+        for rel, data in sorted(files, key=key):
+            h.update(rel.encode())
+            h.update(data)
+        out.add(h.hexdigest())
+    return out
+
+
+def git_tree_hash(directory):
+    """The Git tree id of a directory, as GitHub reports it for the upstream
+    skill folder and the skills.sh CLI records it as skillFolderHash when the
+    GitHub tree fetch succeeded."""
+    entries = []
+    for name in os.listdir(directory):
+        full = os.path.join(directory, name)
+        if os.path.isdir(full):
+            entries.append((name + "/", b"40000", name, bytes.fromhex(git_tree_hash(full))))
+        else:
+            data = open(full, "rb").read()
+            blob = hashlib.sha1(b"blob %d\0" % len(data) + data).digest()
+            mode = b"100755" if os.access(full, os.X_OK) else b"100644"
+            entries.append((name, mode, name, blob))
+    body = b"".join(mode + b" " + name.encode() + b"\0" + sha
+                    for _, mode, name, sha in sorted(entries))
+    return hashlib.sha1(b"tree %d\0" % len(body) + body).hexdigest()
+
+
+def collection(name, sources):
+    if name == "qstack" or name.startswith("qstack-"):
+        return "qstack"
+    # human-review is installed by its own CLI, so the lock file never lists it.
+    if name == "human-review":
+        return "human-review"
+    return COLLECTIONS.get(sources.get(name, {}).get("source"))
+
+
+def verified_copy(name, md, entry):
+    """The copy of a collection skill that the lock entry describes, or None.
+
+    A lock entry names the skill, not a path, so a same-named directory a
+    harness picked up from elsewhere must not inherit the entry's provenance.
+    The CLI's canonical copy under ~/.agents/skills is taken as its own. Any
+    other copy, which is what the CLI's copy mode writes, is taken only when
+    it hashes to the skillFolderHash the entry recorded: GitHub's Git tree id
+    of the upstream folder, or the CLI's own SHA-256 of the clone when that
+    fetch failed.
+    """
+    canonical = os.path.join(UNIVERSAL, name, "SKILL.md")
+    if os.path.isfile(canonical):
+        return canonical
+    recorded = entry.get("skillFolderHash", "")
+    folder = os.path.dirname(md)
+    if len(recorded) == 40 and git_tree_hash(folder) == recorded:
+        return md
+    if len(recorded) == 64 and recorded in folder_sha256_candidates(folder):
+        return md
+    return None
+
+
+def main():
+    sources = {}
+    if os.path.isfile(lock_path()):
+        sources = json.load(open(lock_path())).get("skills", {})
+    seen, rows = set(), []
+    for d in SKILL_DIRS:
+        root = os.path.join(HOME, d)
+        if not os.path.isdir(root):
+            continue
+        for name in sorted(os.listdir(root)):
+            md = os.path.join(root, name, "SKILL.md")
+            if name in seen or not os.path.isfile(md):
+                continue
+            group = collection(name, sources)
+            if group is None:
+                continue
+            if group in COLLECTIONS.values():
+                md = verified_copy(name, md, sources[name])
+                if md is None:
+                    continue
+            seen.add(name)
+            rows.append((group, name, md, description(md)))
+    for group, name, md, desc in sorted(rows, key=lambda r: (ORDER.get(r[0], 2), r[0], r[1])):
+        print(f"{group}\t{name}\t{md}\t{desc}")
+
+
+if __name__ == "__main__":
+    main()
