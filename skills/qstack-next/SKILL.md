@@ -53,13 +53,12 @@ lifecycle; do not push it in.
 ## Outside the lifecycle
 
 Match the conversation against the `description:` of every installed skill.
-The listing command in `/qstack` prints them; `ls ~/.claude/skills
+The listing script in `/qstack` prints them; `ls ~/.claude/skills
 ~/.codex/skills ~/.agents/skills` names them. Each description says when its
 skill applies; that text is the rule, so this file does not repeat it.
 
-Prefer, in order: a QStack skill, a skill from a collection QStack installs
-(Matt Pocock's skills, human-review), anything else installed. Never recommend
-a skill that is not installed.
+Prefer, in order: a QStack skill, a skill from a collection QStack's installer
+offers, anything else installed. Never recommend a skill that is not installed.
 
 ## Output
 

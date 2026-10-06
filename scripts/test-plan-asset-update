@@ -245,11 +245,10 @@ class PlanAssetUpdateTests(unittest.TestCase):
             [
                 str(REPO / "install"),
                 "--copy",
-                "--without-matt-pocock",
-                "--without-human-review",
             ],
             check=True,
             capture_output=True,
+            stdin=subprocess.DEVNULL,
             env=environment,
             text=True,
         )

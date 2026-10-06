@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.14.0.0] - 2026-10-06
+
+### Added
+
+* `/qstack-security-review` reviews a pull request, a branch, the working
+  tree, a directory, or the whole repository for exploitable security defects
+  and reports them with the same computed score as `/qstack-review`. It carries
+  its own change review, adapted from the prompt and the hard exclusion rules
+  of Anthropic's `claude-code-security-review` action, so denial of service,
+  rate limiting, resource leaks, and other low-signal classes never reach the
+  report. On every run it lists the security collections installed on the
+  machine and asks which to add, runs each one under a source-only, nothing-
+  written-in-the-repository limit, and merges everything into one report with
+  a "Not checked" part naming what was excluded, blocked, or declined.
+* The installer offers two more optional collections, each pinned to a
+  reviewed commit: Cloudflare's `security-audit` skill for whole-codebase
+  audits, and the three Trail of Bits skills that review application code
+  from their own directory alone, `entry-point-analyzer`,
+  `supply-chain-risk-auditor`, and `sarif-parsing`. `--with-security-audit`,
+  `--with-trail-of-bits`, and their `--without-` forms work like the existing
+  collection flags, and `--yes` takes them too. The skills CLI is told which
+  harnesses to write to and not to prompt, so a scripted `--yes` completes.
+  `/qstack` lists both collections once installed, through a listing script
+  it now ships and `/qstack-security-review` shares.
+
 ## [2.13.6.0] - 2026-10-02
 
 ### Added

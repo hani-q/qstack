@@ -3,8 +3,8 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs 33 skills into Claude Code, Codex, and any harness that
-reads `~/.agents/skills`, from one checkout that stays the source of truth.
+result. QStack installs its skills into Claude Code, Codex, and any harness
+that reads `~/.agents/skills`, from one checkout that stays the source of truth.
 
 ## What this helps with
 
@@ -143,6 +143,7 @@ are doing. Explicit skills run only when you type them.
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
 | [`qstack-review`](skills/qstack-review/) | Explicit | Review a pull request, a branch against its base, or the working tree against a correctness baseline plus the repository's own `CODE_REVIEW_RULES.md`. Every finding carries a `path:line`, the consequence, and the smallest fix; the score is arithmetic over the severity counts, not chosen. Report-only. |
+| [`qstack-security-review`](skills/qstack-security-review/) | Explicit | Review a change, a directory, or the repository for exploitable security defects. Carries its own diff review adapted from Anthropic's `claude-code-security-review` action, with that action's exclusion rules so low-signal classes never reach the report, and asks each run which installed security collections to add: Cloudflare's whole-codebase audit, or any of the Trail of Bits skills. One merged report, one computed score. Report-only. |
 | [`qstack-pr`](skills/qstack-pr/) | Explicit | Get a finished branch ready for a human reviewer. Checks it is shippable against the repository's own landing rules, then writes the handoff a reviewer reads before the diff: reading order, a change map in pseudocode, a diagram only where flow changed, test evidence from git history and a real run, and plan clause links when there was a plan. Shows the title and body, then asks before opening the pull request. Never pushes or merges. |
 | [`qstack-babysit-pr`](skills/qstack-babysit-pr/) | Automatic | Watch an existing PR through review and CI. Verify new bot findings, fix real issues within the original goal, and report when the latest head is green or blocked. Adapted from Theo Browne's "Babysit PR" skill. |
 
@@ -256,6 +257,10 @@ reviewing its own work.
 | `--without-matt-pocock` | Skip that prompt. |
 | `--with-human-review` | Install [human-review](https://github.com/petergyang/human-review) without asking. |
 | `--without-human-review` | Skip that prompt. |
+| `--with-security-audit` | Install [Cloudflare's security-audit skill](https://github.com/cloudflare/security-audit-skill) without asking. |
+| `--without-security-audit` | Skip that prompt. |
+| `--with-trail-of-bits` | Install three self-contained [Trail of Bits skills](https://github.com/trailofbits/skills) without asking. |
+| `--without-trail-of-bits` | Skip that prompt. |
 | `--yes`, `-y` | Accept every optional collection without prompting. A later `--without-...` still wins, so `--yes --without-human-review` takes only the rest. |
 | `--uninstall` | Remove the linked skills and both qstack-managed instruction sections. |
 | `--version` | Print the release version and exact Git revision. |
@@ -272,15 +277,17 @@ can still identify them if this checkout later moves or disappears.
 ### Optional collections
 
 An interactive install offers each one separately and defaults to yes, so a bare
-Enter takes the recommended set. Both need `npx`.
+Enter takes the recommended set. All of them need `npx`.
 
 | Collection | What it adds |
 | --- | --- |
 | [Matt Pocock's skills](https://github.com/mattpocock/skills) | A broad general-purpose skill library, installed through the `skills` CLI. |
 | [human-review](https://github.com/petergyang/human-review) | Opens an HTML file, a Markdown file, or a localhost page in the browser so you can edit the text and comment on specific parts, then sends the batch back to the agent. It closes the loop `/qstack-plan-to-html` opens: a rendered plan becomes something you redline directly instead of describing in chat. Needs Node 20+. |
+| [Cloudflare security-audit](https://github.com/cloudflare/security-audit-skill) | A multi-phase audit of a whole codebase or subsystem: reconnaissance, parallel hunters by attack class, independent verifiers that try to disprove each candidate, and a coverage ledger recording what was never examined. `/qstack-security-review` offers it when the scope is a directory or the repository. Pinned to a reviewed commit. MIT. |
+| [Trail of Bits skills](https://github.com/trailofbits/skills) | Three of that repository's security skills: `entry-point-analyzer`, `supply-chain-risk-auditor`, and `sarif-parsing`. They are the ones that review application code and run from their own directory alone; the others there are Claude Code plugins whose skill text dispatches to agents and workflows the skills CLI does not install. `/qstack-security-review` offers each one by name. Pinned to a reviewed commit. CC BY-SA 4.0, which is why they are installed rather than adapted. |
 
-Each is installed by running its own upstream installer, so both stay owned
-upstream. QStack does not update or uninstall them.
+Each is installed by running its own upstream installer, so all of them stay
+owned upstream. QStack does not update or uninstall them.
 
 Two things worth knowing about `human-review`. QStack installs it from source
 tag `v0.5.0` rather than npm, because the published release only installs a
@@ -294,11 +301,11 @@ and the skill it writes tells agents to run `npx -y human-review`, which
 resolves to that project's current npm release at the time of use. QStack's own
 install only touches directories that are already there.
 
-In the default ask mode a non-interactive invocation installs neither, so a
-piped or scripted install never pulls third-party code on a silent default. Pass
-`--with-...` for one or `--yes` for all; that flag keeps working as collections
-are added. Dry-run and uninstall never prompt. If one optional install fails the
-other is still attempted, and the installer exits non-zero.
+In the default ask mode a non-interactive invocation installs none of them, so
+a piped or scripted install never pulls third-party code on a silent default.
+Pass `--with-...` for one or `--yes` for all; that flag keeps working as
+collections are added. Dry-run and uninstall never prompt. If one optional
+install fails the others are still attempted, and the installer exits non-zero.
 
 ## Layout
 

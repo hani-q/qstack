@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Security Review"
+  short_description: "Find exploitable security defects in a change, a directory, or the repository"
+  default_prompt: "Use $qstack-security-review to review this change for exploitable security defects and report findings with a computed score."
+policy:
+  allow_implicit_invocation: false
