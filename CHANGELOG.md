@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.15.0.0] - 2026-10-08
+
+### Added
+
+* `/qstack-t3-gegenpress` runs a small unplanned task as a lineup of roles
+  inside a T3 Code thread: an architect, a second opinion, an executor, an
+  adversary, a final reviewer, and a workhorse. It asks for each role's model
+  and reasoning effort through the question tool, drawing the options from
+  T3's live catalogue, and keeps every reviewer in a different model family
+  from the code it reviews. Units run as `delegate_task` children with role,
+  mode, and effort set on every launch and read back against the lineup. The
+  adversary presses the result round by round until nothing confirmed remains
+  or the round cap is hit, then the final reviewer, `/qstack-prove-it-works`,
+  and `/qstack-libero` close the run. Outside T3 Code it stops and points at
+  `/qstack-slalom`.
+
 ## [2.14.0.0] - 2026-10-06
 
 ### Added

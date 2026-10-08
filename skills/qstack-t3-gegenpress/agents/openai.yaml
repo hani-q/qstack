@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack T3 Gegenpress"
+  short_description: "Field a lineup of models across providers and press every unit with another family"
+  default_prompt: "Use $qstack-t3-gegenpress to run this task as a lineup of roles on models I choose, with cross-family review, through T3 Code."
+policy:
+  allow_implicit_invocation: false

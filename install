@@ -77,6 +77,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-loop-no-nonsense [plan-path]` to execute a plan exactly and choose its adversarial review depth.
 - Use `/qstack-loop-trequartista [plan-path]` to execute a plan with documented adaptations and choose its adversarial review depth.
 - Use `/qstack-slalom <orchestrator> <workers> [task]` to run a small unplanned task as parallel subagents on cheaper named models while the expensive model only orchestrates.
+- Use `/qstack-t3-gegenpress [task]` inside a T3 Code thread to run a small unplanned task as a lineup of roles on models you choose, with a reviewer from another model family pressing every unit.
 - Use `/qstack-choose-model [task]` to pick the model and reasoning effort for a piece of work from the models this machine can reach and their benchmark scores.
 - Use `/qstack-plan-adherence-review [plan-path]` to score the implementation against its plan, execution record, and code changes.
 - Use `/qstack-plan-close` after planned work ships.
