@@ -22,8 +22,9 @@ nothing is left to find.
 
 This is `/qstack-slalom` with a lineup instead of a worker list, run through
 T3 Code's `delegate_task`, the only path that launches a GPT child from a
-Claude thread or the reverse. Read `skills/qstack-slalom/SKILL.md`, next to
-this file, before starting: its two rules, its Split, its unit brief, its
+Claude thread or the reverse. Before starting, read `../qstack-slalom/SKILL.md`
+resolved from this file's own path after following any symlink, never from the
+repository under review: its two rules, its Split, its unit brief, its
 Integrate and verify, its Report, and its Scope and authority all apply here.
 This file carries only what differs.
 
@@ -42,10 +43,13 @@ conversation so far. The lineup is asked fresh every run.
 | --- | --- | --- | --- | --- |
 | Architect | this thread | nothing | any | no |
 | Second opinion | `design` | nothing | not the architect's | yes |
-| Executor | `implementation` | its units | not the architect's model | no |
+| Executor | `implementation` | its units | any | no |
+| Workhorse | `implementation` | its units | any | yes, defaults to the executor |
 | Adversary | `review` | nothing | not a writer's | yes |
 | Final reviewer | `review` | nothing | not a writer's, not the adversary's model | yes |
-| Workhorse | `implementation` | its units | any | yes, defaults to the executor |
+
+No delegated role may use the architect's exact model, under slalom's rule 1.
+The family rules filter the options on top of that.
 
 A family is the model's vendor, read from the id prefix: `claude-*` is one,
 `gpt-*` another, `grok-*` a third, whichever provider instance serves it. A
@@ -76,13 +80,16 @@ conversation, not from the code. If it cannot be stated, ask.
 Ask through the host's structured question tool, in plain text when the host
 has none, in slalom's question shape: the question, a product-manager
 rephrasing, an ELI10 version, then options with the recommended one first and
-its one-sentence reason. Two roles per call, model then effort, in table
-order. Three calls, the adversary's call also carrying the press limits.
+its one-sentence reason. One role per call, model then effort, in table
+order, so each role's options can be filtered by the answers before it and
+no call exceeds the host's question limit. The press limits follow the
+adversary in a call of their own.
 
 **Model questions.** `Starting lineup, N of 6: who is the <role>?` with one
 line on what the role does and writes. Options are catalogue models that
-satisfy the role's family rule, recommended first with a reason tied to the
-task, at most three plus `Skip this role` where the table allows. Name the
+satisfy the role's family rule and are not the architect's model,
+recommended first with a reason tied to the task, at most three plus `Skip
+this role` where the table allows. Name the
 provider instance when a model id appears under two. The architect's options
 are the models on this thread's own provider instance, recommended the one it
 is on; a chosen change is applied with `t3_thread_configure`, and a model from
@@ -94,13 +101,19 @@ opinion, and reviewers, low for the workhorse, and for a reviewer never below
 the executor. When the chosen model's catalogue entry lacks the chosen level,
 use the nearest it lists and say so in the printed lineup.
 
-**Press limits**, in the adversary's call: the round cap, recommended 3, and
-the severity floor, `P1` recommended, on `/qstack-review`'s P0 to P2 scale.
-Findings below the floor are listed, never sent back.
+**Press limits**, asked after the adversary when one was chosen: the round
+cap, recommended 3, and the severity floor, `P1` recommended, on
+`/qstack-review`'s P0 to P2 scale. Findings below the floor are listed, never
+sent back.
 
-**Print the lineup.** One line per role: model, provider instance, effort,
-runtime mode, interaction mode. Apply the architect's choice with
-`t3_thread_configure` when it changed.
+**Print the lineup.** Check the whole lineup against the table once more,
+re-ask any role that fails, then print one line per role: model, provider
+instance, effort, runtime mode, interaction mode. Apply the architect's
+choice with `t3_thread_configure` when it changed.
+
+Nothing in this run is committed, so the change under review is always the
+working tree against the commit the run started on, untracked files
+included. Record that commit here as the base.
 
 ## Approach
 
@@ -135,9 +148,11 @@ Every `delegate_task` call carries:
 
 **Check the launch.** Launch every child of a stage in one parallel block,
 then read `t3_thread_configuration` for each in a second. When provider,
-model, effort, or mode differs from the lineup: `task_cancel`, revert
-anything it wrote, relaunch once with a new `clientRequestId`, and on a
-second mismatch stop and report.
+model, effort, or mode differs from the lineup: `task_cancel`, then read
+`task_status` until the task is terminal with no pending child runs, then
+revert anything it wrote and relaunch once with a new `clientRequestId`. On
+a second mismatch, or a child that never reaches terminal, stop and report
+without touching its files.
 
 **Wait.** An async child wakes this thread when it finishes. On a wake with
 siblings still running, end the turn with no tool calls. Integrate once when
@@ -154,9 +169,10 @@ full suite once per integration and keeping its output for the next brief.
 Skip when no adversary was chosen. Each round, up to the cap:
 
 1. **Delegate to the adversary** with a new `delegate_task` and
-   `clientRequestId`: the task, the approach, the git range to review, the
-   suite output from Integrate with the line "run only what a finding needs,
-   never the whole suite", and from round two the prior findings with their
+   `clientRequestId`: the task, the approach, the scope as the working tree
+   against the base commit with untracked files included, the suite output
+   from Integrate with the line "run only what a finding needs, never the
+   whole suite", and from round two the prior findings with their
    dispositions. Findings return with file, line, severity on the P scale,
    and the command that shows each when one exists.
 2. **Triage.** For each finding at or above the floor the architect reads
@@ -171,20 +187,26 @@ still confirmed as open.
 
 ## Final stage
 
-When a final reviewer was chosen, delegate the whole range to it under the
-`/qstack-review` contract when that skill is installed, read from disk the
-same way, and triage as a press round. Confirmed findings go to the executor
-once. While it runs, hold the result to `/qstack-prove-it-works` along the
-path the task changed. After both, run `/qstack-libero`, then any project
-tool the instruction files named, then the suite once more. The architect's
-own run of that suite is what re-verifies whatever landed after the last
-review.
+In this order, each step on the result of the one before:
+
+1. When a final reviewer was chosen, delegate the same scope to it under the
+   `/qstack-review` contract when that skill is installed, read from disk
+   the same way as slalom, and triage as a press round. Confirmed findings
+   go to the executor once, then integrate.
+2. Run `/qstack-libero`'s interrogation in this thread. Its removals go to
+   the executor as one unit naming the files, then integrate.
+3. Run any project tool the instruction files named, routing fixes the same
+   way.
+4. Hold the final result to `/qstack-prove-it-works` along the path the task
+   changed. This is the last step because it proves the artifact that is
+   delivered, after every edit has landed.
 
 ## Abort
 
-On an abort or any stop, `task_cancel`, then read `task_status` and check
-`hasPendingChildRuns`. A child's own native subagents can outlive the cancel.
-Report anything still running by task id.
+On an abort or any stop, `task_cancel`, then read `task_status` until the
+task is terminal and check `hasPendingChildRuns`. A child's own native
+subagents can outlive the cancel. Report anything still running by task id,
+and leave its files alone until it stops.
 
 ## Report
 
