@@ -82,8 +82,8 @@ has none, in slalom's question shape: the question, a product-manager
 rephrasing, an ELI10 version, then options with the recommended one first and
 its one-sentence reason. One role per call, model then effort, in table
 order, so each role's options can be filtered by the answers before it and
-no call exceeds the host's question limit. The press limits follow the
-adversary in a call of their own.
+no call exceeds the host's question limit. The press limits follow the last
+role in a call of their own.
 
 **Model questions.** `Starting lineup, N of 6: who is the <role>?` with one
 line on what the role does and writes. Options are catalogue models that
@@ -104,10 +104,11 @@ opinion, and reviewers, low for the workhorse, and for a reviewer never below
 the executor. When the chosen model's catalogue entry lacks the chosen level,
 use the nearest it lists and say so in the printed lineup.
 
-**Press limits**, asked after the adversary when one was chosen: the round
-cap, recommended 3, and the severity floor, `P1` recommended, on
-`/qstack-review`'s P0 to P2 scale. Findings below the floor are listed, never
-sent back.
+**Press limits**, asked in one call after the final reviewer when either
+review role was chosen: the severity floor, `P1` recommended, on
+`/qstack-review`'s P0 to P2 scale, which both reviewers' triage uses, and the
+round cap, recommended 3, asked only when an adversary was chosen. Findings
+below the floor are listed, never sent back.
 
 **Print the lineup.** Check the whole lineup against the table once more,
 re-ask any role that fails, then print one line per role: model, provider
