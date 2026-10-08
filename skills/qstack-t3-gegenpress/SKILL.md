@@ -87,9 +87,12 @@ adversary in a call of their own.
 
 **Model questions.** `Starting lineup, N of 6: who is the <role>?` with one
 line on what the role does and writes. Options are catalogue models that
-satisfy the role's family rule and are not the architect's model,
-recommended first with a reason tied to the task, at most three plus `Skip
-this role` where the table allows. Name the
+satisfy the role's family rule, are not the architect's model, sit on a
+provider instance whose capabilities entry has `canRunChildTask` true and
+`canRunCrossProviderChildTask` true when it is not this thread's instance,
+and carry a select-type reasoning option. A model with no such option, or
+only a boolean one, is never offered. Recommended first with a reason tied to
+the task, at most three plus `Skip this role` where the table allows. Name the
 provider instance when a model id appears under two. The architect's options
 are the models on this thread's own provider instance, recommended the one it
 is on; a chosen change is applied with `t3_thread_configure`, and a model from
@@ -149,10 +152,11 @@ Every `delegate_task` call carries:
 **Check the launch.** Launch every child of a stage in one parallel block,
 then read `t3_thread_configuration` for each in a second. When provider,
 model, effort, or mode differs from the lineup: `task_cancel`, then read
-`task_status` until the task is terminal with no pending child runs, then
-revert anything it wrote and relaunch once with a new `clientRequestId`. On
-a second mismatch, or a child that never reaches terminal, stop and report
-without touching its files.
+`task_status` up to five times, one minute apart, until the task is terminal
+with no pending child runs, then revert anything it wrote and relaunch once
+with a new `clientRequestId`. On a second mismatch, or a task still not
+terminal after the fifth read, stop and report its task id without touching
+its files.
 
 **Wait.** An async child wakes this thread when it finishes. On a wake with
 siblings still running, end the turn with no tool calls. Integrate once when
@@ -203,10 +207,11 @@ In this order, each step on the result of the one before:
 
 ## Abort
 
-On an abort or any stop, `task_cancel`, then read `task_status` until the
-task is terminal and check `hasPendingChildRuns`. A child's own native
-subagents can outlive the cancel. Report anything still running by task id,
-and leave its files alone until it stops.
+On an abort or any stop, `task_cancel`, then read `task_status` up to five
+times, one minute apart, until the task is terminal and
+`hasPendingChildRuns` is false. A child's own native subagents can outlive
+the cancel. After the fifth read, report anything still running by task id
+and leave its files alone.
 
 ## Report
 
