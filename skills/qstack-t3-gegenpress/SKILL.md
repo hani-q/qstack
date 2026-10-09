@@ -102,7 +102,7 @@ another instance means a new thread, so say that and stop.
 medium, high, and extra high. Recommend high for the architect, second
 opinion, and reviewers, low for the workhorse, and for a reviewer never below
 the executor. When the chosen model's catalogue entry lacks the chosen level,
-use the nearest it lists and say so in the printed lineup.
+use the nearest it lists and say so on the team sheet.
 
 **Press limits**, asked in one call after the final reviewer when either
 review role was chosen: the severity floor, `P1` recommended, on
@@ -110,10 +110,39 @@ review role was chosen: the severity floor, `P1` recommended, on
 round cap, recommended 3, asked only when an adversary was chosen. Findings
 below the floor are listed, never sent back.
 
-**Print the lineup.** Check the whole lineup against the table once more,
-re-ask any role that fails, then print one line per role: model, provider
-instance, effort, runtime mode, interaction mode. Apply the architect's
-choice with `t3_thread_configure` when it changed.
+**Show the team sheet.** Check the whole lineup against the table once more
+and re-ask any role that fails. Then read `assets/team-sheet.html`, resolved
+from this file's own path the same way as slalom, replace only its `LINEUP`
+object with this run's values, check it with `html_preview`, and publish it
+with `html_render` titled `Starting lineup` at the preview's `contentHeight`,
+or at 860 when the preview fails, since `html_render` does not need the
+preview browser. The page draws the pitch, gives each role its football
+position in brackets, gives the architect the captain's armband and the
+second opinion the vice-captain's, colours each shirt by model family, and
+lists every role's model, provider instance, effort, runtime mode, and
+interaction mode under it, with any effort that fell back to the nearest
+level.
+
+The manager is the user: take the name from `git config user.name`, and
+write `You` when it is empty. Do not explain the manager line.
+
+When `html_render` is unavailable or fails, print the same rows as a
+Markdown table instead and carry on.
+
+**Kick-off.** End the reply with one line, `Type kick-off to start, name a
+substitution, or say abandon.`, and end the turn. Nothing is launched or
+configured before the user answers.
+
+- `kick-off`, in any case, with or without the hyphen: apply the architect's
+  choice with `t3_thread_configure` when it changed, then continue.
+- A substitution in free text, such as `adversary to grok-5 on high`: when
+  it names a role and a model that role's model question would have offered,
+  take it as given; otherwise ask that role's questions. When the change
+  breaks a later role's family rule, ask that role again too. A change to the
+  press limits goes the same way. Publish the team sheet again and end with
+  the same line.
+- `abandon`: stop the run.
+- Anything else: repeat the line.
 
 Nothing in this run is committed, so the change under review is always the
 working tree against the commit the run started on, untracked files

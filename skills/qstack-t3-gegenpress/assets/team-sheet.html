@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-sans, system-ui, sans-serif); color: var(--foreground); }
+  .sheet { display: grid; gap: 16px; }
+  .pitch {
+    position: relative; height: 580px; padding: 16px; border-radius: var(--radius, 12px); overflow: hidden;
+    background: repeating-linear-gradient(180deg, #2f7d3b 0 52px, #2a7135 52px 104px);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55);
+  }
+  .line { position: absolute; border: 2px solid rgba(255,255,255,.55); }
+  .halfway { left: 16px; right: 16px; top: 50%; border-width: 2px 0 0; }
+  .circle { left: 50%; top: 50%; width: 96px; height: 96px; margin: -48px; border-radius: 50%; }
+  .box-top { left: 30%; right: 30%; top: 16px; height: 84px; border-top: 0; }
+  .box-bottom { left: 30%; right: 30%; bottom: 16px; height: 84px; border-bottom: 0; }
+  .goal { position: absolute; left: 50%; width: 88px; margin-left: -44px; height: 10px; border: 2px solid rgba(255,255,255,.8); }
+  .goal-top { top: 6px; border-bottom: 0; }
+  .goal-bottom { bottom: 6px; border-top: 0; }
+  .ball {
+    position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; z-index: 2;
+    font-size: 14px; line-height: 16px; text-align: center; opacity: 0; pointer-events: none;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.45));
+  }
+  .goal-flash {
+    position: absolute; left: 50%; top: 52px; transform: translate(-50%, -50%); z-index: 3; opacity: 0;
+    font-weight: 900; font-size: 28px; letter-spacing: .12em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  .player {
+    position: absolute; transform: translate(-50%, -50%); width: 150px;
+    display: grid; justify-items: center; gap: 4px; text-align: center;
+  }
+  .player .text { display: grid; justify-items: center; gap: 4px; }
+  .player.left {
+    width: auto; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px;
+    transform: translate(calc(-100% + 22px), -50%);
+  }
+  .player.left .text { justify-items: end; text-align: right; }
+  .shirt {
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 700; font-size: 15px; color: #fff; border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .shirt.claude { background: #c96442; }
+  .shirt.gpt { background: #10a37f; }
+  .shirt.grok { background: #222; }
+  .shirt.other { background: #5b6bd6; }
+  .shirt.empty { background: transparent; border-style: dashed; color: rgba(255,255,255,.7); }
+  .role { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .model {
+    font: 12px/1.3 var(--font-mono, ui-monospace, monospace); color: #fff;
+    background: rgba(0,0,0,.4); padding: 2px 8px; border-radius: 999px; max-width: 150px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .position { font-size: 11px; font-style: italic; color: rgba(255,255,255,.85); margin-top: -3px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .badge { font-size: 10px; font-weight: 700; background: #f5c542; color: #222; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  .dugout {
+    display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between;
+    color: var(--muted-foreground); font-size: 13px;
+  }
+  .dugout b { color: var(--foreground); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-weight: 600; color: var(--muted-foreground); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.mono { font-family: var(--font-mono, ui-monospace, monospace); }
+  .note { color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="pitch" id="pitch">
+    <div class="line halfway"></div><div class="line circle"></div>
+    <div class="line box-top"></div><div class="line box-bottom"></div>
+    <div class="goal goal-top"></div><div class="goal goal-bottom"></div>
+    <div class="ball" id="ball">&#9917;</div>
+    <div class="goal-flash" id="goal-flash">GOAL!</div>
+  </div>
+  <div class="dugout" id="dugout"></div>
+  <table id="sheet"></table>
+</div>
+<script>
+// Fill LINEUP with the run's real values; leave everything below it alone.
+// effortNote is set only when the chosen effort fell back to the nearest level.
+// A skipped role has model: null. A skipped workhorse sets doubles: true.
+const LINEUP = {
+  manager: "You",
+  press: { floor: "P1", cap: 3 },
+  roles: {
+    executor:      { model: "claude-sonnet-5-5", provider: "claude", effort: "medium", runtime: "full-access", interaction: "default" },
+    workhorse:     { model: "claude-haiku-4-5", provider: "claude", effort: "low", runtime: "full-access", interaction: "default" },
+    architect:     { model: "claude-opus-5-5", provider: "claude", effort: "high", runtime: "full-access", interaction: "default" },
+    secondOpinion: { model: "gpt-5.5", provider: "codex", effort: "high", runtime: "full-access", interaction: "plan" },
+    adversary:     { model: "gpt-5.5", provider: "codex", effort: "high", runtime: "full-access", interaction: "plan" },
+    finalReviewer: { model: "gpt-5.5-codex", provider: "codex", effort: "high", effortNote: "", runtime: "full-access", interaction: "plan" },
+  },
+};
+
+const SLOTS = [
+  ["executor", "Executor", "Striker", 9, 50, 14],
+  ["workhorse", "Workhorse", "Winger", 7, 80, 22],
+  ["architect", "Architect", "Attacking midfielder", 10, 38, 36, "C"],
+  ["secondOpinion", "Second opinion", "Central midfielder", 8, 62, 48, "VC"],
+  ["adversary", "Adversary", "Centre-back", 5, 50, 66],
+  ["finalReviewer", "Final reviewer", "Goalkeeper", 1, 50, 90, null, "left"],
+];
+const family = (m) => !m ? "empty" : /^claude-/.test(m) ? "claude" : /^gpt-/.test(m) ? "gpt" : /^grok-/.test(m) ? "grok" : "other";
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+const pitch = document.getElementById("pitch");
+const rows = [];
+for (const [key, label, position, num, x, y, armband, labels] of SLOTS) {
+  const r = LINEUP.roles[key] || {};
+  const filled = !!r.model;
+  const caption = filled ? `${r.model} · ${r.effort}` : r.doubles ? "executor doubles" : "empty";
+  pitch.insertAdjacentHTML("beforeend",
+    `<div class="player${labels === "left" ? " left" : ""}" style="left:${x}%;top:${y}%">
+       <div class="shirt ${family(r.model)}"${filled ? ` data-key="${key}"` : ""}>${num}</div>
+       <div class="text">
+         <div class="role">${esc(label)}${armband && filled ? `<span class="badge">${armband}</span>` : ""}</div>
+         <div class="position">(${esc(position)})</div>
+         <div class="model" title="${esc(caption)}">${esc(caption)}</div>
+       </div>
+     </div>`);
+  rows.push(filled
+    ? `<tr><td>${esc(label)} <span class="note">(${esc(position)})</span></td><td class="mono">${esc(r.model)}</td><td class="mono">${esc(r.provider)}</td>
+         <td>${esc(r.effort)}${r.effortNote ? ` <span class="note">(${esc(r.effortNote)})</span>` : ""}</td>
+         <td>${esc(r.runtime)}</td><td>${esc(r.interaction)}</td></tr>`
+    : `<tr><td>${esc(label)} <span class="note">(${esc(position)})</span></td><td colspan="5" class="note">${r.doubles ? "executor doubles" : "skipped"}</td></tr>`);
+}
+document.getElementById("sheet").innerHTML =
+  `<tr><th>Role</th><th>Model</th><th>Provider</th><th>Effort</th><th>Runtime</th><th>Interaction</th></tr>` + rows.join("");
+
+const p = LINEUP.press;
+const press = !p ? "" : `Press: floor <b>${esc(p.floor)}</b>${p.cap ? `, cap <b>${esc(p.cap)}</b> rounds` : ""}`;
+document.getElementById("dugout").innerHTML =
+  `<span>Manager <b>${esc(LINEUP.manager || "You")}</b>, on the touchline, arms folded</span><span>${press}</span>`;
+// The build-up: keeper to centre-back to midfield to the wing, then the striker scores.
+const BUILD_UP = ["finalReviewer", "adversary", "secondOpinion", "architect", "workhorse", "executor"];
+const ball = document.getElementById("ball");
+const flash = document.getElementById("goal-flash");
+function kickOff() {
+  const box = pitch.getBoundingClientRect();
+  const spots = BUILD_UP
+    .map((key) => pitch.querySelector(`.shirt[data-key="${key}"]`))
+    .filter(Boolean)
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return [r.left - box.left + r.width / 2 + 14, r.top - box.top + r.height / 2 + 14];
+    });
+  if (spots.length < 2) return;
+  spots.push([box.width / 2, 14]);
+  const pass = 650, hold = 350, total = spots.length * (pass + hold) + 1600;
+  const frames = [];
+  spots.forEach(([x, y], i) => {
+    const at = (i * (pass + hold)) / total;
+    const transform = `translate(${x}px, ${y}px) rotate(${i * 360}deg)`;
+    frames.push({ offset: at, transform, opacity: i === 0 ? 0 : 1, easing: "ease-in-out" });
+    frames.push({ offset: at + hold / total, transform, opacity: 1, easing: "ease-in-out" });
+  });
+  const last = frames[frames.length - 1];
+  frames.push({ ...last, offset: 1, opacity: 0 });
+  ball.animate(frames, { duration: total, iterations: Infinity });
+  const scored = ((spots.length - 1) * (pass + hold)) / total;
+  flash.animate([
+    { offset: 0, opacity: 0, transform: "translate(-50%, -50%) scale(.6)" },
+    { offset: scored, opacity: 0, transform: "translate(-50%, -50%) scale(.6)" },
+    { offset: Math.min(scored + 0.04, 1), opacity: 1, transform: "translate(-50%, -50%) scale(1.15)" },
+    { offset: Math.min(scored + 0.12, 1), opacity: 1, transform: "translate(-50%, -50%) scale(1)" },
+    { offset: 1, opacity: 0, transform: "translate(-50%, -50%) scale(1)" },
+  ], { duration: total, iterations: Infinity });
+}
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches && ball.animate) {
+  requestAnimationFrame(kickOff);
+  let resized;
+  addEventListener("resize", () => {
+    clearTimeout(resized);
+    resized = setTimeout(() => { ball.getAnimations().concat(flash.getAnimations()).forEach((a) => a.cancel()); kickOff(); }, 200);
+  });
+}
+</script>
+</body>
+</html>
