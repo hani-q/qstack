@@ -102,7 +102,7 @@ another instance means a new thread, so say that and stop.
 medium, high, and extra high. Recommend high for the architect, second
 opinion, and reviewers, low for the workhorse, and for a reviewer never below
 the executor. When the chosen model's catalogue entry lacks the chosen level,
-use the nearest it lists and say so on the team sheet.
+use the nearest it lists and record it as that role's `effortNote`.
 
 **Press limits**, asked in one call after the final reviewer when either
 review role was chosen: the severity floor, `P1` recommended, on
@@ -112,22 +112,23 @@ below the floor are listed, never sent back.
 
 **Show the team sheet.** Check the whole lineup against the table once more
 and re-ask any role that fails. Then read `assets/team-sheet.html`, resolved
-from this file's own path the same way as slalom, replace only its `LINEUP`
-object with this run's values, check it with `html_preview`, and publish it
-with `html_render` titled `Starting lineup` at the preview's `contentHeight`,
-or at 860 when the preview fails, since `html_render` does not need the
-preview browser. The page draws the pitch, gives each role its football
-position in brackets, gives the architect the captain's armband and the
-second opinion the vice-captain's, colours each shirt by model family, and
-lists every role's model, provider instance, effort, runtime mode, and
-interaction mode under it, with any effort that fell back to the nearest
-level.
+from this file's own path after following any symlink, and fill the three
+values its script comment names, exactly as that comment says: `GRASS`, the
+absolute path of `assets/grass.png` beside it; `T3_ICON`, the absolute path
+of `~/.t3/runtime/versions/<activeVersion>/client/apple-touch-icon.png` with
+`activeVersion` read from `~/.t3/runtime/service-state.json`, or `""` when
+that file is missing; and `LINEUP`, where every filled role carries the
+`label` from its `orchestrator_capabilities` entry and the manager is the
+output of `git config user.name`. Change nothing else. Check the page with
+`html_preview` and publish it with `html_render` titled `Starting lineup` at
+the preview's `contentHeight`, or at 1000 when the preview fails, since
+`html_render` does not need the preview browser.
 
-The manager is the user: take the name from `git config user.name`, and
-write `You` when it is empty. Do not explain the manager line.
+Do not explain the manager line.
 
-When `html_render` is unavailable or fails, print the same rows as a
-Markdown table instead and carry on.
+When `html_render` is unavailable or fails, print the lineup as a Markdown
+table instead, one row per role with model, provider instance, effort,
+runtime mode, and interaction mode, and carry on.
 
 **Kick-off.** End the reply with one line, `Type kick-off to start, name a
 substitution, or say abandon.`, and end the turn. Nothing is launched or
