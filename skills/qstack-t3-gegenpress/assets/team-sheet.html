@@ -140,8 +140,9 @@
 // Fill GRASS, T3_ICON, and LINEUP with this run's values; leave everything below them alone.
 // GRASS is the absolute path of assets/grass.png next to this file; T3 inlines it.
 // T3_ICON is the absolute path of T3's own apple-touch-icon.png, or "" when it is missing.
-// Write LINEUP as JSON.stringify output with every "<" replaced by "<", so no
-// value can close this <script> element early.
+// Write LINEUP as JSON.stringify(lineup).replace(/</g, "\\u003c"), so the file holds
+// the six characters \u003c wherever a value had "<" and nothing can close this
+// <script> element early.
 // Each filled role carries the catalogue's label for its model; effortNote is set
 // only when the chosen effort fell back to the nearest level. A skipped role has
 // model: null. manager is the git user name, or "" to show "You".
@@ -324,7 +325,7 @@ document.getElementById("dugout").innerHTML =
 // The build-up: from the keeper up through the slots to the striker, then into the net.
 const ball = document.getElementById("ball");
 const flash = document.getElementById("goal-flash");
-let animations = [];
+let animations = [], visible = true;
 function kickOff() {
   animations.forEach((a) => a.cancel());
   animations = [];
@@ -352,6 +353,7 @@ function kickOff() {
     flash.animate([flashAt(0, 0, .6), flashAt(scored, 0, .6), flashAt(scored + 0.04, 1, 1.15), flashAt(scored + 0.12, 1, 1), flashAt(1, 0, 1)],
       { duration: total, iterations: Infinity }),
   ];
+  if (!visible) animations.forEach((a) => a.pause());
 }
 const animated = !matchMedia("(prefers-reduced-motion: reduce)").matches && ball.animate;
 if (animated) requestAnimationFrame(kickOff);
@@ -367,8 +369,9 @@ addEventListener("resize", () => {
 });
 // Nothing moves while the sheet is scrolled out of view.
 if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => {
-  document.querySelectorAll(".track").forEach((t) => t.style.animationPlayState = e.isIntersecting ? "running" : "paused");
-  animations.forEach((a) => e.isIntersecting ? a.play() : a.pause());
+  visible = e.isIntersecting;
+  document.querySelectorAll(".track").forEach((t) => t.style.animationPlayState = visible ? "running" : "paused");
+  animations.forEach((a) => visible ? a.play() : a.pause());
 }).observe(document.querySelector(".sheet"));
 </script>
 </body>

@@ -113,9 +113,11 @@ below the floor are listed, never sent back.
 **Show the team sheet.** Check the whole lineup against the table once more
 and re-ask any role that fails. Then read `assets/team-sheet.html`, resolved
 from this file's own path after following any symlink, and fill the three
-values its script comment names, exactly as that comment says: `GRASS`, the
-absolute path of `assets/grass.png` beside it; `T3_ICON`, the absolute path
-of `~/.t3/runtime/versions/<activeVersion>/client/apple-touch-icon.png` with
+values its script comment names, exactly as that comment says, `LINEUP`
+included as `JSON.stringify` output with every `<` written as the six
+characters `\u003c`: `GRASS`, the absolute path of `assets/grass.png` beside
+it; `T3_ICON`, the absolute path of
+`~/.t3/runtime/versions/<activeVersion>/client/apple-touch-icon.png` with
 `activeVersion` read from `~/.t3/runtime/service-state.json`, or `""` when
 that file is missing; and `LINEUP`, where every filled role carries the
 `label` from its `orchestrator_capabilities` entry and the manager is the
