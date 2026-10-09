@@ -102,7 +102,7 @@ another instance means a new thread, so say that and stop.
 medium, high, and extra high. Recommend high for the architect, second
 opinion, and reviewers, low for the workhorse, and for a reviewer never below
 the executor. When the chosen model's catalogue entry lacks the chosen level,
-use the nearest it lists and say so in the printed lineup.
+use the nearest it lists and record it as that role's `effortNote`.
 
 **Press limits**, asked in one call after the final reviewer when either
 review role was chosen: the severity floor, `P1` recommended, on
@@ -110,10 +110,42 @@ review role was chosen: the severity floor, `P1` recommended, on
 round cap, recommended 3, asked only when an adversary was chosen. Findings
 below the floor are listed, never sent back.
 
-**Print the lineup.** Check the whole lineup against the table once more,
-re-ask any role that fails, then print one line per role: model, provider
-instance, effort, runtime mode, interaction mode. Apply the architect's
-choice with `t3_thread_configure` when it changed.
+**Show the team sheet.** Check the whole lineup against the table once more
+and re-ask any role that fails. Then read `assets/team-sheet.html`, resolved
+from this file's own path after following any symlink, and fill the three
+values its script comment names, exactly as that comment says, `LINEUP`
+included as `JSON.stringify` output with every `<` written as the six
+characters `\u003c`: `GRASS`, the absolute path of `assets/grass.png` beside
+it; `T3_ICON`, the absolute path of
+`~/.t3/runtime/versions/<activeVersion>/client/apple-touch-icon.png` with
+`activeVersion` read from `~/.t3/runtime/service-state.json`, or `""` when
+that file is missing; and `LINEUP`, where every filled role carries the
+`label` from its `orchestrator_capabilities` entry and the manager is the
+output of `git config user.name`. Change nothing else. Check the page with
+`html_preview` and publish it with `html_render` titled `Starting lineup` at
+the preview's `contentHeight`, or at 1000 when the preview fails, since
+`html_render` does not need the preview browser.
+
+Do not explain the manager line.
+
+When `html_render` is unavailable or fails, print the lineup as a Markdown
+table instead, one row per role with model, provider instance, effort,
+runtime mode, and interaction mode, and carry on.
+
+**Kick-off.** End the reply with one line, `Type kick-off to start, name a
+substitution, or say abandon.`, and end the turn. Nothing is launched or
+configured before the user answers.
+
+- `kick-off`, in any case, with or without the hyphen: apply the architect's
+  choice with `t3_thread_configure` when it changed, then continue.
+- A substitution in free text, such as `adversary to grok-5 on high`: when
+  it names a role and a model that role's model question would have offered,
+  take it as given; otherwise ask that role's questions. When the change
+  breaks a later role's family rule, ask that role again too. A change to the
+  press limits goes the same way. Publish the team sheet again and end with
+  the same line.
+- `abandon`: stop the run.
+- Anything else: repeat the line.
 
 Nothing in this run is committed, so the change under review is always the
 working tree against the commit the run started on, untracked files

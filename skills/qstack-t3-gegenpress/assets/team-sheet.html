@@ -1,0 +1,378 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    color-scheme: light dark;
+    --sans: var(--font-sans, system-ui, sans-serif);
+    --mono: var(--font-mono, ui-monospace, monospace);
+    --club: #4b3a9c;
+    --shirt-w: 54px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); color: var(--foreground); }
+  .sheet { display: grid; gap: 16px; }
+
+  .stadium {
+    padding: 16px; border-radius: var(--radius, 12px); display: grid; gap: 10px;
+    grid-template-columns: 30px 1fr 30px;
+    grid-template-areas: "left pitch right";
+    background: radial-gradient(120% 80% at 50% 50%, #1a2433 0%, #0b111b 70%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .boards {
+    overflow: hidden; border-radius: 3px; position: relative;
+    background: linear-gradient(180deg, #0d1b3d, #071026);
+    box-shadow: inset 0 0 0 1px rgba(120,160,255,.25), 0 2px 6px rgba(0,0,0,.5);
+  }
+  .boards::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);
+  }
+  .boards.left { grid-area: left; } .boards.right { grid-area: right; }
+  .track {
+    position: absolute; top: 0; left: 0; width: 100%;
+    display: flex; flex-direction: column; animation: ticker 30s linear infinite;
+  }
+  .boards.left .ad { transform: rotate(180deg); }
+  .boards.right .track { animation-direction: reverse; }
+  .ad {
+    display: flex; align-items: center; gap: 8px; padding: 22px 0; white-space: nowrap; writing-mode: vertical-rl;
+    font-weight: 800; font-size: 14px; letter-spacing: .08em; color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+  .ad.t3 { background: linear-gradient(90deg, #1c1450, var(--club)); }
+  .ad.respect { background: #111; letter-spacing: .14em; }
+  .ad.lgtm { color: #8df5a8; background: linear-gradient(90deg, #0b2e18, #145a2e); }
+  .ad.womm { color: #2a2100; background: #ffd34d; font-style: italic; }
+  .ad.ship { background: linear-gradient(90deg, #8f0a20, #d81b3c); }
+  .ad.obo { color: #9fc8ff; background: #0f2547; font-family: var(--mono); letter-spacing: .02em; }
+  /* Marks turn with the lettering, so they sit the way a printed board would. */
+  .ad svg, .ad i { width: 20px; height: 20px; flex: none; border-radius: 5px; transform: rotate(90deg); }
+  .ad i { background: var(--t3-icon) center / cover; }
+  @keyframes ticker { to { transform: translateY(-50%); } }
+
+  .pitch {
+    grid-area: pitch; position: relative; height: 700px; overflow: hidden; border-radius: 2px;
+    background-color: #2f7a3a; background-size: 128px 128px;
+  }
+  .markings { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ball {
+    position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; z-index: 2;
+    font-size: 14px; line-height: 16px; text-align: center; opacity: 0; pointer-events: none;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.45));
+  }
+  .goal-flash {
+    position: absolute; left: 50%; top: 62px; transform: translate(-50%, -50%); z-index: 3; opacity: 0;
+    font-weight: 900; font-size: 28px; letter-spacing: .12em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  .player, .player .text { display: grid; justify-items: center; gap: 4px; }
+  .player { position: absolute; transform: translate(-50%, -50%); width: 200px; text-align: center; }
+  .player .text { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  /* The keeper stands on the goal line, so the text goes beside the shirt. */
+  .player.keeper {
+    width: auto; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px;
+    transform: translate(calc(-100% + var(--shirt-w) / 2), -50%);
+  }
+  .player.keeper .text { justify-items: end; text-align: right; }
+  .mini {
+    display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+    background: #fff; vertical-align: -3px; margin-right: 6px;
+  }
+  .mini svg, .mini img { width: 11px; height: 11px; }
+  /* A jersey seen from the back: the maker's name across the shoulders, the number below. */
+  .shirt {
+    position: relative; width: var(--shirt-w); height: 50px; display: grid; justify-items: center; align-content: start;
+    padding-top: 11px; color: var(--club); filter: drop-shadow(0 3px 4px rgba(0,0,0,.45));
+  }
+  .shirt .kit { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .shirt .kit path { fill: currentColor; stroke: #fff; stroke-width: 1.6; stroke-linejoin: round; }
+  .shirt .kit-name, .shirt .kit-num { position: relative; color: #fff; line-height: 1; }
+  .shirt .kit-name { font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+  .shirt .kit-num { font-size: 17px; font-weight: 800; margin-top: 2px; }
+  .player.keeper .shirt { color: #d7f74a; }
+  .player.keeper .kit-name, .player.keeper .kit-num { color: #1d2a05; }
+  .shirt.empty { color: transparent; }
+  .shirt.empty .kit path { stroke-dasharray: 3 2; stroke: rgba(255,255,255,.7); }
+  .shirt.empty .kit-num { color: rgba(255,255,255,.7); }
+  .role { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+  .position { font-size: 11px; font-style: italic; color: rgba(255,255,255,.9); margin-top: -3px; }
+  .model {
+    font: 12px/1.3 var(--mono); color: #fff;
+    background: rgba(0,0,0,.5); padding: 2px 4px 2px 8px; border-radius: 999px; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Effort as a condition dial, the way Football Manager shows a player's condition. */
+  .gauge { display: inline-block; position: relative; width: 22px; height: 22px; vertical-align: -7px; margin-left: 6px; }
+  .gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .gauge b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 7.5px/1 var(--sans); color: #fff; }
+  .badge { font-size: 10px; font-weight: 700; background: #f5c542; color: #222; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  .dugout {
+    display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; justify-content: space-between;
+    color: var(--muted-foreground); font-size: 13px;
+  }
+  .dugout b { color: var(--foreground); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted-foreground); }
+  td.mono { font-family: var(--mono); }
+  .note { color: var(--muted-foreground); }
+  @media (prefers-reduced-motion: reduce) { .track { animation: none; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="stadium">
+    <div class="pitch" id="pitch">
+      <svg class="markings" id="markings" aria-hidden="true"></svg>
+      <div class="ball" id="ball">&#9917;</div>
+      <div class="goal-flash" id="goal-flash">GOAL!</div>
+    </div>
+    <div class="boards left"><div class="track" data-ads></div></div>
+    <div class="boards right"><div class="track" data-ads></div></div>
+  </div>
+  <div class="dugout" id="dugout"></div>
+  <table id="sheet"></table>
+</div>
+<script>
+// Fill GRASS, T3_ICON, and LINEUP with this run's values; leave everything below them alone.
+// GRASS is the absolute path of assets/grass.png next to this file; T3 inlines it.
+// T3_ICON is the absolute path of T3's own apple-touch-icon.png, or "" when it is missing.
+// Write LINEUP as JSON.stringify(lineup).replace(/</g, "\\u003c"), so the file holds
+// the six characters \u003c wherever a value had "<" and nothing can close this
+// <script> element early.
+// Each filled role carries the catalogue's label for its model; effortNote is set
+// only when the chosen effort fell back to the nearest level. A skipped role has
+// model: null. manager is the git user name, or "" to show "You".
+const GRASS = "";
+const T3_ICON = "";
+const LINEUP = {
+  "manager": "",
+  "press": { "floor": "P1", "cap": 3 },
+  "roles": {
+    "executor":      { "model": "claude-sonnet-5-5", "label": "Claude Sonnet 5.5", "provider": "claude", "effort": "medium", "runtime": "full-access", "interaction": "default" },
+    "workhorse":     { "model": "claude-haiku-4-5", "label": "Claude Haiku 4.5", "provider": "claude", "effort": "low", "runtime": "full-access", "interaction": "default" },
+    "architect":     { "model": "claude-opus-5-5", "label": "Claude Opus 5.5", "provider": "claude", "effort": "high", "runtime": "full-access", "interaction": "default" },
+    "secondOpinion": { "model": "gpt-5.5", "label": "GPT-5.5", "provider": "codex", "effort": "high", "runtime": "full-access", "interaction": "plan" },
+    "adversary":     { "model": "gpt-5.5", "label": "GPT-5.5", "provider": "codex", "effort": "high", "runtime": "full-access", "interaction": "plan" },
+    "finalReviewer": { "model": "gpt-5.5-codex", "label": "GPT-5.5-Codex", "provider": "codex", "effort": "high", "runtime": "full-access", "interaction": "plan" }
+  }
+};
+
+// Top of the pitch first. The ball is worked up from the last slot to the first.
+const SLOTS = [
+  { key: "executor", label: "Executor", position: "Striker", num: 9, x: 50, y: 15 },
+  { key: "workhorse", label: "Workhorse", position: "Winger", num: 7, x: 80, y: 23, emptyCaption: "executor doubles" },
+  { key: "architect", label: "Architect", position: "Attacking midfielder", num: 10, x: 38, y: 36, armband: "C" },
+  { key: "secondOpinion", label: "Second opinion", position: "Central midfielder", num: 8, x: 62, y: 48, armband: "VC" },
+  { key: "adversary", label: "Adversary", position: "Centre-back", num: 5, x: 50, y: 66 },
+  { key: "finalReviewer", label: "Final reviewer", position: "Goalkeeper", num: 1, x: 50, y: 89, keeper: true },
+];
+
+// Everything the page knows about a model family. The official mark loads from
+// LobeHub's pinned icon set at render time; the drawn mark shows when it cannot.
+const LOBE = "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.95.1/icons/";
+const rays = Array.from({ length: 12 }, (_, i) => {
+  const a = i * 30 * Math.PI / 180, len = i % 2 ? 7.5 : 10;
+  return `<line x1="12" y1="12" x2="${12 + len * Math.cos(a)}" y2="${12 + len * Math.sin(a)}"/>`;
+}).join("");
+const FAMILIES = {
+  claude: { kit: "CLAUDE", vendor: "Claude", url: LOBE + "claude-color.svg",
+    mark: `<svg viewBox="0 0 24 24"><g stroke="#d97757" stroke-width="2.6" stroke-linecap="round">${rays}</g></svg>` },
+  gpt: { kit: "OPENAI", vendor: "OpenAI", url: LOBE + "openai.svg",
+    mark: `<svg viewBox="0 0 24 24"><g fill="none" stroke="#111" stroke-width="1.7">${
+      [0, 60, 120, 180, 240, 300].map((a) => `<rect x="9.2" y="2.6" width="5.6" height="11" rx="2.8" transform="rotate(${a} 12 12)"/>`).join("")}</g></svg>` },
+  grok: { kit: "XAI", vendor: "xAI", url: LOBE + "grok.svg",
+    mark: `<svg viewBox="0 0 24 24"><g stroke="#111" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="20" x2="19" y2="4"/><line x1="6" y1="5" x2="11.5" y2="11"/><line x1="13" y1="13.5" x2="18" y2="19"/></g></svg>` },
+  other: { kit: "", vendor: "", mark: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="#5b6bd6"/></svg>` },
+};
+const familyOf = (model) => FAMILIES[String(model).split("-")[0]] ? String(model).split("-")[0] : "other";
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const mini = (f) => `<span class="mini">${FAMILIES[f].url
+  ? `<img src="${FAMILIES[f].url}" alt="" data-f="${f}" onerror="this.outerHTML=FAMILIES[this.dataset.f].mark">`
+  : FAMILIES[f].mark}</span>`;
+const shortName = (r, f) => (r.label || r.model).replace(new RegExp(`^${FAMILIES[f].vendor}\\s+`, "i"), "");
+
+// Effort as a share of the dial and the tag printed inside it.
+const EFFORT = { none: [0.05, "0"], minimal: [0.12, "MIN"], low: [0.25, "L"], medium: [0.5, "M"], high: [0.75, "H"],
+  xhigh: [0.9, "XH"], max: [1, "MAX"], ultra: [1, "U"], ultrathink: [1, "UT"], ultracode: [1, "UC"] };
+function gauge(effort) {
+  const level = String(effort || "").toLowerCase();
+  const [fill, tag] = EFFORT[level] || [0.5, "?"];
+  const c = 2 * Math.PI * 9;
+  return `<span class="gauge" title="effort: ${esc(level || "default")}"><svg viewBox="0 0 22 22">
+    <circle cx="11" cy="11" r="9" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.25)" stroke-width="2.8"/>
+    <circle cx="11" cy="11" r="9" fill="none" stroke="hsl(${Math.round(130 * fill)} 80% 55%)" stroke-width="2.8" stroke-linecap="round"
+      stroke-dasharray="${(c * fill).toFixed(2)} ${c.toFixed(2)}"/></svg><b>${esc(tag)}</b></span>`;
+}
+
+const pitch = document.getElementById("pitch");
+if (GRASS) pitch.style.backgroundImage = `url("${GRASS}")`;
+if (T3_ICON) document.documentElement.style.setProperty("--t3-icon", `url("${T3_ICON}")`);
+
+// Advertising boards. T3's real icon is painted once through a CSS variable, so the
+// reel can repeat without copying the image; the other sponsors are made up.
+const tile = (fill, inner) => `<svg viewBox="0 0 20 20"><rect width="20" height="20" rx="5" fill="${fill}"/>${inner}</svg>`;
+const T3_MARK = T3_ICON ? `<i></i>` : tile("#1c1450",
+  `<text x="10" y="14.5" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="system-ui, sans-serif">T3</text>`);
+const REEL = [
+  ["t3", T3_MARK, "Code"],
+  ["respect", "", "NO TO RACISM"],
+  ["lgtm", tile("#123d22", `<path d="M11.5 2 L5 11 H9.5 L8 18 L15 8.5 H10.5 Z" fill="#8df5a8"/>`), "LGTM ENERGY"],
+  ["womm", tile("#3d3212", `<rect x="4" y="5" width="12" height="8" rx="1" fill="none" stroke="#ffd34d" stroke-width="1.6"/>
+    <path d="M2.5 15.5 H17.5" stroke="#ffd34d" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M7.5 9 L9.2 10.6 L12.5 7.4" fill="none" stroke="#ffd34d" stroke-width="1.4" stroke-linecap="round"/>`), "WORKS ON MY MACHINE"],
+  ["ship", `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#fff"/>
+    <path d="M3 11.5 C6 8.5 8.5 14 11 11 S15.5 9 17 10" fill="none" stroke="#c8102e" stroke-width="1.8" stroke-linecap="round"/></svg>`, "SHIP IT COLA"],
+  ["obo", tile("#0f2547", `<text x="10" y="14" text-anchor="middle" font-size="10" font-weight="900" fill="#9fc8ff" font-family="ui-monospace, monospace">&#177;1</text>`), "OFF-BY-ONE BANK"],
+].map(([cls, mark, text]) => `<span class="ad ${cls}">${mark}${text}</span>`).join("");
+// The reel twice over, so the -50% ticker loops without a seam.
+for (const track of document.querySelectorAll("[data-ads]")) track.innerHTML = REEL.repeat(2);
+
+// Pitch markings, drawn to the pitch's real size so every line meets the next.
+const MARGIN = 30;
+function drawMarkings() {
+  const svg = document.getElementById("markings");
+  const W = pitch.clientWidth, H = pitch.clientHeight;
+  const x0 = MARGIN, y0 = MARGIN, fw = W - 2 * MARGIN, fh = H - 2 * MARGIN;
+  const sx = fw / 68, sy = fh / 105, r = sy * 9.15, cx = W / 2;
+  const boxW = 40.3 * sx, boxD = 16.5 * sy, sixW = 18.32 * sx, sixD = 5.5 * sy;
+  const goalW = Math.max(7.32 * sx, 96), goalD = MARGIN - 6, spot = 11 * sy;
+  const arcDy = boxD - spot, arcDx = Math.sqrt(Math.max(r * r - arcDy * arcDy, 0));
+  const dot = (x, y, rad, extra = "") => `<circle cx="${x}" cy="${y}" r="${rad}" fill="#fff" stroke="none" ${extra}/>`;
+  const stripes = Array.from({ length: 14 }, (_, i) =>
+    i % 2 ? "" : `<rect x="${x0}" y="${y0 + (i * fh) / 14}" width="${fw}" height="${fh / 14}" fill="rgba(255,255,255,.06)"/>`).join("");
+  const end = (flip) => {
+    const gy = flip ? y0 + fh : y0, d = flip ? -1 : 1;
+    const by = flip ? gy - boxD : gy, sy6 = flip ? gy - sixD : gy;
+    const netY = flip ? gy : gy - goalD;
+    const arcY = gy + d * boxD;
+    return `
+      <rect x="${cx - boxW / 2}" y="${by}" width="${boxW}" height="${boxD}"/>
+      <rect x="${cx - sixW / 2}" y="${sy6}" width="${sixW}" height="${sixD}"/>
+      ${dot(cx, gy + d * spot, 2.5)}
+      <path d="M ${cx - arcDx} ${arcY} A ${r} ${r} 0 0 ${flip ? 1 : 0} ${cx + arcDx} ${arcY}"/>
+      <rect x="${cx - goalW / 2}" y="${netY}" width="${goalW}" height="${goalD}" fill="url(#net)" stroke="rgba(255,255,255,.55)" stroke-width="1"/>
+      <line x1="${cx - goalW / 2 - 2}" y1="${gy}" x2="${cx + goalW / 2 + 2}" y2="${gy}" stroke="#fff" stroke-width="4" stroke-linecap="round" filter="url(#post)"/>
+      ${[-1, 1].map((s) => dot(cx + s * goalW / 2, gy, 3, 'filter="url(#post)"')).join("")}`;
+  };
+  const corner = (x, y, ax, ay, colour) => `
+      <path d="M ${x + ax * 9} ${y} A 9 9 0 0 ${ax * ay > 0 ? 1 : 0} ${x} ${y + ay * 9}"/>
+      <line x1="${x}" y1="${y}" x2="${x - ax * 2}" y2="${y - ay * 16}" stroke="#ddd" stroke-width="1.5"/>
+      <path d="M ${x - ax * 2} ${y - ay * 16} L ${x - ax * 13} ${y - ay * 12} L ${x - ax * 2} ${y - ay * 8} Z" fill="${colour}" stroke="none" filter="url(#post)"/>
+      ${dot(x, y, 1.8)}`;
+  svg.innerHTML = `
+    <defs>
+      <pattern id="net" width="6" height="6" patternUnits="userSpaceOnUse">
+        <rect width="6" height="6" fill="rgba(0,0,0,.22)"/>
+        <path d="M0 0 L6 6 M6 0 L0 6" stroke="rgba(255,255,255,.5)" stroke-width=".7"/>
+      </pattern>
+      <filter id="post" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-opacity=".5"/></filter>
+      <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
+        <stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".35"/>
+      </radialGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="rgba(38,110,52,.62)"/>
+    ${stripes}
+    <rect width="${W}" height="${H}" fill="url(#vignette)"/>
+    <g fill="none" stroke="rgba(255,255,255,.88)" stroke-width="2">
+      <rect x="${x0}" y="${y0}" width="${fw}" height="${fh}"/>
+      <line x1="${x0}" y1="${y0 + fh / 2}" x2="${x0 + fw}" y2="${y0 + fh / 2}"/>
+      <circle cx="${cx}" cy="${y0 + fh / 2}" r="${r}"/>
+      ${dot(cx, y0 + fh / 2, 2.5)}
+      ${end(false)}${end(true)}
+      ${corner(x0, y0, 1, 1, "#ffd34d")}${corner(x0 + fw, y0, -1, 1, "#ff5a4d")}
+      ${corner(x0, y0 + fh, 1, -1, "#ff5a4d")}${corner(x0 + fw, y0 + fh, -1, -1, "#ffd34d")}
+    </g>`;
+}
+drawMarkings();
+
+const KIT = `<svg class="kit" viewBox="0 0 54 50" aria-hidden="true"><path d="M18 2 L7 6 L1 17 L10 21 L11 48 H43 L44 21 L53 17 L47 6 L36 2 C33 7 21 7 18 2 Z"/></svg>`;
+const rows = [];
+for (const s of SLOTS) {
+  const r = LINEUP.roles[s.key] || {};
+  const filled = !!r.model, f = filled ? familyOf(r.model) : "other";
+  const skipped = s.emptyCaption || "skipped";
+  const roleCell = `<td>${esc(s.label)} <span class="note">(${esc(s.position)})</span></td>`;
+  pitch.insertAdjacentHTML("beforeend",
+    `<div class="player${s.keeper ? " keeper" : ""}" style="left:${s.x}%;top:${s.y}%">
+       <div class="shirt${filled ? "" : " empty"}"${filled ? ` data-key="${s.key}"` : ""}>${KIT}
+         <span class="kit-name">${filled ? FAMILIES[f].kit : ""}</span><span class="kit-num">${s.num}</span></div>
+       <div class="text">
+         <div class="role">${esc(s.label)}${s.armband && filled ? `<span class="badge">${s.armband}</span>` : ""}</div>
+         <div class="position">(${esc(s.position)})</div>
+         ${filled
+           ? `<div class="model" title="${esc(`${r.model} · ${r.effort}`)}">${mini(f)}${esc(shortName(r, f))}${gauge(r.effort)}</div>`
+           : `<div class="model">${esc(skipped)}</div>`}
+       </div>
+     </div>`);
+  rows.push(filled
+    ? `<tr>${roleCell}<td class="mono">${mini(f)}${esc(r.model)}</td><td class="mono">${esc(r.provider)}</td>
+         <td>${esc(r.effort)}${r.effortNote ? ` <span class="note">(${esc(r.effortNote)})</span>` : ""}</td>
+         <td>${esc(r.runtime)}</td><td>${esc(r.interaction)}</td></tr>`
+    : `<tr>${roleCell}<td colspan="5" class="note">${esc(skipped)}</td></tr>`);
+}
+document.getElementById("sheet").innerHTML =
+  `<tr><th>Role</th><th>Model</th><th>Provider</th><th>Effort</th><th>Runtime</th><th>Interaction</th></tr>` + rows.join("");
+
+const p = LINEUP.press;
+const press = !p ? "" : `Press: floor <b>${esc(p.floor)}</b>${p.cap ? `, cap <b>${esc(p.cap)}</b> rounds` : ""}`;
+document.getElementById("dugout").innerHTML =
+  `<span>Manager <b>${esc(LINEUP.manager || "You")}</b>, on the touchline, arms folded</span><span>${press}</span>`;
+
+// The build-up: from the keeper up through the slots to the striker, then into the net.
+const ball = document.getElementById("ball");
+const flash = document.getElementById("goal-flash");
+let animations = [], visible = true;
+function kickOff() {
+  animations.forEach((a) => a.cancel());
+  animations = [];
+  const box = pitch.getBoundingClientRect();
+  const spots = SLOTS.map((s) => pitch.querySelector(`.shirt[data-key="${s.key}"]`)).filter(Boolean).reverse()
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return [r.left - box.left + r.width / 2 + 14, r.top - box.top + r.height / 2 + 14];
+    });
+  if (spots.length < 2) return;
+  spots.push([box.width / 2, MARGIN - 8]);
+  const pass = 650, hold = 350, total = spots.length * (pass + hold) + 1600;
+  const frames = [];
+  spots.forEach(([x, y], i) => {
+    const at = (i * (pass + hold)) / total;
+    const transform = `translate(${x}px, ${y}px) rotate(${i * 360}deg)`;
+    frames.push({ offset: at, transform, opacity: i === 0 ? 0 : 1, easing: "ease-in-out" });
+    frames.push({ offset: at + hold / total, transform, opacity: 1, easing: "ease-in-out" });
+  });
+  frames.push({ ...frames[frames.length - 1], offset: 1, opacity: 0 });
+  const scored = ((spots.length - 1) * (pass + hold)) / total;
+  const flashAt = (offset, opacity, scale) => ({ offset: Math.min(offset, 1), opacity, transform: `translate(-50%, -50%) scale(${scale})` });
+  animations = [
+    ball.animate(frames, { duration: total, iterations: Infinity }),
+    flash.animate([flashAt(0, 0, .6), flashAt(scored, 0, .6), flashAt(scored + 0.04, 1, 1.15), flashAt(scored + 0.12, 1, 1), flashAt(1, 0, 1)],
+      { duration: total, iterations: Infinity }),
+  ];
+  if (!visible) animations.forEach((a) => a.pause());
+}
+const animated = !matchMedia("(prefers-reduced-motion: reduce)").matches && ball.animate;
+if (animated) requestAnimationFrame(kickOff);
+let lastWidth = pitch.clientWidth, resized;
+addEventListener("resize", () => {
+  clearTimeout(resized);
+  resized = setTimeout(() => {
+    if (pitch.clientWidth === lastWidth) return;
+    lastWidth = pitch.clientWidth;
+    drawMarkings();
+    if (animated) kickOff();
+  }, 200);
+});
+// Nothing moves while the sheet is scrolled out of view.
+if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => {
+  visible = e.isIntersecting;
+  document.querySelectorAll(".track").forEach((t) => t.style.animationPlayState = visible ? "running" : "paused");
+  animations.forEach((a) => visible ? a.play() : a.pause());
+}).observe(document.querySelector(".sheet"));
+</script>
+</body>
+</html>

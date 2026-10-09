@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.15.1.0] - 2026-10-09
+
+### Added
+
+* `/qstack-t3-gegenpress` shows the chosen lineup as an inline HTML team sheet
+  in the T3 thread: a stadium with scrolling advertising boards down both
+  touchlines and a grass pitch with full markings, netted goals, and corner
+  flags. Each role stands in its football position, every player wears the
+  club jersey with the model maker's name on it, the user is on the
+  touchline as manager, a ball is worked from the keeper up to the striker
+  for a goal, and the full lineup table sits under it. The run waits for the
+  user to type `kick-off`, name a substitution, or abandon before anything
+  is launched. Without inline HTML it falls back to a Markdown table.
+
 ## [2.15.0.0] - 2026-10-08
 
 ### Added
