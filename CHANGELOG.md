@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.16.0.0] - 2026-10-18
+
+### Added
+
+* `/qstack-t3-see-it-out` takes finished work in a T3 Code thread all the way
+  to merged. It runs `simplify`, opens the pull requests through `/qstack-pr`,
+  and has another model, `gpt-6.1-sol` by default, review each one under the
+  `/qstack-review` contract. The thread confirms and fixes each finding, then
+  starts a fresh review round on the new head. A pull request merges once a
+  round scores 5/5 at its current head and its required checks are green,
+  in dependency order across stacked branches and submodule pins. After five
+  rounds it asks whether to keep going, merge, or stop. `--reviewer astra` or
+  `both` changes the reviewer, `--no-merge` stops at 5/5, and
+  `--skip-simplify` skips the first pass.
+
 ## [2.15.1.0] - 2026-10-09
 
 ### Added

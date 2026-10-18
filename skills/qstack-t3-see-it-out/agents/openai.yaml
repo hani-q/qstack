@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack T3 See It Out"
+  short_description: "Simplify, open PRs, review each to 5/5 with another model, and merge"
+  default_prompt: "Use $qstack-t3-see-it-out to simplify this work, open its pull requests, review each to 5/5 with gpt-6.1-sol, and merge them."
+policy:
+  allow_implicit_invocation: false
