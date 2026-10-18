@@ -64,6 +64,9 @@ Read `../qstack-review/SKILL.md`, resolved from this file's own path after
 following any symlink, and keep its absolute path for the review brief. When
 it is missing, stop: the 5/5 bar is that skill's score.
 
+Pick a run id once, the current UTC time as `YYYYMMDDHHMMSS`. It keeps this
+run's request ids and snapshot paths apart from any earlier run's.
+
 ## Resolve the scope
 
 In this order:
@@ -118,18 +121,29 @@ Call `link_pull_request` with each URL as soon as it exists.
 Run every pull request's rounds at the same time. Rounds for one pull
 request are strictly in sequence.
 
+**Pin the snapshot.** A reviewer never reads the checkout this thread edits,
+because a fix for one pull request would change files under another's
+review. Before each round, record the pull request's base branch, its head
+commit, and the merge base `git merge-base origin/<base> <head>` after a
+fetch. Then create a detached worktree at the head:
+`git -C <repo> worktree add --detach /tmp/see-it-out-<run-id>/<repo>-<pr>-r<round> <head>`.
+Remove it with `git worktree remove --force` once the round is triaged.
+
 **Launch a round** with a new `delegate_task` per reviewer:
 
 - `target`: the reviewer's provider instance, model, and effort option.
 - `role: "review"`, `interactionMode: "plan"`, `mode: "async"`.
-- `runtimeMode`: this thread's own mode from Preflight.
-- `clientRequestId`: `see-it-out-<repo>-<pr>-r<round>-<reviewer>`.
+- No `runtimeMode`, so T3 falls back to a mode the reviewer's provider
+  supports.
+- `clientRequestId`: `see-it-out-<run-id>-<repo>-<pr>-r<round>-<reviewer>`,
+  reused only to retry that same launch.
 - A brief with:
-  - the repository path, the pull request URL, the branch, the base, and
-    the exact head commit;
+  - the snapshot path as the only checkout to read and run commands in, the
+    pull request URL, the branch, the base branch, the merge base, and the
+    exact head commit;
   - the instruction to follow the `/qstack-review` file at its absolute path
-    exactly, with the scope `git diff <base>...<head>`, reading every changed
-    file in full;
+    exactly, with the scope `git diff <merge-base>..<head>`, reading every
+    changed file in full;
   - the latest test run: the command, the counts, and any test that could
     not run here and why;
   - from round 2 on, every earlier finding with its disposition and, for a
@@ -149,11 +163,14 @@ file already being edited.
 
 **Pass or fix.**
 
-- **Pass**: the round scored 5/5, from every reviewer, at the commit that is
-  still the pull request's head. Go to Merge.
+- **Pass**: the round scored 5/5 from every reviewer. Record the pass as its
+  base branch, merge base, and head, and go to Merge.
 - **Fix**: fix every confirmed finding, run the tests, commit with
   `fix: review round <n> findings`, push, and launch the next round on the
   new head.
+- **Dismissed only**: the round scored below 5/5 and every P0 and P1 was
+  dismissed. Launch the next round on the same head with the dismissal
+  evidence, with nothing to commit or push.
 - **Disagree**: a reviewer raises again a finding this thread dismissed with
   evidence. Ask the user through the question tool, with both positions as
   options.
@@ -169,27 +186,48 @@ shrinking), merge as it is, or stop here.
 merge the base into the branch with a merge commit, never a rebase. Run the
 tests and push. The next round reviews the new head.
 
+**A pass covers one diff.** A pass holds only while the pull request's base
+branch, merge base, and head all still match what it recorded. Any change,
+including a retarget with no conflict, ends it, and the next round reviews
+the new scope.
+
 ## 4. Merge
 
 Skip with `--no-merge`, or when the user said they will merge.
 
 Merge a pull request only when all of these hold:
 
-- It passed at its current head. Check that `gh pr view <pr> --json
-  headRefOid` matches the commit the passing round reviewed.
+- Its pass still holds. Check that `gh pr view <pr> --json
+  headRefOid,baseRefName` and a fresh `git merge-base origin/<base> <head>`
+  match the recorded pass.
 - Every required check is green. Wait on `gh pr checks <pr> --required
   --watch`, or on every check when the repository requires none, and treat
   a failure as a confirmed finding for one more fix round.
-- It is mergeable, and every pull request it depends on has merged.
+- It is mergeable, and every pull request it depends on shows state
+  `MERGED`.
 
-Merge with `gh pr merge <pr> --match-head-commit <sha> --delete-branch` and
-the method the repository allows, `--merge` when it allows several. Confirm
-the merge commit with `gh pr view`.
+Check whether the base branch uses a merge queue: `gh api
+repos/<owner>/<repo>/rules/branches/<base> --jq '.[].type'` lists
+`merge_queue`, or `gh pr merge` refuses the merge because the branch
+requires one.
+
+- Without a queue, merge with `gh pr merge <pr> --match-head-commit <sha>
+  --delete-branch` and the method the repository allows, `--merge` when it
+  allows several.
+- With a queue, run `gh pr merge <pr> --match-head-commit <sha>` with no
+  method flag and no `--delete-branch`, which `gh` rejects for a queue. Then
+  read `gh pr view <pr> --json state` once a minute for up to an hour until
+  it is `MERGED`, and delete the branch with `git push origin --delete
+  <branch>`. A pull request that leaves the queue unmerged gets one fix
+  round for the reason, and one still queued after the hour is reported.
+
+Confirm the merge commit with `gh pr view` before releasing anything that
+depends on it.
 
 After a dependency merges:
 
-- A stacked child is retargeted to the parent's base. When the child then
-  conflicts, handle it as Base moved.
+- A stacked child is retargeted to the parent's base, which ends its pass.
+  Handle a conflict as Base moved, then review the new scope.
 - A pin, such as a submodule gitlink, moves to the dependency's merged commit
   on its main branch. That commit goes through a review round before the
   pinning pull request merges.
