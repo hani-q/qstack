@@ -242,6 +242,19 @@ still running. Then read `task_status` up to five times, one minute apart,
 until each is terminal with `hasPendingChildRuns` false. Report anything
 still running by task id.
 
+A merge this run handed to GitHub outlives the run, so keep a list of every
+pull request it queued or set to auto-merge. For each one not yet `MERGED`:
+
+- Run `gh pr merge <pr> --disable-auto`.
+- Remove it from the queue with `gh api graphql -f query='mutation($id:
+  ID!){dequeuePullRequest(input:{id:$id}){clientMutationId}}' -f id=<node
+  id>`, the node id from `gh pr view <pr> --json id`.
+- Confirm with `gh api graphql` that `pullRequest.isInMergeQueue` is false
+  and `autoMergeRequest` is null.
+
+Report any pull request still queued, still set to merge, or merged in the
+meantime.
+
 ## Report
 
 Lead with the outcome: merged, waiting on the user, or stopped and why.
