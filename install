@@ -92,6 +92,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-unslop` to remove AI writing patterns from the previous answer without losing useful detail.
 - Use `/qstack-ste [level]` to rewrite the previous answer in ASD-STE100 Simplified Technical English at a strictness from 1 to 100, default 80, keeping every fact and the same reader.
 - Use `/qstack-explain-for [role] [product]` to rewrite the previous answer for a named reader such as a product manager, CEO, or CMO, optionally framed around a named product.
+- Use `/qstack-recap [brief|full]` to recap the whole thread when you have lost its context: why it exists, what was found, what was done versus proposed, and what you need to decide.
 - Use `/qstack-ask-as-questions [role]` to ask the open questions from the previous answer through the question tool, rephrased for a named reader with an ELI10 version, lettered options, and a recommendation.
 - Use `/qstack-blast-radius` to find and prove the critical safety fact behind a change.
 - Use `/qstack-separate-before-serializing-shared-state` to remove shared mutable ownership before adding serialization.

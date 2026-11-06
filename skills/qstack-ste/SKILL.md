@@ -1,6 +1,6 @@
 ---
 name: qstack-ste
-description: Rewrite the immediately previous assistant answer in ASD-STE100 Simplified Technical English at a chosen strictness, keeping every fact, the same reader, and roughly the same length. Use when the user invokes `/qstack-ste`, optionally with a level from 1 to 100 such as `/qstack-ste 80`, or when the user's whole message is about the previous answer, asks no new question, and names no reader, level, or length, for example they quote the answer's own words back or say "what does this mean", "what do you mean", "explain again", or "I don't understand". A request for a shorter answer belongs to `/qstack-be-concise`; a request for a higher level, simpler words, or another reader belongs to `/qstack-explain-for`.
+description: Rewrite the immediately previous assistant answer in ASD-STE100 Simplified Technical English at a chosen strictness, keeping every fact, the same reader, and roughly the same length. Use when the user invokes `/qstack-ste`, optionally with a level from 1 to 100 such as `/qstack-ste 80`, or when the user's whole message is about the previous answer, asks no new question, and names no reader, level, or length, for example they quote the answer's own words back or say "what does this mean", "what do you mean", "explain again", or "I don't understand". A request for a shorter answer belongs to `/qstack-be-concise`; a request for a higher level, simpler words, or another reader belongs to `/qstack-explain-for`; a user who has lost the context of the whole thread belongs to `/qstack-recap`.
 ---
 
 # /qstack-ste
@@ -58,8 +58,9 @@ new question or instruction, and names no reader, level, or length:
 
 The other rewrite skills own the neighbouring requests. "Shorter", "too much",
 or a line count is `/qstack-be-concise`. "Simpler words", "higher level", "too
-technical", or a named reader is `/qstack-explain-for`. When the message names
-one of those, this skill does not fire.
+technical", or a named reader is `/qstack-explain-for`. "I've lost context",
+"where are we", or "what was this thread about" is `/qstack-recap`. When the
+message names one of those, this skill does not fire.
 
 Then:
 

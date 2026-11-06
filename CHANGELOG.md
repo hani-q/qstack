@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.16.1.0] - 2026-11-06
+
+### Added
+
+* `/qstack-recap [brief|full]` recaps the whole current thread for a user who
+  has lost its context. It reads from the first message, not just the last
+  answer, and returns five parts: where things stand, why the thread exists,
+  what was found, what is suggested, and what the user must decide, each open
+  decision answerable in a word. It counts something as done only when a tool
+  result in the thread shows it, and keeps what was only proposed separate.
+  It fires on its own when the user says they have lost context or asks where
+  things stand, and `/qstack-ste` and `/qstack-explain-for` now step aside for
+  it.
+
 ## [2.16.0.0] - 2026-10-18
 
 ### Added

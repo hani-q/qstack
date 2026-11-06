@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Recap"
+  short_description: "Recap the whole thread for a user who has lost its context"
+  default_prompt: "Use $qstack-recap to recap this whole thread in plain words: where we are, why it exists, what was found, what was done versus only proposed, what you suggest, and what you need from me."
+policy:
+  allow_implicit_invocation: true
