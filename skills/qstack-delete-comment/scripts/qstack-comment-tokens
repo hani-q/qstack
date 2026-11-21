@@ -3,29 +3,37 @@
 
   qstack-comment-tokens list PATH...
       Print every comment in the files under PATH that a built-in lexer
-      handles, as JSON lines: {"id": "path:start", "file", "start_line",
-      "end_line", "text"}.
+      handles, as JSON lines: {"id": "path:line:column", "file",
+      "start_line", "start_col", "end_line", "text"}.
 
   qstack-comment-tokens check [-C REPO] [--lexer FILE] BASE [HEAD]
       Compare the non-comment token stream of every file changed between BASE
-      and HEAD (default: the working tree) and exit 1 on any difference.
+      and HEAD (default: the working tree, untracked files included) and exit
+      1 on any difference.
 
-Built-in lexers: C, C++ and Objective-C (string and character literals stay
-whole, line splices are joined, and the end of a preprocessor directive is a
-token, so a lost backslash continuation is caught), and Python (the standard
-tokenize module, ignoring COMMENT and NL). For any other language pass
---lexer FILE, a Python file defining code_tokens(text, path) that returns the
-file's non-comment tokens as a list of strings, or None for a path it does not
-handle.
+Built-in lexers: C, C++ and Objective-C, and Python. The C-family lexer keeps
+string, character and C++ raw-string literals whole, joins line splices before
+it looks for comment delimiters, and makes the end of a preprocessor directive
+(`#` or `%:`) a token, so a lost backslash continuation is caught. Bytes are
+never discarded: C-family files are read as UTF-8 with surrogateescape, and
+Python files are tokenized from bytes under their declared encoding. A file a
+lexer cannot read, such as one with an unterminated comment, fails.
+
+For any other language pass --lexer FILE, a Python file defining
+code_tokens(text, path) that returns the file's non-comment tokens as a list of
+strings, or None for a path it does not handle. `text` is the file decoded as
+UTF-8 with surrogateescape, so no byte is lost.
 """
 
 from __future__ import annotations
 
 import argparse
+import bisect
 import importlib.machinery
 import importlib.util
 import io
 import json
+import re
 import subprocess
 import sys
 import tokenize
@@ -35,23 +43,48 @@ C_SUFFIXES = {".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".m", ".
 PY_SUFFIXES = {".py", ".pyi"}
 NON_SOURCE_SUFFIXES = {".md", ".markdown", ".rst", ".adoc", ".txt", ".json", ".yml", ".yaml", ".toml"}
 DIRECTIVE_END = "<end-of-directive>"
+RAW_PREFIX = re.compile(r"(?:^|[^A-Za-z0-9_])(?:u8|u|U|L)?R$")
+PP_NUMBER_TAIL = re.compile(r"(?:^|[^A-Za-z0-9_.])\.?[0-9][A-Za-z0-9_.']*$")
+RAW_DELIMITER_BAD = set(" ()\\\t\v\f\r\n")
+
+
+class LexError(ValueError):
+    pass
+
+
+def decode(data: bytes) -> str:
+    return data.decode("utf-8", "surrogateescape")
 
 
 def scan_c(text: str) -> tuple[list[dict], list[str]]:
     """Return (comments, code tokens) for C-family source."""
+    newlines = [k for k, ch in enumerate(text) if ch == "\n"]
     comments: list[dict] = []
     tokens: list[str] = []
     word: list[str] = []
-    i, n, line = 0, len(text), 1
+    i, n = 0, len(text)
     line_start = True
     in_directive = False
 
-    def splice_at(j: int) -> int:
+    def position(offset: int) -> tuple[int, int]:
+        row = bisect.bisect_left(newlines, offset)
+        return row + 1, offset - (newlines[row - 1] + 1 if row else 0) + 1
+
+    def splice_len(j: int) -> int:
         if text.startswith("\\\n", j):
             return 2
         if text.startswith("\\\r\n", j):
             return 3
         return 0
+
+    def after_splices(j: int) -> int:
+        while (k := splice_len(j)):
+            j += k
+        return j
+
+    def char_at(j: int) -> str:
+        j = after_splices(j)
+        return text[j] if j < n else ""
 
     def end_word() -> None:
         if word:
@@ -59,29 +92,65 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
             word.clear()
 
     while i < n:
-        c = text[i]
-        skip = splice_at(i)
+        skip = splice_len(i)
         if skip:
-            line += 1
             i += skip
-        elif c == "\n":
+            continue
+        c = text[i]
+        if c == "\n":
             end_word()
             if in_directive:
                 tokens.append(DIRECTIVE_END)
                 in_directive = False
             line_start = True
-            line += 1
             i += 1
         elif c in " \t\r\f\v":
             end_word()
+            i += 1
+        elif c == "/" and char_at(i + 1) in ("/", "*"):
+            end_word()
+            start = i
+            j = after_splices(i + 1)
+            i = j + 1
+            if text[j] == "/":
+                while i < n and text[i] != "\n":
+                    i += splice_len(i) or 1
+            else:
+                while True:
+                    if i >= n:
+                        raise LexError(f"unterminated block comment at line {position(start)[0]}")
+                    skip = splice_len(i)
+                    if skip:
+                        i += skip
+                    elif text[i] == "*" and char_at(i + 1) == "/":
+                        i = after_splices(i + 1) + 1
+                        break
+                    else:
+                        i += 1
+            line, col = position(start)
+            body = text[start:i].rstrip("\r")
+            comments.append({"start_line": line, "start_col": col, "end_line": position(i - 1)[0], "text": body})
+        elif c == '"' and RAW_PREFIX.search("".join(word)):
+            open_paren = text.find("(", i + 1)
+            delimiter = text[i + 1:open_paren] if open_paren >= 0 else ""
+            if open_paren < 0 or len(delimiter) > 16 or RAW_DELIMITER_BAD & set(delimiter):
+                raise LexError(f"malformed raw string at line {position(i)[0]}")
+            close = text.find(")" + delimiter + '"', open_paren + 1)
+            if close < 0:
+                raise LexError(f"unterminated raw string at line {position(i)[0]}")
+            end = close + len(delimiter) + 2
+            word.append(text[i:end])
+            i = end
+            line_start = False
+        elif c == "'" and PP_NUMBER_TAIL.search("".join(word)):
+            word.append(c)
             i += 1
         elif c in "\"'":
             start = i
             i += 1
             while i < n:
-                skip = splice_at(i)
+                skip = splice_len(i)
                 if skip:
-                    line += 1
                     i += skip
                 elif text[i] == "\\":
                     i += 2
@@ -94,26 +163,8 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
                     i += 1
             word.append(text[start:i].replace("\\\r\n", "").replace("\\\n", ""))
             line_start = False
-        elif text.startswith("//", i) or text.startswith("/*", i):
-            end_word()
-            start, start_line = i, line
-            if text[i + 1] == "/":
-                while i < n and text[i] != "\n":
-                    skip = splice_at(i)
-                    if skip:
-                        line += 1
-                        i += skip
-                    else:
-                        i += 1
-            else:
-                end = text.find("*/", i + 2)
-                end = n if end < 0 else end + 2
-                line += text.count("\n", i, end)
-                i = end
-            body = text[start:i].rstrip("\r")
-            comments.append({"start_line": start_line, "end_line": line, "text": body})
         else:
-            if line_start and c == "#":
+            if line_start and (c == "#" or (c == "%" and char_at(i + 1) == ":")):
                 in_directive = True
             line_start = False
             word.append(c)
@@ -124,20 +175,35 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
     return comments, tokens
 
 
-def scan_python(text: str) -> tuple[list[dict], list[str]]:
+def scan_python(data: bytes) -> tuple[list[dict], list[str]]:
     comments: list[dict] = []
     tokens: list[str] = []
-    layout = {tokenize.NEWLINE, tokenize.NL, tokenize.ENDMARKER}
-    for tok in tokenize.generate_tokens(io.StringIO(text).readline):
-        if tok.type == tokenize.COMMENT:
-            comments.append({"start_line": tok.start[0], "end_line": tok.end[0], "text": tok.string})
-        elif tok.type == tokenize.NL:
-            continue
-        elif tok.type in layout:
-            tokens.append(tokenize.tok_name[tok.type])
-        else:
-            tokens.append(f"{tokenize.tok_name[tok.type]}:{tok.string}")
+    layout = {tokenize.NEWLINE, tokenize.ENDMARKER}
+    try:
+        for tok in tokenize.tokenize(io.BytesIO(data).readline):
+            if tok.type == tokenize.COMMENT:
+                comments.append({
+                    "start_line": tok.start[0], "start_col": tok.start[1] + 1,
+                    "end_line": tok.end[0], "text": tok.string,
+                })
+            elif tok.type == tokenize.NL:
+                continue
+            elif tok.type in layout:
+                tokens.append(tokenize.tok_name[tok.type])
+            else:
+                tokens.append(f"{tokenize.tok_name[tok.type]}:{tok.string}")
+    except (SyntaxError, UnicodeDecodeError, tokenize.TokenError) as error:
+        raise LexError(f"cannot tokenize: {error}") from error
     return comments, tokens
+
+
+def scan(data: bytes, path: str) -> tuple[list[dict], list[str]] | None:
+    suffix = Path(path).suffix.lower()
+    if suffix in C_SUFFIXES:
+        return scan_c(decode(data))
+    if suffix in PY_SUFFIXES:
+        return scan_python(data)
+    return None
 
 
 def load_lexer(path: str | None):
@@ -152,17 +218,13 @@ def load_lexer(path: str | None):
     return module
 
 
-def code_tokens(text: str, path: str, lexer) -> list[str] | None:
+def code_tokens(data: bytes, path: str, lexer) -> list[str] | None:
     if lexer is not None:
-        result = lexer.code_tokens(text, path)
+        result = lexer.code_tokens(decode(data), path)
         if result is not None:
             return list(result)
-    suffix = Path(path).suffix.lower()
-    if suffix in C_SUFFIXES:
-        return scan_c(text)[1]
-    if suffix in PY_SUFFIXES:
-        return scan_python(text)[1]
-    return None
+    scanned = scan(data, path)
+    return None if scanned is None else scanned[1]
 
 
 def cmd_list(args) -> int:
@@ -170,23 +232,24 @@ def cmd_list(args) -> int:
     for raw in args.paths:
         p = Path(raw)
         files += sorted(f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]
+    failed = 0
     for f in files:
-        suffix = f.suffix.lower()
-        if suffix not in C_SUFFIXES | PY_SUFFIXES:
+        rel = f.as_posix()
+        if f.suffix.lower() not in C_SUFFIXES | PY_SUFFIXES:
             continue
-        text = f.read_text(encoding="utf-8", errors="replace")
-        comments = scan_c(text)[0] if suffix in C_SUFFIXES else scan_python(text)[0]
-        for c in comments:
-            rel = f.as_posix()
-            print(json.dumps({"id": f"{rel}:{c['start_line']}", "file": rel, **c}))
-    return 0
+        try:
+            scanned = scan(f.read_bytes(), rel)
+        except LexError as error:
+            print(f"{rel}: {error}", file=sys.stderr)
+            failed += 1
+            continue
+        for c in scanned[0] if scanned else []:
+            print(json.dumps({"id": f"{rel}:{c['start_line']}:{c['start_col']}", "file": rel, **c}))
+    return 1 if failed else 0
 
 
-def git(repo: str, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", repo, *args], capture_output=True, check=True, text=True,
-        encoding="utf-8", errors="replace",
-    ).stdout
+def git(repo: str, *args: str) -> bytes:
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, check=True).stdout
 
 
 def first_difference(a: list[str], b: list[str]) -> str:
@@ -194,12 +257,20 @@ def first_difference(a: list[str], b: list[str]) -> str:
     return f"token {i}: before {a[i:i + 4]!r}, after {b[i:i + 4]!r}"
 
 
+def changed_files(args) -> list[tuple[str, str]]:
+    diff = ["diff", "--name-status", "--no-renames", "-z", args.base] + ([args.head] if args.head else [])
+    fields = decode(git(args.repo, *diff)).split("\0")
+    rows = list(zip(fields[0::2], fields[1::2]))
+    if not args.head:
+        untracked = decode(git(args.repo, "ls-files", "--others", "--exclude-standard", "-z")).split("\0")
+        rows += [("A", path) for path in untracked if path]
+    return rows
+
+
 def cmd_check(args) -> int:
     repo, lexer = args.repo, load_lexer(args.lexer)
-    diff = ["diff", "--name-status", "--no-renames", args.base] + ([args.head] if args.head else [])
     failed = checked = 0
-    for row in git(repo, *diff).splitlines():
-        status, path = row.split("\t", 1)
+    for status, path in changed_files(args):
         suffix = Path(path).suffix.lower()
         if suffix in NON_SOURCE_SUFFIXES:
             print(f"not source  {path}")
@@ -209,11 +280,13 @@ def cmd_check(args) -> int:
             failed += 1
             continue
         before = git(repo, "show", f"{args.base}:{path}")
-        after = (
-            git(repo, "show", f"{args.head}:{path}") if args.head
-            else (Path(repo) / path).read_text(encoding="utf-8", errors="replace")
-        )
-        a, b = code_tokens(before, path, lexer), code_tokens(after, path, lexer)
+        after = git(repo, "show", f"{args.head}:{path}") if args.head else (Path(repo) / path).read_bytes()
+        try:
+            a, b = code_tokens(before, path, lexer), code_tokens(after, path, lexer)
+        except LexError as error:
+            print(f"FAIL        {path}: {error}")
+            failed += 1
+            continue
         if a is None:
             print(f"FAIL        {path}: no lexer for {suffix or 'this file'}; pass --lexer")
             failed += 1

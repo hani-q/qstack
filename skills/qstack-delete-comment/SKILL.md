@@ -65,8 +65,9 @@ form when it has one. Without a lint, use `qstack-comment-tokens list <path>...`
 for C, C++, Objective-C, and Python, filter out the default exemptions, and for
 other languages use the language's own tokenizer.
 
-Give each comment an ID of `path:start_line`. The ID set is the coverage
-contract: the sweep is done only when every ID has exactly one category.
+Give each comment an ID of `path:line:column`, where the comment starts; two
+comments can share a line. The ID set is the coverage contract: the sweep is
+done only when every ID has exactly one category.
 
 For a sweep of more than a few hundred comments, extract the comments into
 batches, each with its file path, line range, text, and the surrounding code
@@ -129,12 +130,13 @@ python3 -I <skill-dir>/scripts/qstack-comment-tokens check <base>
 ```
 
 This compares the non-comment token stream of every file changed since the
-base, in the working tree, against the base. String and character literals
-stay whole, so whitespace inside a string counts, and the end of a
-preprocessor directive is a token, so a lost continuation fails. Added or
-deleted source files fail, because a comment sweep only modifies files.
-Documentation and data files, such as the ADRs and the baseline, are listed as
-not source.
+base, in the working tree, against the base. String, character, and raw-string
+literals stay whole, so whitespace inside a string counts, and the end of a
+preprocessor directive is a token, so a lost continuation fails. No byte is
+discarded in decoding. Added, deleted, or untracked source files fail, because
+a comment sweep only modifies files, and so does a file the lexer cannot read,
+such as one with an unterminated comment. Documentation and data files, such
+as the ADRs and the baseline, are listed as not source.
 
 For a language with no built-in lexer, pass `--lexer <file>`: a Python file
 defining `code_tokens(text, path)` that returns the non-comment tokens, built

@@ -24,8 +24,8 @@ def c_tokens(text: str) -> list[str]:
     return qct.scan_c(text)[1]
 
 
-def py_tokens(text: str) -> list[str]:
-    return qct.scan_python(text)[1]
+def py_tokens(text: str | bytes) -> list[str]:
+    return qct.scan_python(text.encode() if isinstance(text, str) else text)[1]
 
 
 class CLexerTests(unittest.TestCase):
@@ -63,6 +63,35 @@ class CLexerTests(unittest.TestCase):
         self.assertEqual([c["text"] for c in comments], ["// real"])
 
 
+    def test_raw_string_contents_are_code(self) -> None:
+        before = 'const char *s = R"x(a " // OLD\n)x";\n'
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens(before.replace("OLD", "NEW")))
+
+    def test_spliced_block_comment_terminator_ends_the_comment(self) -> None:
+        before = "int f(void) { /* why *\\\n/ return 1; }\n"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(len(comments), 1)
+        self.assertIn("return", tokens)
+        self.assertNotEqual(tokens, c_tokens(before.replace("return 1", "return 2")))
+
+    def test_unterminated_block_comment_fails(self) -> None:
+        with self.assertRaises(qct.LexError):
+            qct.scan_c("int a; /* never closed\n")
+
+    def test_digraph_directive_end_is_a_token(self) -> None:
+        self.assertNotEqual(c_tokens("%:define X 1\nint y;\n"), c_tokens("%:define X 1 int y;\n"))
+
+    def test_digit_separator_is_not_a_character_literal(self) -> None:
+        comments, _ = qct.scan_c("int x = 1'000; // real\nchar c = u8'a';\n")
+        self.assertEqual([c["text"] for c in comments], ["// real"])
+
+    def test_comments_on_one_line_get_distinct_columns(self) -> None:
+        comments, _ = qct.scan_c("int a; /* first */ int b; /* second */\n")
+        self.assertEqual([(c["start_line"], c["start_col"]) for c in comments], [(1, 8), (1, 27)])
+
+
 class PythonLexerTests(unittest.TestCase):
     def test_removed_comments_leave_tokens_unchanged(self) -> None:
         before = "# header\nx = 1  # trailing\n\n# block\ndef f():\n    return x\n"
@@ -72,9 +101,15 @@ class PythonLexerTests(unittest.TestCase):
     def test_code_change_is_caught(self) -> None:
         self.assertNotEqual(py_tokens("x = 1  # c\n"), py_tokens("x = 2\n"))
 
+    def test_declared_encoding_keeps_every_byte(self) -> None:
+        head = b"# coding: latin-1\ns = '"
+        self.assertNotEqual(py_tokens(head + b"\xe9'\n"), py_tokens(head + b"\xf1'\n"))
+
 
 class CheckCommandTests(unittest.TestCase):
-    def run_check(self, before: dict[str, str], after: dict[str, str]) -> subprocess.CompletedProcess:
+    def run_check(
+        self, before: dict[str, str | bytes], after: dict[str, str | bytes]
+    ) -> subprocess.CompletedProcess:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         repo = Path(tmp.name)
@@ -85,12 +120,15 @@ class CheckCommandTests(unittest.TestCase):
         git("init", "-q")
         git("config", "user.email", "t@example.com")
         git("config", "user.name", "t")
+        def write(name: str, text: str | bytes) -> None:
+            (repo / name).write_bytes(text.encode() if isinstance(text, str) else text)
+
         for name, text in before.items():
-            (repo / name).write_text(text)
+            write(name, text)
         git("add", ".")
         git("commit", "-qm", "base")
         for name, text in after.items():
-            (repo / name).write_text(text)
+            write(name, text)
         return subprocess.run(
             [sys.executable, str(SCRIPT), "check", "-C", str(repo), "HEAD"],
             capture_output=True, text=True,
@@ -108,6 +146,15 @@ class CheckCommandTests(unittest.TestCase):
         result = self.run_check({"a.c": "int a; // x\n"}, {"a.c": "int b;\n"})
         self.assertEqual(result.returncode, 1)
         self.assertIn("FAIL        a.c", result.stdout)
+
+    def test_untracked_source_file_fails(self) -> None:
+        result = self.run_check({"a.c": "int a; // x\n"}, {"a.c": "int a;\n", "new.c": "int f(void);\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAIL        new.c: added", result.stdout)
+
+    def test_byte_change_in_a_c_string_fails(self) -> None:
+        result = self.run_check({"a.c": b'char *s = "\xe9"; // x\n'}, {"a.c": b'char *s = "\xf1";\n'})
+        self.assertEqual(result.returncode, 1)
 
     def test_language_without_a_lexer_fails(self) -> None:
         result = self.run_check({"a.go": "var a int // x\n"}, {"a.go": "var a int\n"})
