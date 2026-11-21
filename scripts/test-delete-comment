@@ -110,6 +110,27 @@ class CLexerTests(unittest.TestCase):
         with self.assertRaises(qct.LexError):
             qct.scan_c("??=define X 1 // why\nint y;\n")
 
+    def test_escape_before_a_splice_keeps_the_string_open(self) -> None:
+        before = 'const char *s = "a\\\\\nn // OLD";\n'
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens(before.replace("OLD", "NEW")))
+
+    def test_splice_with_trailing_spaces_continues_a_comment(self) -> None:
+        before = "int f() { // why \\ \nreturn 1;\nreturn 2;\n}\n"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual([(c["start_line"], c["end_line"]) for c in comments], [(1, 2)])
+        self.assertNotEqual(tokens, c_tokens("int f() {\nreturn 1;\nreturn 2;\n}\n"))
+
+    def test_carriage_return_line_endings_end_comments(self) -> None:
+        before = "// header\rint x = 1;\r"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual([(c["start_line"], c["text"]) for c in comments], [(1, "// header")])
+        self.assertNotEqual(tokens, c_tokens(before.replace("1", "2")))
+
+    def test_splices_inside_raw_strings_are_kept(self) -> None:
+        self.assertNotEqual(c_tokens('auto s = R"(a\\\nb)";\n'), c_tokens('auto s = R"(ab)";\n'))
+
 
 class PythonLexerTests(unittest.TestCase):
     def test_removed_comments_leave_tokens_unchanged(self) -> None:

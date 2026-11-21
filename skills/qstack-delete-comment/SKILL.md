@@ -130,8 +130,9 @@ python3 -I <skill-dir>/scripts/qstack-comment-tokens check <base>
 ```
 
 This compares the non-comment token stream of every file changed since the
-base, in the working tree, against the base. String, character, and raw-string
-literals stay whole, so whitespace inside a string counts, and the end of a
+base, in the working tree, against the base. It reads line endings and line
+splices the way a compiler does before it looks for comments. String,
+character, header-name, and raw-string literals stay whole, so whitespace inside a string counts, and the end of a
 preprocessor directive is a token, so a lost continuation fails. No byte is
 discarded in decoding. Added, deleted, or untracked source files fail, because
 a comment sweep only modifies files, and so does a file the lexer cannot read,

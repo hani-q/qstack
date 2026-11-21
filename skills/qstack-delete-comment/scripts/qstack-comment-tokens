@@ -11,14 +11,17 @@
       and HEAD (default: the working tree, untracked files included) and exit
       1 on any difference.
 
-Built-in lexers: C, C++ and Objective-C, and Python. The C-family lexer keeps
-string, character and C++ raw-string literals whole, joins line splices before
-it looks for comment delimiters, and makes the end of a preprocessor directive
-(`#` or `%:`) a token, so a lost backslash continuation is caught. Bytes are
+Built-in lexers: C, C++ and Objective-C, and Python. The C-family lexer first
+does what a compiler's first phases do: it reads CR, LF and CRLF as line ends
+and removes line splices, including a backslash followed by spaces before the
+line end. It then keeps string, character, header-name and C++ raw-string
+literals whole (raw strings exactly as written), and makes the end of a
+preprocessor directive (`#` or `%:`) a token, so a lost backslash continuation
+is caught. Bytes are
 never discarded: C-family files are read as UTF-8 with surrogateescape, and
 Python files are tokenized from bytes under their declared encoding. A file a
 lexer cannot read, such as one with an unterminated comment or a trigraph,
-fails. Header names in #include, #import and __has_include stay whole.
+fails.
 
 For any other language pass --lexer FILE, a Python file defining
 code_tokens(text, path) that returns the file's non-comment tokens as a list of
@@ -50,6 +53,8 @@ RAW_DELIMITER_BAD = set(" ()\\\t\v\f\r\n")
 HEADER_NAME_CONTEXT = re.compile(r"^(?:#|%:)(?:include|include_next|import)$|__has_include(?:_next)?\($")
 TRIGRAPH = re.compile(r"\?\?[=/'()!<>\-]")
 BOM = "\ufeff"
+SPLICE = re.compile(r"\\[ \t\v\f]*(?:\r\n|\r|\n)")
+LINE_BREAK = re.compile(r"\r\n|\r|\n")
 
 
 class LexError(ValueError):
@@ -60,54 +65,58 @@ def decode(data: bytes) -> str:
     return data.decode("utf-8", "surrogateescape")
 
 
+def logical_source(text: str) -> tuple[str, list[int]]:
+    """Translate line endings to LF and remove line splices, as a C compiler's
+    first two phases do, keeping each logical character's original offset."""
+    out: list[str] = []
+    origin: list[int] = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and (splice := SPLICE.match(text, i)):
+            i = splice.end()
+        elif c == "\r":
+            out.append("\n")
+            origin.append(i)
+            i += 2 if text.startswith("\r\n", i) else 1
+        else:
+            out.append(c)
+            origin.append(i)
+            i += 1
+    return "".join(out), origin
+
+
 def scan_c(text: str) -> tuple[list[dict], list[str]]:
     """Return (comments, code tokens) for C-family source."""
-    newlines = [k for k, ch in enumerate(text) if ch == "\n"]
+    line_starts = [m.end() for m in LINE_BREAK.finditer(text)]
+
+    def position(offset: int) -> tuple[int, int]:
+        row = bisect.bisect_right(line_starts, offset)
+        return row + 1, offset - (line_starts[row - 1] if row else 0) + 1
+
+    if (trigraph := TRIGRAPH.search(text)):
+        raise LexError(f"trigraph at line {position(trigraph.start())[0]} is not supported; pass --lexer")
+
+    s, origin = logical_source(text)
     comments: list[dict] = []
     tokens: list[str] = []
     word: list[str] = []
-    i, n = 0, len(text)
+    i, n = 0, len(s)
     line_start = True
     in_directive = False
     directive_start = 0
-
-    def position(offset: int) -> tuple[int, int]:
-        row = bisect.bisect_left(newlines, offset)
-        return row + 1, offset - (newlines[row - 1] + 1 if row else 0) + 1
-
-    def splice_len(j: int) -> int:
-        if text.startswith("\\\n", j):
-            return 2
-        if text.startswith("\\\r\n", j):
-            return 3
-        return 0
-
-    def after_splices(j: int) -> int:
-        while (k := splice_len(j)):
-            j += k
-        return j
-
-    def char_at(j: int) -> str:
-        j = after_splices(j)
-        return text[j] if j < n else ""
 
     def end_word() -> None:
         if word:
             tokens.append("".join(word))
             word.clear()
 
-    if (trigraph := TRIGRAPH.search(text)):
-        raise LexError(f"trigraph at line {position(trigraph.start())[0]} is not supported; pass --lexer")
-    if text.startswith(BOM):
+    if s.startswith(BOM):
         tokens.append("<byte-order-mark>")
         i = 1
 
     while i < n:
-        skip = splice_len(i)
-        if skip:
-            i += skip
-            continue
-        c = text[i]
+        c = s[i]
         if c == "\n":
             end_word()
             if in_directive:
@@ -115,74 +124,64 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
                 in_directive = False
             line_start = True
             i += 1
-        elif c in " \t\r\f\v":
+        elif c in " \t\f\v":
             end_word()
             i += 1
-        elif c == "/" and char_at(i + 1) in ("/", "*"):
+        elif s.startswith("//", i) or s.startswith("/*", i):
             end_word()
             start = i
-            j = after_splices(i + 1)
-            i = j + 1
-            if text[j] == "/":
-                while i < n and text[i] != "\n":
-                    i += splice_len(i) or 1
+            if s[i + 1] == "/":
+                end = s.find("\n", i)
+                i = n if end < 0 else end
             else:
-                while True:
-                    if i >= n:
-                        raise LexError(f"unterminated block comment at line {position(start)[0]}")
-                    skip = splice_len(i)
-                    if skip:
-                        i += skip
-                    elif text[i] == "*" and char_at(i + 1) == "/":
-                        i = after_splices(i + 1) + 1
-                        break
-                    else:
-                        i += 1
-            line, col = position(start)
-            body = text[start:i].rstrip("\r")
-            comments.append({"start_line": line, "start_col": col, "end_line": position(i - 1)[0], "text": body})
+                end = s.find("*/", i + 2)
+                if end < 0:
+                    raise LexError(f"unterminated block comment at line {position(origin[start])[0]}")
+                i = end + 2
+            first, last = origin[start], origin[i - 1]
+            line, col = position(first)
+            comments.append({
+                "start_line": line, "start_col": col, "end_line": position(last)[0],
+                "text": text[first:last + 1].rstrip("\r"),
+            })
         elif c == '"' and RAW_PREFIX.search("".join(word)):
-            open_paren = text.find("(", i + 1)
-            delimiter = text[i + 1:open_paren] if open_paren >= 0 else ""
+            o = origin[i]
+            open_paren = text.find("(", o + 1)
+            delimiter = text[o + 1:open_paren] if open_paren >= 0 else ""
             if open_paren < 0 or len(delimiter) > 16 or RAW_DELIMITER_BAD & set(delimiter):
-                raise LexError(f"malformed raw string at line {position(i)[0]}")
+                raise LexError(f"malformed raw string at line {position(o)[0]}")
             close = text.find(")" + delimiter + '"', open_paren + 1)
             if close < 0:
-                raise LexError(f"unterminated raw string at line {position(i)[0]}")
+                raise LexError(f"unterminated raw string at line {position(o)[0]}")
             end = close + len(delimiter) + 2
-            word.append(text[i:end])
-            i = end
+            word.append(text[o:end])
+            i = bisect.bisect_left(origin, end)
             line_start = False
         elif c == "'" and PP_NUMBER_TAIL.search("".join(word)):
             word.append(c)
             i += 1
         elif c == "<" and in_directive and HEADER_NAME_CONTEXT.search("".join(tokens[directive_start:] + word)):
             start = i
-            while i < n and text[i] != "\n" and text[i] != ">":
-                i += splice_len(i) or 1
-            if i < n and text[i] == ">":
+            while i < n and s[i] not in "\n>":
                 i += 1
-            word.append(text[start:i].replace("\\\r\n", "").replace("\\\n", ""))
+            if i < n and s[i] == ">":
+                i += 1
+            word.append(s[start:i])
         elif c in "\"'":
             start = i
             i += 1
-            while i < n:
-                skip = splice_len(i)
-                if skip:
-                    i += skip
-                elif text[i] == "\\":
+            while i < n and s[i] != "\n":
+                if s[i] == "\\":
                     i += 2
-                elif text[i] == "\n":
-                    break
-                elif text[i] == c:
+                elif s[i] == c:
                     i += 1
                     break
                 else:
                     i += 1
-            word.append(text[start:i].replace("\\\r\n", "").replace("\\\n", ""))
+            word.append(s[start:min(i, n)])
             line_start = False
         else:
-            if line_start and (c == "#" or (c == "%" and char_at(i + 1) == ":")):
+            if line_start and (c == "#" or s.startswith("%:", i)):
                 in_directive = True
                 directive_start = len(tokens)
             line_start = False
