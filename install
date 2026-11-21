@@ -104,6 +104,7 @@ INSTRUCTIONS_BLOCK='<!-- qstack:instructions:start -->
 - Use `/qstack-build-the-lever` to build the smallest rerunnable tool for non-trivial work.
 - Use `/qstack-libero` to interrogate finished work and remove what the goal did not require.
 - Use `/qstack-fix-root-causes` to reproduce and diagnose failures before fixing them.
+- Use `/qstack-delete-comment [path]` to audit code comments, move decisions into ADRs, file issues for excuses, delete the rest, and tighten the comment ratchet.
 - Use `/qstack-prove-it-works` to verify the real artifact and complete feature path.
 <!-- qstack:instructions:end -->'
 

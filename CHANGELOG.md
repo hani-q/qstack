@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.17.0.0] - 2026-11-21
+
+### Added
+
+* `/qstack-delete-comment [path]` audits the code comments in a repository or
+  directory and removes them without losing knowledge. Every comment gets one
+  category: a tautology or a stale comment is deleted, an excuse is deleted and
+  its defect filed as an issue or listed for approval, and a decision record
+  moves into an ADR under `docs/adr/` before it goes. Large sweeps are
+  classified in parallel batches with every comment ID accounted for. The
+  bundled `qstack-comment-tokens check` proves that only comments changed by
+  comparing each modified file's non-comment token stream against the base,
+  catching merged tokens, lost backslash continuations, and edits inside
+  strings, for C, C++, Objective-C, and Python, with a pluggable lexer for
+  other languages. The skill then builds, runs the tests, and tightens the
+  repository's comment-ban ratchet, deferring to the repository's own lint
+  wherever it has one.
+
 ## [2.16.1.0] - 2026-11-06
 
 ### Added

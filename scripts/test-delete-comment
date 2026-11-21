@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""Pin skills/qstack-delete-comment/scripts/qstack-comment-tokens."""
+
+from __future__ import annotations
+
+import importlib.machinery
+import importlib.util
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "qstack-delete-comment" / "scripts" / "qstack-comment-tokens"
+loader = importlib.machinery.SourceFileLoader("qstack_comment_tokens", str(SCRIPT))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+assert spec is not None
+qct = importlib.util.module_from_spec(spec)
+sys.modules[loader.name] = qct
+loader.exec_module(qct)
+
+
+def c_tokens(text: str) -> list[str]:
+    return qct.scan_c(text)[1]
+
+
+def py_tokens(text: str | bytes) -> list[str]:
+    return qct.scan_python(text.encode() if isinstance(text, str) else text)[1]
+
+
+class CLexerTests(unittest.TestCase):
+    def test_removed_comments_leave_tokens_unchanged(self) -> None:
+        before = "/* header */\nint a; // trailing\nint b = 1 /* mid */ + 2;\n"
+        after = "int a;\nint b = 1 + 2;\n"
+        self.assertEqual(c_tokens(before), c_tokens(after))
+
+    def test_merging_adjacent_tokens_is_caught(self) -> None:
+        self.assertNotEqual(c_tokens("int/*x*/a;"), c_tokens("inta;"))
+        self.assertEqual(c_tokens("int/*x*/a;"), c_tokens("int a;"))
+
+    def test_lost_backslash_continuation_is_caught(self) -> None:
+        before = "#define X(a) \\\n  /* why */ \\\n  (a)\nint y;\n"
+        kept = "#define X(a) \\\n  (a)\nint y;\n"
+        lost = "#define X(a)\n  (a)\nint y;\n"
+        self.assertEqual(c_tokens(before), c_tokens(kept))
+        self.assertNotEqual(c_tokens(before), c_tokens(lost))
+
+    def test_comment_markers_inside_literals_are_code(self) -> None:
+        comments, tokens = qct.scan_c('const char *u = "http://x /* y */"; char c = \'/\';\n')
+        self.assertEqual(comments, [])
+        self.assertIn('"http://x /* y */";', tokens)
+
+    def test_whitespace_inside_a_string_is_significant(self) -> None:
+        self.assertNotEqual(c_tokens('f("a  b");'), c_tokens('f("a b");'))
+
+    def test_line_comment_continues_across_a_splice(self) -> None:
+        comments, tokens = qct.scan_c("// one \\\n two\nint z;\n")
+        self.assertEqual([(c["start_line"], c["end_line"]) for c in comments], [(1, 2)])
+        self.assertEqual(tokens, ["int", "z;"])
+
+    def test_unterminated_quote_stops_at_the_line_end(self) -> None:
+        comments, _ = qct.scan_c("#error don't\n// real\n")
+        self.assertEqual([c["text"] for c in comments], ["// real"])
+
+
+    def test_raw_string_contents_are_code(self) -> None:
+        before = 'const char *s = R"x(a " // OLD\n)x";\n'
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens(before.replace("OLD", "NEW")))
+
+    def test_spliced_block_comment_terminator_ends_the_comment(self) -> None:
+        before = "int f(void) { /* why *\\\n/ return 1; }\n"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(len(comments), 1)
+        self.assertIn("return", tokens)
+        self.assertNotEqual(tokens, c_tokens(before.replace("return 1", "return 2")))
+
+    def test_unterminated_block_comment_fails(self) -> None:
+        with self.assertRaises(qct.LexError):
+            qct.scan_c("int a; /* never closed\n")
+
+    def test_digraph_directive_end_is_a_token(self) -> None:
+        self.assertNotEqual(c_tokens("%:define X 1\nint y;\n"), c_tokens("%:define X 1 int y;\n"))
+
+    def test_digit_separator_is_not_a_character_literal(self) -> None:
+        comments, _ = qct.scan_c("int x = 1'000; // real\nchar c = u8'a';\n")
+        self.assertEqual([c["text"] for c in comments], ["// real"])
+
+    def test_comments_on_one_line_get_distinct_columns(self) -> None:
+        comments, _ = qct.scan_c("int a; /* first */ int b; /* second */\n")
+        self.assertEqual([(c["start_line"], c["start_col"]) for c in comments], [(1, 8), (1, 27)])
+
+    def test_header_names_are_code(self) -> None:
+        comments, tokens = qct.scan_c("#include <sys//types.h>\n")
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens("#include <sys//stat.h>\n"))
+        self.assertEqual(qct.scan_c("#if __has_include(<a//b.h>)\n#endif\n")[0], [])
+
+    def test_less_than_outside_a_header_context_is_an_operator(self) -> None:
+        comments, _ = qct.scan_c("#if A <B // why\n#endif\n")
+        self.assertEqual([c["text"] for c in comments], ["// why"])
+
+    def test_byte_order_mark_keeps_the_first_directive(self) -> None:
+        before = "\ufeff#define X 1 // why\nint y;\n"
+        self.assertNotEqual(c_tokens(before), c_tokens("\ufeff#define X 1 int y;\n"))
+        self.assertNotEqual(c_tokens(before), c_tokens("#define X 1 // why\nint y;\n"))
+
+    def test_trigraphs_fail_closed(self) -> None:
+        with self.assertRaises(qct.LexError):
+            qct.scan_c("??=define X 1 // why\nint y;\n")
+
+    def test_escape_before_a_splice_keeps_the_string_open(self) -> None:
+        before = 'const char *s = "a\\\\\nn // OLD";\n'
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens(before.replace("OLD", "NEW")))
+
+    def test_splice_with_trailing_spaces_continues_a_comment(self) -> None:
+        before = "int f() { // why \\ \nreturn 1;\nreturn 2;\n}\n"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual([(c["start_line"], c["end_line"]) for c in comments], [(1, 2)])
+        self.assertNotEqual(tokens, c_tokens("int f() {\nreturn 1;\nreturn 2;\n}\n"))
+
+    def test_carriage_return_line_endings_end_comments(self) -> None:
+        before = "// header\rint x = 1;\r"
+        comments, tokens = qct.scan_c(before)
+        self.assertEqual([(c["start_line"], c["text"]) for c in comments], [(1, "// header")])
+        self.assertNotEqual(tokens, c_tokens(before.replace("1", "2")))
+
+    def test_splices_inside_raw_strings_are_kept(self) -> None:
+        self.assertNotEqual(c_tokens('auto s = R"(a\\\nb)";\n'), c_tokens('auto s = R"(ab)";\n'))
+
+    def test_directive_end_marker_cannot_collide_with_source(self) -> None:
+        split = "T\n#define VALUE 1\n<end-of-directive>\nobj;\n"
+        joined = "T\n#define VALUE 1 <end-of-directive>\nobj;\n"
+        self.assertNotEqual(c_tokens(split), c_tokens(joined))
+
+    def test_embed_resource_names_are_code(self) -> None:
+        for source in ("#embed <a//OLD.bin>\n", "#if __has_embed(<a//OLD.bin>)\n#endif\n"):
+            comments, tokens = qct.scan_c(source)
+            self.assertEqual(comments, [])
+            self.assertNotEqual(tokens, c_tokens(source.replace("OLD", "NEW")))
+
+    def test_header_unit_imports_are_code(self) -> None:
+        for prefix in ("import", "export import"):
+            comments, tokens = qct.scan_c(f"{prefix} <a//OLD.h>;\n")
+            self.assertEqual(comments, [])
+            self.assertNotEqual(tokens, c_tokens(f"{prefix} <a//NEW.h>;\n"))
+
+
+class PythonLexerTests(unittest.TestCase):
+    def test_removed_comments_leave_tokens_unchanged(self) -> None:
+        before = "# header\nx = 1  # trailing\n\n# block\ndef f():\n    return x\n"
+        after = "x = 1\n\ndef f():\n    return x\n"
+        self.assertEqual(py_tokens(before), py_tokens(after))
+
+    def test_code_change_is_caught(self) -> None:
+        self.assertNotEqual(py_tokens("x = 1  # c\n"), py_tokens("x = 2\n"))
+
+    def test_carriage_return_line_endings_end_comments(self) -> None:
+        for newline in (b"\r", b"\r\n"):
+            before = b"# header" + newline + b"x = 1" + newline
+            comments, tokens = qct.scan_python(before)
+            self.assertEqual([c["text"] for c in comments], ["# header"])
+            self.assertNotEqual(tokens, py_tokens(before.replace(b"1", b"2")))
+        self.assertEqual(py_tokens(b"# a\rx = 1\n# b\r\ny = 2\r"), py_tokens(b"x = 1\ny = 2\n"))
+
+    def test_declared_encoding_keeps_every_byte(self) -> None:
+        head = b"# coding: latin-1\ns = '"
+        self.assertNotEqual(py_tokens(head + b"\xe9'\n"), py_tokens(head + b"\xf1'\n"))
+
+
+class CheckCommandTests(unittest.TestCase):
+    def run_check(
+        self, before: dict[str, str | bytes], after: dict[str, str | bytes]
+    ) -> subprocess.CompletedProcess:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        repo = Path(tmp.name)
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+        git("init", "-q")
+        git("config", "user.email", "t@example.com")
+        git("config", "user.name", "t")
+        def write(name: str, text: str | bytes) -> None:
+            (repo / name).write_bytes(text.encode() if isinstance(text, str) else text)
+
+        for name, text in before.items():
+            write(name, text)
+        git("add", ".")
+        git("commit", "-qm", "base")
+        for name, text in after.items():
+            write(name, text)
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "check", "-C", str(repo), "HEAD"],
+            capture_output=True, text=True,
+        )
+
+    def test_comment_only_change_passes(self) -> None:
+        result = self.run_check(
+            {"a.c": "int a; // x\n", "README.md": "old\n"},
+            {"a.c": "int a;\n", "README.md": "new\n"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("not source  README.md", result.stdout)
+
+    def test_code_change_fails(self) -> None:
+        result = self.run_check({"a.c": "int a; // x\n"}, {"a.c": "int b;\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAIL        a.c", result.stdout)
+
+    def test_untracked_source_file_fails(self) -> None:
+        result = self.run_check({"a.c": "int a; // x\n"}, {"a.c": "int a;\n", "new.c": "int f(void);\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAIL        new.c: added", result.stdout)
+
+    def test_byte_change_in_a_c_string_fails(self) -> None:
+        result = self.run_check({"a.c": b'char *s = "\xe9"; // x\n'}, {"a.c": b'char *s = "\xf1";\n'})
+        self.assertEqual(result.returncode, 1)
+
+    def test_language_without_a_lexer_fails(self) -> None:
+        result = self.run_check({"a.go": "var a int // x\n"}, {"a.go": "var a int\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("pass --lexer", result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

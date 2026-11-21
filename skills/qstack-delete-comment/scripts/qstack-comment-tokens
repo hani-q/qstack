@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""List comments, and prove that a comment sweep changed nothing but comments.
+
+  qstack-comment-tokens list PATH...
+      Print every comment in the files under PATH that a built-in lexer
+      handles, as JSON lines: {"id": "path:line:column", "file",
+      "start_line", "start_col", "end_line", "text"}.
+
+  qstack-comment-tokens check [-C REPO] [--lexer FILE] BASE [HEAD]
+      Compare the non-comment token stream of every file changed between BASE
+      and HEAD (default: the working tree, untracked files included) and exit
+      1 on any difference.
+
+Built-in lexers: C, C++ and Objective-C, and Python. The C-family lexer first
+does what a compiler's first phases do: it reads CR, LF and CRLF as line ends
+and removes line splices, including a backslash followed by spaces before the
+line end. It then keeps string, character, header-name and C++ raw-string
+literals whole (raw strings exactly as written), and makes the end of a
+preprocessor directive (`#` or `%:`) a token, so a lost backslash continuation
+is caught. Bytes are
+never discarded: C-family files are read as UTF-8 with surrogateescape, and
+Python files are tokenized from bytes under their declared encoding. A file a
+lexer cannot read, such as one with an unterminated comment or a trigraph,
+fails. Header and resource names (#include, #import, #embed, __has_include,
+__has_embed, C++ header-unit imports) stay whole.
+
+For any other language pass --lexer FILE, a Python file defining
+code_tokens(text, path) that returns the file's non-comment tokens as a list of
+strings, or None for a path it does not handle. `text` is the file decoded as
+UTF-8 with surrogateescape, so no byte is lost.
+"""
+
+from __future__ import annotations
+
+import argparse
+import bisect
+import importlib.machinery
+import importlib.util
+import io
+import json
+import re
+import subprocess
+import sys
+import tokenize
+from pathlib import Path
+
+C_SUFFIXES = {".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".m", ".mm", ".inc"}
+PY_SUFFIXES = {".py", ".pyi"}
+NON_SOURCE_SUFFIXES = {".md", ".markdown", ".rst", ".adoc", ".txt", ".json", ".yml", ".yaml", ".toml"}
+DIRECTIVE_END = ("directive-end",)
+BYTE_ORDER_MARK = ("byte-order-mark",)
+RAW_PREFIX = re.compile(r"(?:^|[^A-Za-z0-9_])(?:u8|u|U|L)?R$")
+PP_NUMBER_TAIL = re.compile(r"(?:^|[^A-Za-z0-9_.])\.?[0-9][A-Za-z0-9_.']*$")
+RAW_DELIMITER_BAD = set(" ()\\\t\v\f\r\n")
+HEADER_NAME_CONTEXT = re.compile(
+    r"^(?:#|%:)(?:include|include_next|import|embed)$|^(?:export)?import$|__has_(?:include(?:_next)?|embed)\($"
+)
+TRIGRAPH = re.compile(r"\?\?[=/'()!<>\-]")
+BOM = "\ufeff"
+SPLICE = re.compile(r"\\[ \t\v\f]*(?:\r\n|\r|\n)")
+LINE_BREAK = re.compile(r"\r\n|\r|\n")
+
+
+class LexError(ValueError):
+    pass
+
+
+def decode(data: bytes) -> str:
+    return data.decode("utf-8", "surrogateescape")
+
+
+def logical_source(text: str) -> tuple[str, list[int]]:
+    """Translate line endings to LF and remove line splices, as a C compiler's
+    first two phases do, keeping each logical character's original offset."""
+    out: list[str] = []
+    origin: list[int] = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and (splice := SPLICE.match(text, i)):
+            i = splice.end()
+        elif c == "\r":
+            out.append("\n")
+            origin.append(i)
+            i += 2 if text.startswith("\r\n", i) else 1
+        else:
+            out.append(c)
+            origin.append(i)
+            i += 1
+    return "".join(out), origin
+
+
+def scan_c(text: str) -> tuple[list[dict], list[str | tuple[str]]]:
+    """Return (comments, code tokens) for C-family source. Source tokens are
+    strings; synthetic markers are tuples, so no source text can equal one."""
+    line_starts = [m.end() for m in LINE_BREAK.finditer(text)]
+
+    def position(offset: int) -> tuple[int, int]:
+        row = bisect.bisect_right(line_starts, offset)
+        return row + 1, offset - (line_starts[row - 1] if row else 0) + 1
+
+    if (trigraph := TRIGRAPH.search(text)):
+        raise LexError(f"trigraph at line {position(trigraph.start())[0]} is not supported; pass --lexer")
+
+    s, origin = logical_source(text)
+    comments: list[dict] = []
+    tokens: list[str | tuple[str]] = []
+    word: list[str] = []
+    i, n = 0, len(s)
+    line_start = True
+    in_directive = False
+    directive_start = 0
+    line_tokens_start = 0
+
+    def end_word() -> None:
+        if word:
+            tokens.append("".join(word))
+            word.clear()
+
+    if s.startswith(BOM):
+        tokens.append(BYTE_ORDER_MARK)
+        i = 1
+        line_tokens_start = 1
+
+    while i < n:
+        c = s[i]
+        if c == "\n":
+            end_word()
+            if in_directive:
+                tokens.append(DIRECTIVE_END)
+                in_directive = False
+            line_start = True
+            line_tokens_start = len(tokens)
+            i += 1
+        elif c in " \t\f\v":
+            end_word()
+            i += 1
+        elif s.startswith("//", i) or s.startswith("/*", i):
+            end_word()
+            start = i
+            if s[i + 1] == "/":
+                end = s.find("\n", i)
+                i = n if end < 0 else end
+            else:
+                end = s.find("*/", i + 2)
+                if end < 0:
+                    raise LexError(f"unterminated block comment at line {position(origin[start])[0]}")
+                i = end + 2
+            first, last = origin[start], origin[i - 1]
+            line, col = position(first)
+            comments.append({
+                "start_line": line, "start_col": col, "end_line": position(last)[0],
+                "text": text[first:last + 1].rstrip("\r"),
+            })
+        elif c == '"' and RAW_PREFIX.search("".join(word)):
+            o = origin[i]
+            open_paren = text.find("(", o + 1)
+            delimiter = text[o + 1:open_paren] if open_paren >= 0 else ""
+            if open_paren < 0 or len(delimiter) > 16 or RAW_DELIMITER_BAD & set(delimiter):
+                raise LexError(f"malformed raw string at line {position(o)[0]}")
+            close = text.find(")" + delimiter + '"', open_paren + 1)
+            if close < 0:
+                raise LexError(f"unterminated raw string at line {position(o)[0]}")
+            end = close + len(delimiter) + 2
+            word.append(text[o:end])
+            i = bisect.bisect_left(origin, end)
+            line_start = False
+        elif c == "'" and PP_NUMBER_TAIL.search("".join(word)):
+            word.append(c)
+            i += 1
+        elif c == "<" and HEADER_NAME_CONTEXT.search(
+            "".join(tokens[directive_start if in_directive else line_tokens_start:] + word)
+        ):
+            start = i
+            while i < n and s[i] not in "\n>":
+                i += 1
+            if i < n and s[i] == ">":
+                i += 1
+            word.append(s[start:i])
+        elif c in "\"'":
+            start = i
+            i += 1
+            while i < n and s[i] != "\n":
+                if s[i] == "\\":
+                    i += 2
+                elif s[i] == c:
+                    i += 1
+                    break
+                else:
+                    i += 1
+            word.append(s[start:min(i, n)])
+            line_start = False
+        else:
+            if line_start and (c == "#" or s.startswith("%:", i)):
+                in_directive = True
+                directive_start = len(tokens)
+            line_start = False
+            word.append(c)
+            i += 1
+    end_word()
+    if in_directive:
+        tokens.append(DIRECTIVE_END)
+    return comments, tokens
+
+
+def scan_python(data: bytes) -> tuple[list[dict], list[str]]:
+    """Tokenize as Python reads source: declared encoding, universal newlines."""
+    comments: list[dict] = []
+    try:
+        encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+        text = data.decode(encoding).replace("\r\n", "\n").replace("\r", "\n")
+        tokens = [f"ENCODING:{encoding}"]
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+            if tok.type == tokenize.COMMENT:
+                comments.append({
+                    "start_line": tok.start[0], "start_col": tok.start[1] + 1,
+                    "end_line": tok.end[0], "text": tok.string,
+                })
+            elif tok.type == tokenize.NL:
+                continue
+            elif tok.type in (tokenize.NEWLINE, tokenize.ENDMARKER):
+                tokens.append(tokenize.tok_name[tok.type])
+            else:
+                tokens.append(f"{tokenize.tok_name[tok.type]}:{tok.string}")
+    except (SyntaxError, UnicodeDecodeError, LookupError, tokenize.TokenError) as error:
+        raise LexError(f"cannot tokenize: {error}") from error
+    return comments, tokens
+
+
+def scan(data: bytes, path: str) -> tuple[list[dict], list] | None:
+    suffix = Path(path).suffix.lower()
+    if suffix in C_SUFFIXES:
+        return scan_c(decode(data))
+    if suffix in PY_SUFFIXES:
+        return scan_python(data)
+    return None
+
+
+def load_lexer(path: str | None):
+    if not path:
+        return None
+    loader = importlib.machinery.SourceFileLoader("qstack_custom_lexer", str(Path(path).resolve()))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    if not hasattr(module, "code_tokens"):
+        sys.exit(f"{path}: defines no code_tokens(text, path)")
+    return module
+
+
+def code_tokens(data: bytes, path: str, lexer) -> list | None:
+    if lexer is not None:
+        result = lexer.code_tokens(decode(data), path)
+        if result is not None:
+            return list(result)
+    scanned = scan(data, path)
+    return None if scanned is None else scanned[1]
+
+
+def cmd_list(args) -> int:
+    files: list[Path] = []
+    for raw in args.paths:
+        p = Path(raw)
+        files += sorted(f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]
+    failed = 0
+    for f in files:
+        rel = f.as_posix()
+        if f.suffix.lower() not in C_SUFFIXES | PY_SUFFIXES:
+            continue
+        try:
+            scanned = scan(f.read_bytes(), rel)
+        except LexError as error:
+            print(f"{rel}: {error}", file=sys.stderr)
+            failed += 1
+            continue
+        for c in scanned[0] if scanned else []:
+            print(json.dumps({"id": f"{rel}:{c['start_line']}:{c['start_col']}", "file": rel, **c}))
+    return 1 if failed else 0
+
+
+def git(repo: str, *args: str) -> bytes:
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, check=True).stdout
+
+
+def first_difference(a: list[str], b: list[str]) -> str:
+    i = next((k for k, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+    return f"token {i}: before {a[i:i + 4]!r}, after {b[i:i + 4]!r}"
+
+
+def changed_files(args) -> list[tuple[str, str]]:
+    diff = ["diff", "--name-status", "--no-renames", "-z", args.base] + ([args.head] if args.head else [])
+    fields = decode(git(args.repo, *diff)).split("\0")
+    rows = list(zip(fields[0::2], fields[1::2]))
+    if not args.head:
+        untracked = decode(git(args.repo, "ls-files", "--others", "--exclude-standard", "-z")).split("\0")
+        rows += [("A", path) for path in untracked if path]
+    return rows
+
+
+def cmd_check(args) -> int:
+    repo, lexer = args.repo, load_lexer(args.lexer)
+    failed = checked = 0
+    for status, path in changed_files(args):
+        suffix = Path(path).suffix.lower()
+        if suffix in NON_SOURCE_SUFFIXES:
+            print(f"not source  {path}")
+            continue
+        if status != "M":
+            print(f"FAIL        {path}: {'added' if status == 'A' else 'deleted'} (a comment sweep only modifies files)")
+            failed += 1
+            continue
+        before = git(repo, "show", f"{args.base}:{path}")
+        after = git(repo, "show", f"{args.head}:{path}") if args.head else (Path(repo) / path).read_bytes()
+        try:
+            a, b = code_tokens(before, path, lexer), code_tokens(after, path, lexer)
+        except LexError as error:
+            print(f"FAIL        {path}: {error}")
+            failed += 1
+            continue
+        if a is None:
+            print(f"FAIL        {path}: no lexer for {suffix or 'this file'}; pass --lexer")
+            failed += 1
+        elif a != b:
+            print(f"FAIL        {path}: {first_difference(a, b)}")
+            failed += 1
+        else:
+            checked += 1
+    print(f"{checked} file(s) token-identical, {failed} failure(s)")
+    return 1 if failed else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+    p_list = sub.add_parser("list", help="print comments as JSON lines")
+    p_list.add_argument("paths", nargs="+")
+    p_check = sub.add_parser("check", help="prove only comments changed")
+    p_check.add_argument("-C", dest="repo", default=".")
+    p_check.add_argument("--lexer")
+    p_check.add_argument("base")
+    p_check.add_argument("head", nargs="?")
+    args = parser.parse_args()
+    return cmd_list(args) if args.command == "list" else cmd_check(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
