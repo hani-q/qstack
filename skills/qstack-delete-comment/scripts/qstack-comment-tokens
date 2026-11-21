@@ -46,11 +46,14 @@ from pathlib import Path
 C_SUFFIXES = {".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".m", ".mm", ".inc"}
 PY_SUFFIXES = {".py", ".pyi"}
 NON_SOURCE_SUFFIXES = {".md", ".markdown", ".rst", ".adoc", ".txt", ".json", ".yml", ".yaml", ".toml"}
-DIRECTIVE_END = "<end-of-directive>"
+DIRECTIVE_END = ("directive-end",)
+BYTE_ORDER_MARK = ("byte-order-mark",)
 RAW_PREFIX = re.compile(r"(?:^|[^A-Za-z0-9_])(?:u8|u|U|L)?R$")
 PP_NUMBER_TAIL = re.compile(r"(?:^|[^A-Za-z0-9_.])\.?[0-9][A-Za-z0-9_.']*$")
 RAW_DELIMITER_BAD = set(" ()\\\t\v\f\r\n")
-HEADER_NAME_CONTEXT = re.compile(r"^(?:#|%:)(?:include|include_next|import)$|__has_include(?:_next)?\($")
+HEADER_NAME_CONTEXT = re.compile(
+    r"^(?:#|%:)(?:include|include_next|import)$|^(?:export)?import$|__has_include(?:_next)?\($"
+)
 TRIGRAPH = re.compile(r"\?\?[=/'()!<>\-]")
 BOM = "\ufeff"
 SPLICE = re.compile(r"\\[ \t\v\f]*(?:\r\n|\r|\n)")
@@ -86,8 +89,9 @@ def logical_source(text: str) -> tuple[str, list[int]]:
     return "".join(out), origin
 
 
-def scan_c(text: str) -> tuple[list[dict], list[str]]:
-    """Return (comments, code tokens) for C-family source."""
+def scan_c(text: str) -> tuple[list[dict], list[str | tuple[str]]]:
+    """Return (comments, code tokens) for C-family source. Source tokens are
+    strings; synthetic markers are tuples, so no source text can equal one."""
     line_starts = [m.end() for m in LINE_BREAK.finditer(text)]
 
     def position(offset: int) -> tuple[int, int]:
@@ -99,12 +103,13 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
 
     s, origin = logical_source(text)
     comments: list[dict] = []
-    tokens: list[str] = []
+    tokens: list[str | tuple[str]] = []
     word: list[str] = []
     i, n = 0, len(s)
     line_start = True
     in_directive = False
     directive_start = 0
+    line_tokens_start = 0
 
     def end_word() -> None:
         if word:
@@ -112,8 +117,9 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
             word.clear()
 
     if s.startswith(BOM):
-        tokens.append("<byte-order-mark>")
+        tokens.append(BYTE_ORDER_MARK)
         i = 1
+        line_tokens_start = 1
 
     while i < n:
         c = s[i]
@@ -123,6 +129,7 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
                 tokens.append(DIRECTIVE_END)
                 in_directive = False
             line_start = True
+            line_tokens_start = len(tokens)
             i += 1
         elif c in " \t\f\v":
             end_word()
@@ -160,7 +167,9 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
         elif c == "'" and PP_NUMBER_TAIL.search("".join(word)):
             word.append(c)
             i += 1
-        elif c == "<" and in_directive and HEADER_NAME_CONTEXT.search("".join(tokens[directive_start:] + word)):
+        elif c == "<" and HEADER_NAME_CONTEXT.search(
+            "".join(tokens[directive_start if in_directive else line_tokens_start:] + word)
+        ):
             start = i
             while i < n and s[i] not in "\n>":
                 i += 1
@@ -194,11 +203,13 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
 
 
 def scan_python(data: bytes) -> tuple[list[dict], list[str]]:
+    """Tokenize as Python reads source: declared encoding, universal newlines."""
     comments: list[dict] = []
-    tokens: list[str] = []
-    layout = {tokenize.NEWLINE, tokenize.ENDMARKER}
     try:
-        for tok in tokenize.tokenize(io.BytesIO(data).readline):
+        encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+        text = data.decode(encoding).replace("\r\n", "\n").replace("\r", "\n")
+        tokens = [f"ENCODING:{encoding}"]
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
             if tok.type == tokenize.COMMENT:
                 comments.append({
                     "start_line": tok.start[0], "start_col": tok.start[1] + 1,
@@ -206,16 +217,16 @@ def scan_python(data: bytes) -> tuple[list[dict], list[str]]:
                 })
             elif tok.type == tokenize.NL:
                 continue
-            elif tok.type in layout:
+            elif tok.type in (tokenize.NEWLINE, tokenize.ENDMARKER):
                 tokens.append(tokenize.tok_name[tok.type])
             else:
                 tokens.append(f"{tokenize.tok_name[tok.type]}:{tok.string}")
-    except (SyntaxError, UnicodeDecodeError, tokenize.TokenError) as error:
+    except (SyntaxError, UnicodeDecodeError, LookupError, tokenize.TokenError) as error:
         raise LexError(f"cannot tokenize: {error}") from error
     return comments, tokens
 
 
-def scan(data: bytes, path: str) -> tuple[list[dict], list[str]] | None:
+def scan(data: bytes, path: str) -> tuple[list[dict], list] | None:
     suffix = Path(path).suffix.lower()
     if suffix in C_SUFFIXES:
         return scan_c(decode(data))
@@ -236,7 +247,7 @@ def load_lexer(path: str | None):
     return module
 
 
-def code_tokens(data: bytes, path: str, lexer) -> list[str] | None:
+def code_tokens(data: bytes, path: str, lexer) -> list | None:
     if lexer is not None:
         result = lexer.code_tokens(decode(data), path)
         if result is not None:

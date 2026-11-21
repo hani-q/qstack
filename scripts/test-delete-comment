@@ -131,6 +131,17 @@ class CLexerTests(unittest.TestCase):
     def test_splices_inside_raw_strings_are_kept(self) -> None:
         self.assertNotEqual(c_tokens('auto s = R"(a\\\nb)";\n'), c_tokens('auto s = R"(ab)";\n'))
 
+    def test_directive_end_marker_cannot_collide_with_source(self) -> None:
+        split = "T\n#define VALUE 1\n<end-of-directive>\nobj;\n"
+        joined = "T\n#define VALUE 1 <end-of-directive>\nobj;\n"
+        self.assertNotEqual(c_tokens(split), c_tokens(joined))
+
+    def test_header_unit_imports_are_code(self) -> None:
+        for prefix in ("import", "export import"):
+            comments, tokens = qct.scan_c(f"{prefix} <a//OLD.h>;\n")
+            self.assertEqual(comments, [])
+            self.assertNotEqual(tokens, c_tokens(f"{prefix} <a//NEW.h>;\n"))
+
 
 class PythonLexerTests(unittest.TestCase):
     def test_removed_comments_leave_tokens_unchanged(self) -> None:
@@ -140,6 +151,14 @@ class PythonLexerTests(unittest.TestCase):
 
     def test_code_change_is_caught(self) -> None:
         self.assertNotEqual(py_tokens("x = 1  # c\n"), py_tokens("x = 2\n"))
+
+    def test_carriage_return_line_endings_end_comments(self) -> None:
+        for newline in (b"\r", b"\r\n"):
+            before = b"# header" + newline + b"x = 1" + newline
+            comments, tokens = qct.scan_python(before)
+            self.assertEqual([c["text"] for c in comments], ["# header"])
+            self.assertNotEqual(tokens, py_tokens(before.replace(b"1", b"2")))
+        self.assertEqual(py_tokens(b"# a\rx = 1\n# b\r\ny = 2\r"), py_tokens(b"x = 1\ny = 2\n"))
 
     def test_declared_encoding_keeps_every_byte(self) -> None:
         head = b"# coding: latin-1\ns = '"
