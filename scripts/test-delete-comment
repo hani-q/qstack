@@ -91,6 +91,25 @@ class CLexerTests(unittest.TestCase):
         comments, _ = qct.scan_c("int a; /* first */ int b; /* second */\n")
         self.assertEqual([(c["start_line"], c["start_col"]) for c in comments], [(1, 8), (1, 27)])
 
+    def test_header_names_are_code(self) -> None:
+        comments, tokens = qct.scan_c("#include <sys//types.h>\n")
+        self.assertEqual(comments, [])
+        self.assertNotEqual(tokens, c_tokens("#include <sys//stat.h>\n"))
+        self.assertEqual(qct.scan_c("#if __has_include(<a//b.h>)\n#endif\n")[0], [])
+
+    def test_less_than_outside_a_header_context_is_an_operator(self) -> None:
+        comments, _ = qct.scan_c("#if A <B // why\n#endif\n")
+        self.assertEqual([c["text"] for c in comments], ["// why"])
+
+    def test_byte_order_mark_keeps_the_first_directive(self) -> None:
+        before = "\ufeff#define X 1 // why\nint y;\n"
+        self.assertNotEqual(c_tokens(before), c_tokens("\ufeff#define X 1 int y;\n"))
+        self.assertNotEqual(c_tokens(before), c_tokens("#define X 1 // why\nint y;\n"))
+
+    def test_trigraphs_fail_closed(self) -> None:
+        with self.assertRaises(qct.LexError):
+            qct.scan_c("??=define X 1 // why\nint y;\n")
+
 
 class PythonLexerTests(unittest.TestCase):
     def test_removed_comments_leave_tokens_unchanged(self) -> None:

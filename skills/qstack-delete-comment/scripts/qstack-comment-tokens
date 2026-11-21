@@ -17,7 +17,8 @@ it looks for comment delimiters, and makes the end of a preprocessor directive
 (`#` or `%:`) a token, so a lost backslash continuation is caught. Bytes are
 never discarded: C-family files are read as UTF-8 with surrogateescape, and
 Python files are tokenized from bytes under their declared encoding. A file a
-lexer cannot read, such as one with an unterminated comment, fails.
+lexer cannot read, such as one with an unterminated comment or a trigraph,
+fails. Header names in #include, #import and __has_include stay whole.
 
 For any other language pass --lexer FILE, a Python file defining
 code_tokens(text, path) that returns the file's non-comment tokens as a list of
@@ -46,6 +47,9 @@ DIRECTIVE_END = "<end-of-directive>"
 RAW_PREFIX = re.compile(r"(?:^|[^A-Za-z0-9_])(?:u8|u|U|L)?R$")
 PP_NUMBER_TAIL = re.compile(r"(?:^|[^A-Za-z0-9_.])\.?[0-9][A-Za-z0-9_.']*$")
 RAW_DELIMITER_BAD = set(" ()\\\t\v\f\r\n")
+HEADER_NAME_CONTEXT = re.compile(r"^(?:#|%:)(?:include|include_next|import)$|__has_include(?:_next)?\($")
+TRIGRAPH = re.compile(r"\?\?[=/'()!<>\-]")
+BOM = "\ufeff"
 
 
 class LexError(ValueError):
@@ -65,6 +69,7 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
     i, n = 0, len(text)
     line_start = True
     in_directive = False
+    directive_start = 0
 
     def position(offset: int) -> tuple[int, int]:
         row = bisect.bisect_left(newlines, offset)
@@ -90,6 +95,12 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
         if word:
             tokens.append("".join(word))
             word.clear()
+
+    if (trigraph := TRIGRAPH.search(text)):
+        raise LexError(f"trigraph at line {position(trigraph.start())[0]} is not supported; pass --lexer")
+    if text.startswith(BOM):
+        tokens.append("<byte-order-mark>")
+        i = 1
 
     while i < n:
         skip = splice_len(i)
@@ -145,6 +156,13 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
         elif c == "'" and PP_NUMBER_TAIL.search("".join(word)):
             word.append(c)
             i += 1
+        elif c == "<" and in_directive and HEADER_NAME_CONTEXT.search("".join(tokens[directive_start:] + word)):
+            start = i
+            while i < n and text[i] != "\n" and text[i] != ">":
+                i += splice_len(i) or 1
+            if i < n and text[i] == ">":
+                i += 1
+            word.append(text[start:i].replace("\\\r\n", "").replace("\\\n", ""))
         elif c in "\"'":
             start = i
             i += 1
@@ -166,6 +184,7 @@ def scan_c(text: str) -> tuple[list[dict], list[str]]:
         else:
             if line_start and (c == "#" or (c == "%" and char_at(i + 1) == ":")):
                 in_directive = True
+                directive_start = len(tokens)
             line_start = False
             word.append(c)
             i += 1

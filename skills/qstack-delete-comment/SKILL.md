@@ -135,7 +135,7 @@ literals stay whole, so whitespace inside a string counts, and the end of a
 preprocessor directive is a token, so a lost continuation fails. No byte is
 discarded in decoding. Added, deleted, or untracked source files fail, because
 a comment sweep only modifies files, and so does a file the lexer cannot read,
-such as one with an unterminated comment. Documentation and data files, such
+such as one with an unterminated comment or a trigraph. Documentation and data files, such
 as the ADRs and the baseline, are listed as not source.
 
 For a language with no built-in lexer, pass `--lexer <file>`: a Python file
