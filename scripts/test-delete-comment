@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Pin skills/qstack-delete-comment/scripts/qstack-comment-tokens."""
+
+from __future__ import annotations
+
+import importlib.machinery
+import importlib.util
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "qstack-delete-comment" / "scripts" / "qstack-comment-tokens"
+loader = importlib.machinery.SourceFileLoader("qstack_comment_tokens", str(SCRIPT))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+assert spec is not None
+qct = importlib.util.module_from_spec(spec)
+sys.modules[loader.name] = qct
+loader.exec_module(qct)
+
+
+def c_tokens(text: str) -> list[str]:
+    return qct.scan_c(text)[1]
+
+
+def py_tokens(text: str) -> list[str]:
+    return qct.scan_python(text)[1]
+
+
+class CLexerTests(unittest.TestCase):
+    def test_removed_comments_leave_tokens_unchanged(self) -> None:
+        before = "/* header */\nint a; // trailing\nint b = 1 /* mid */ + 2;\n"
+        after = "int a;\nint b = 1 + 2;\n"
+        self.assertEqual(c_tokens(before), c_tokens(after))
+
+    def test_merging_adjacent_tokens_is_caught(self) -> None:
+        self.assertNotEqual(c_tokens("int/*x*/a;"), c_tokens("inta;"))
+        self.assertEqual(c_tokens("int/*x*/a;"), c_tokens("int a;"))
+
+    def test_lost_backslash_continuation_is_caught(self) -> None:
+        before = "#define X(a) \\\n  /* why */ \\\n  (a)\nint y;\n"
+        kept = "#define X(a) \\\n  (a)\nint y;\n"
+        lost = "#define X(a)\n  (a)\nint y;\n"
+        self.assertEqual(c_tokens(before), c_tokens(kept))
+        self.assertNotEqual(c_tokens(before), c_tokens(lost))
+
+    def test_comment_markers_inside_literals_are_code(self) -> None:
+        comments, tokens = qct.scan_c('const char *u = "http://x /* y */"; char c = \'/\';\n')
+        self.assertEqual(comments, [])
+        self.assertIn('"http://x /* y */";', tokens)
+
+    def test_whitespace_inside_a_string_is_significant(self) -> None:
+        self.assertNotEqual(c_tokens('f("a  b");'), c_tokens('f("a b");'))
+
+    def test_line_comment_continues_across_a_splice(self) -> None:
+        comments, tokens = qct.scan_c("// one \\\n two\nint z;\n")
+        self.assertEqual([(c["start_line"], c["end_line"]) for c in comments], [(1, 2)])
+        self.assertEqual(tokens, ["int", "z;"])
+
+    def test_unterminated_quote_stops_at_the_line_end(self) -> None:
+        comments, _ = qct.scan_c("#error don't\n// real\n")
+        self.assertEqual([c["text"] for c in comments], ["// real"])
+
+
+class PythonLexerTests(unittest.TestCase):
+    def test_removed_comments_leave_tokens_unchanged(self) -> None:
+        before = "# header\nx = 1  # trailing\n\n# block\ndef f():\n    return x\n"
+        after = "x = 1\n\ndef f():\n    return x\n"
+        self.assertEqual(py_tokens(before), py_tokens(after))
+
+    def test_code_change_is_caught(self) -> None:
+        self.assertNotEqual(py_tokens("x = 1  # c\n"), py_tokens("x = 2\n"))
+
+
+class CheckCommandTests(unittest.TestCase):
+    def run_check(self, before: dict[str, str], after: dict[str, str]) -> subprocess.CompletedProcess:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        repo = Path(tmp.name)
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+        git("init", "-q")
+        git("config", "user.email", "t@example.com")
+        git("config", "user.name", "t")
+        for name, text in before.items():
+            (repo / name).write_text(text)
+        git("add", ".")
+        git("commit", "-qm", "base")
+        for name, text in after.items():
+            (repo / name).write_text(text)
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "check", "-C", str(repo), "HEAD"],
+            capture_output=True, text=True,
+        )
+
+    def test_comment_only_change_passes(self) -> None:
+        result = self.run_check(
+            {"a.c": "int a; // x\n", "README.md": "old\n"},
+            {"a.c": "int a;\n", "README.md": "new\n"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("not source  README.md", result.stdout)
+
+    def test_code_change_fails(self) -> None:
+        result = self.run_check({"a.c": "int a; // x\n"}, {"a.c": "int b;\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAIL        a.c", result.stdout)
+
+    def test_language_without_a_lexer_fails(self) -> None:
+        result = self.run_check({"a.go": "var a int // x\n"}, {"a.go": "var a int\n"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("pass --lexer", result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -44,6 +44,9 @@ jobs:
       - name: Test the model catalogue script
         run: scripts/test-choose-model
 
+      - name: Test the comment token checker
+        run: scripts/test-delete-comment
+
       - name: Verify instruction files survive reinstallation
         run: scripts/test-install-instructions
 

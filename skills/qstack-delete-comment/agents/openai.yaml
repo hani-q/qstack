@@ -1,0 +1,6 @@
+interface:
+  display_name: "QStack Delete Comment"
+  short_description: "Audit and remove code comments without losing knowledge"
+  default_prompt: "Use $qstack-delete-comment to classify every comment in this target, move decisions into ADRs, file issues for excuses, delete the rest, prove only comments changed, and tighten the comment ratchet."
+policy:
+  allow_implicit_invocation: false
