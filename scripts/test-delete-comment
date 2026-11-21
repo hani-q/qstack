@@ -136,6 +136,12 @@ class CLexerTests(unittest.TestCase):
         joined = "T\n#define VALUE 1 <end-of-directive>\nobj;\n"
         self.assertNotEqual(c_tokens(split), c_tokens(joined))
 
+    def test_embed_resource_names_are_code(self) -> None:
+        for source in ("#embed <a//OLD.bin>\n", "#if __has_embed(<a//OLD.bin>)\n#endif\n"):
+            comments, tokens = qct.scan_c(source)
+            self.assertEqual(comments, [])
+            self.assertNotEqual(tokens, c_tokens(source.replace("OLD", "NEW")))
+
     def test_header_unit_imports_are_code(self) -> None:
         for prefix in ("import", "export import"):
             comments, tokens = qct.scan_c(f"{prefix} <a//OLD.h>;\n")
