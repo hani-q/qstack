@@ -369,6 +369,39 @@ run_generic_only_case() {
   [ ! -e "$home/AGENTS.md" ] || fail '[generic-only] installer wrote instructions for an absent harness'
 }
 
+# Antigravity discovers global skills in ~/.gemini/config/skills. A bare
+# ~/.gemini may be only Gemini CLI, so it must not count as Antigravity.
+run_antigravity_case() {
+  local home="$WORK/home antigravity" log="$WORK/antigravity.log"
+  local dest="$home/.gemini/config/skills" skill
+  mkdir -p "$home/.gemini/config"
+  if ! run_install antigravity "$home" "" "$log"; then
+    fail '[antigravity] install exited non-zero'
+    return
+  fi
+  for skill in "$REPO"/skills/*/; do
+    skill=$(basename "$skill")
+    [ -f "$dest/$skill/SKILL.md" ] && [ -f "$dest/$skill/.qstack-installed" ] \
+      || fail "[antigravity] $skill was not installed into $dest"
+  done
+  [ ! -e "$home/AGENTS.md" ] && [ ! -e "$home/.gemini/GEMINI.md" ] \
+    || fail '[antigravity] installer wrote instructions for Antigravity'
+  [ "$(HOME="$home" python3 "$REPO/skills/qstack/scripts/installed-skills" | wc -l)" \
+    -eq "$(find "$REPO/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)" ] \
+    || fail '[antigravity] /qstack listing missed Antigravity skills'
+  if ! run_install antigravity "$home" "" "$log" --uninstall; then
+    fail '[antigravity] uninstall exited non-zero'
+    return
+  fi
+  [ -z "$(ls -A "$dest")" ] || fail '[antigravity] uninstall left skills behind'
+
+  home="$WORK/home gemini-cli-only"
+  mkdir -p "$home/.gemini"
+  run_install gemini-cli-only "$home" "" "$WORK/gemini-cli-only.log" || true
+  [ ! -e "$home/.gemini/config" ] \
+    || fail '[gemini-cli-only] installer created Antigravity config for Gemini CLI'
+}
+
 run_symlinked_settings_case() {
   local home="$WORK/home symlinked-settings" log="$WORK/symlinked-settings.log"
   prepare_home "$home"
@@ -420,6 +453,7 @@ run_conflict_case
 run_hard_link_case
 run_relative_link_case
 run_generic_only_case
+run_antigravity_case
 run_symlinked_settings_case
 run_settings_conflict_case
 

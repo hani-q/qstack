@@ -39,7 +39,8 @@ What the script decides, so you do not have to:
 - A skill linked into more than one harness directory is listed once.
 
 If the script prints nothing, say that no QStack skills were found under
-`~/.claude/skills`, `~/.codex/skills`, or `~/.agents/skills`, and stop.
+`~/.claude/skills`, `~/.codex/skills`, `~/.agents/skills`, or
+`~/.gemini/config/skills`, and stop.
 
 ## 2. Render the tables
 

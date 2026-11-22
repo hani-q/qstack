@@ -54,7 +54,7 @@ lifecycle; do not push it in.
 
 Match the conversation against the `description:` of every installed skill.
 The listing script in `/qstack` prints them; `ls ~/.claude/skills
-~/.codex/skills ~/.agents/skills` names them. Each description says when its
+~/.codex/skills ~/.agents/skills ~/.gemini/config/skills` names them. Each description says when its
 skill applies; that text is the rule, so this file does not repeat it.
 
 Prefer, in order: a QStack skill, a skill from a collection QStack's installer

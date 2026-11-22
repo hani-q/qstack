@@ -40,11 +40,13 @@ QSTACK_BUILD="$QSTACK_VERSION"
 
 # Harness skill directories. A harness is installed to only if its parent
 # directory already exists. We never create a config dir for a tool that is
-# not on this machine.
+# not on this machine. Antigravity discovers global skills in
+# ~/.gemini/config/skills; ~/.gemini alone may be only Gemini CLI.
 HARNESSES=(
   "$QSTACK_INSTALL_HOME/.claude:$QSTACK_INSTALL_HOME/.claude/skills:Claude Code"
   "$QSTACK_INSTALL_HOME/.codex:$QSTACK_INSTALL_HOME/.codex/skills:Codex"
   "$QSTACK_INSTALL_HOME/.agents:$QSTACK_INSTALL_HOME/.agents/skills:agents (generic)"
+  "$QSTACK_INSTALL_HOME/.gemini/config:$QSTACK_INSTALL_HOME/.gemini/config/skills:Antigravity"
 )
 
 # One user-wide instruction file for Claude Code and Codex. Claude reads it as
@@ -895,7 +897,7 @@ ensure_shared_agents_file
 
 echo
 if [ "$installed" -eq 0 ]; then
-  echo "No agent harness found. Expected one of ~/.claude, ~/.codex, ~/.agents."
+  echo "No agent harness found. Expected one of ~/.claude, ~/.codex, ~/.agents, ~/.gemini/config."
   exit 1
 fi
 
