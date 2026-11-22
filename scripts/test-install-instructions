@@ -386,6 +386,9 @@ run_antigravity_case() {
   done
   [ ! -e "$home/AGENTS.md" ] && [ ! -e "$home/.gemini/GEMINI.md" ] \
     || fail '[antigravity] installer wrote instructions for Antigravity'
+  [ "$(HOME="$home" python3 "$REPO/skills/qstack/scripts/installed-skills" | wc -l)" \
+    -eq "$(find "$REPO/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)" ] \
+    || fail '[antigravity] /qstack listing missed Antigravity skills'
   if ! run_install antigravity "$home" "" "$log" --uninstall; then
     fail '[antigravity] uninstall exited non-zero'
     return

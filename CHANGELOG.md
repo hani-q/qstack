@@ -8,8 +8,9 @@
   links every skill into `~/.gemini/config/skills`, the global skills folder
   Antigravity discovers, with the same ownership markers, reinstall, and
   uninstall behaviour as the other harnesses. A `~/.gemini` folder without
-  `config/`, which may be Gemini CLI alone, is left untouched. The shared
-  instruction block is not written to Antigravity's `~/.gemini/GEMINI.md`.
+  `config/`, which may be Gemini CLI alone, is left untouched. `/qstack` and
+  `/qstack-next` list skills from that folder too. The shared instruction
+  block is not written to Antigravity's `~/.gemini/GEMINI.md`.
 
 ## [2.17.0.0] - 2026-11-21
 

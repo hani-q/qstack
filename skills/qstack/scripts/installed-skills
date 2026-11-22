@@ -14,7 +14,7 @@ import shutil
 import subprocess
 
 HOME = os.path.expanduser("~")
-SKILL_DIRS = (".claude/skills", ".codex/skills", ".agents/skills")
+SKILL_DIRS = (".claude/skills", ".codex/skills", ".agents/skills", ".gemini/config/skills")
 UNIVERSAL = os.path.join(HOME, ".agents", "skills")
 
 # Source recorded in the skills.sh lock file by that CLI, which is how
