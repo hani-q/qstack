@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.17.1.0] - 2026-11-22
+
+### Added
+
+* `./install` now installs into Antigravity. When `~/.gemini/config` exists it
+  links every skill into `~/.gemini/config/skills`, the global skills folder
+  Antigravity discovers, with the same ownership markers, reinstall, and
+  uninstall behaviour as the other harnesses. A `~/.gemini` folder without
+  `config/`, which may be Gemini CLI alone, is left untouched. The shared
+  instruction block is not written to Antigravity's `~/.gemini/GEMINI.md`.
+
 ## [2.17.0.0] - 2026-11-21
 
 ### Added

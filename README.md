@@ -3,8 +3,9 @@
 [![skills.sh](https://skills.sh/b/hani-q/qstack)](https://skills.sh/hani-q/qstack)
 
 Agent skills for planning work, executing it against the plan, and proving the
-result. QStack installs its skills into Claude Code, Codex, and any harness
-that reads `~/.agents/skills`, from one checkout that stays the source of truth.
+result. QStack installs its skills into Claude Code, Codex, Antigravity, and any
+harness that reads `~/.agents/skills`, from one checkout that stays the source
+of truth.
 
 ## What this helps with
 
@@ -221,8 +222,17 @@ are absent:
 | Claude Code | `~/.claude/skills/` | `~/AGENTS.md` |
 | Codex | `~/.codex/skills/` | `~/.codex/AGENTS.md` (same file as `~/AGENTS.md`) |
 | generic `agents` (Cline, Warp, Zed, ...) | `~/.agents/skills/` | N/A |
+| Antigravity | `~/.gemini/config/skills/` | N/A |
 
-Those paths match the ones the skills.sh CLI uses, so the two installers agree.
+The first three paths match the ones the skills.sh CLI uses, so the two
+installers agree. For Antigravity, skills.sh writes `~/.gemini/antigravity/skills`,
+which current Antigravity builds no longer read; `./install` uses
+`~/.gemini/config/skills`, the global discovery folder Antigravity documents.
+The installer detects Antigravity by `~/.gemini/config`, not `~/.gemini`, so a
+machine with only Gemini CLI gets nothing. Antigravity documents `name` and
+`description` as the `SKILL.md` frontmatter it reads. Whether it honours
+`disable-model-invocation` is undocumented and untested, so QStack's
+manual-only skills may be model-invocable there.
 
 The installer maintains a `## General instructions` section and a small
 `## qstack` routing section in one shared `AGENTS.md`, both wrapped in HTML
@@ -345,9 +355,10 @@ qstack/                              ← this repo, anywhere on disk
             ├── plan-template.html
             └── fonts/               ← self-hosted woff2, offline-safe
 
-~/.claude/skills/qstack-<name> ┐
-~/.codex/skills/qstack-<name>  ├─ symlinks → qstack/skills/qstack-<name>
-~/.agents/skills/qstack-<name> ┘
+~/.claude/skills/qstack-<name>         ┐
+~/.codex/skills/qstack-<name>          │
+~/.agents/skills/qstack-<name>         ├─ symlinks → qstack/skills/qstack-<name>
+~/.gemini/config/skills/qstack-<name>  ┘
 ```
 
 A skill's directory name is its name: it matches the `name:` in its frontmatter,
